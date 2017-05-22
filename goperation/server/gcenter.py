@@ -14,6 +14,7 @@ from simpleservice.wsgi.service import LauncheWsgiServiceBase
 from goperation import plugin
 from goperation.plugin import config as plugin_config
 from goperation.plugin.manager.wsgi.config import route_opts
+from goperation.plugin.manager.wsgi.config import find_paste_abs
 
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
@@ -47,7 +48,8 @@ def configure(config_files=None):
             # add endpoint route
             for route in CONF[endpoint_group.name].routes:
                 plugin.EXTEND_ROUTES.append(importutils.import_class(route))
-    paste_fild_path = plugin_config.find_paste_abs(CONF[gcenter_group.name])
+
+    paste_fild_path = find_paste_abs(CONF[gcenter_group.name])
     return gcenter_group.name, paste_fild_path
 
 
