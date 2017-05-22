@@ -8,30 +8,25 @@ from simpleservice import config as base_config
 
 CONF = cfg.CONF
 
-def configure(name, log_levels=None):
+plugin_opts = [
+    cfg.MultiOpt('endpoints',
+                 default=[],
+                 item_type=cfg.types.MultiImportString(),
+                 help='The endpoints class')
+]
+
+def configure(name, default_log_levels=None):
     # set base config
     base_config.configure()
-    # over write state_path
+    # over write state path default value
     CONF.set_default('state_path', default='/var/run/goperation')
-
-    # register manager opt
-    manager_entity = cfg.Opt('manager_entity',
-                             type=cfg.types.ImportString(),
-                             default='goperation.plugin.manager.config.manager_group',
-                             help='The manager defalut opts and group')
-
-    CONF.register_opt(manager_entity)
-
-    # register endpoints opt
-    endpoints_entity = cfg.MultiOpt('endpoints',
-                                    item_type=cfg.types.ImportString(),
-                                    help='The endpoint list that Server will run')
-    CONF.register_opt(endpoints_entity)
+    # reg plugin opts
+    CONF.register_opts(plugin_opts)
     # set log config
     logging.setup(CONF, name)
     defalut_logging.captureWarnings(True)
-    if log_levels:
-        base_config.set_default_for_default_log_levels(log_levels)
+    if default_log_levels:
+        base_config.set_default_for_default_log_levels(default_log_levels)
 
 
 def find_paste_abs(conf):
