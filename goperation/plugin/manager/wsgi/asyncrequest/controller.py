@@ -63,7 +63,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
             ret_dict['data'].append(data)
         return ret_dict
 
-    @argutils.Idformater(key='request_id', all_key=None)
+    @argutils.Idformater(key='request_id')
     def show(self, req, request_id, body):
         session = get_session(readonly=True)
         query = model_query(session, WsgiRequest)
@@ -74,16 +74,19 @@ class AsyncWorkRequest(contorller.BaseContorller):
         details = body.get('details', False)
         return resultutils.request(request, agents, details)
 
+    @argutils.Idformater(key='request_id')
     def update(self, req, request_id, body):
         """For scheduler update row of
         async_checker,deadline, and status and result"""
-        async_checker = int(body.get('async_checker'))
+        print body
+        async_checker = int(body.get('async_checker', 0))
         if async_checker <= 0:
-            raise InvalidArgument('Async checker id is zero')
+            raise InvalidArgument('Async checker id is 0')
+        data = {'async_checker': async_checker}
         session = get_session(readonly=True)
-        query = model_query(session, WsgiRequest).filter(or_(WsgiRequest.async_checker == 0,
-                                                             WsgiRequest.async_checker == async_checker))
         with session.begin(subtransactions=True):
+            query = model_query(session, WsgiRequest).filter(or_(WsgiRequest.async_checker == 0,
+                                                                 WsgiRequest.async_checker == async_checker))
             unfinish_request = query.filter_by(request_id=request_id,
                                                status=0).first()
             if not unfinish_request:
@@ -93,17 +96,20 @@ class AsyncWorkRequest(contorller.BaseContorller):
             if status:
                 if status not in (0, 1):
                     raise InvalidArgument('Status value error, not 0 or 1')
-                unfinish_request.status = status
-            deadline = int(body.get('deadline', None))
+                data['status'] = status
+            deadline = int(body.get('deadline', 0))
             if deadline:
                 if deadline < unfinish_request.deadline:
                     raise InvalidArgument('New deadline time can not small then old deadline time')
                 if deadline - unfinish_request.deadline > 3600:
                     raise InvalidArgument('New deadline over old deleline time more then one hour')
-                unfinish_request.deadline = deadline
-            result = str(body.get('result', None))
+                data['deadline'] = deadline
+            result = body.get('result', None)
             if result:
                 if len(result) > manager_common.MAX_REQUEST_RESULT:
                     raise InvalidArgument('Msg of request over range')
                 unfinish_request.result = result
-            session.update(unfinish_request)
+                data['result'] = result
+            unfinish_request.update(data)
+        return resultutils.request(unfinish_request)
+

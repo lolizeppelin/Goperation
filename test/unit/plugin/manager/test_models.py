@@ -1,4 +1,4 @@
-from simpleservice.plugin.manager.models import *
+from goperation.plugin.manager.models import *
 
 from simpleutil.utils import uuidutils
 from simpleservice.ormdb.argformater import connformater

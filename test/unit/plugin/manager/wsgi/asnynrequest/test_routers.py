@@ -51,6 +51,36 @@ def create_test():
     session.close()
 
 
+def show_test(request_id):
+    session = Session()
+    url = collection_url + '/%s' % str(request_id)
+    print url
+    res = requests.get(url,
+                       json={'async': True})
+    print 'statu code is', res.status_code
+    print res.text
+    session.close()
+
+print 'index test-----------\n'
+
 index_test()
 
-create_test()
+print 'show test-----------\n'
+
+show_test('da01ec14-159b-488f-be36-5a0558dad937')
+
+
+def update_test(request_id):
+    session = Session()
+    url = collection_url + '/%s' % str(request_id)
+    print url
+    res = requests.put(url,
+                       json={'status': 1, 'async_checker': 1})
+    print 'statu code is', res.status_code
+    print res.text
+    session.close()
+
+
+print 'update test-----------\n'
+
+update_test('8dee8ec1-83a9-4d8e-b2dc-c6bdf345f13e')

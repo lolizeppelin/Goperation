@@ -5,11 +5,12 @@ from goperation.plugin.manager.wsgi.asyncrequest import controller
 
 
 MEMBER_ACTIONS = ['show', 'update']
-COLLECTION_ACTIONS = ['index', 'create']
+COLLECTION_ACTIONS = ['index']
+
 
 class Routers(router.RoutersBase):
-    collection_name = 'asyncrequests'
     resource_name='asyncrequest'
+    collection_name = resource_name + 's'
 
     def append_routers(self, mapper, routers):
         controller_intance = controller_return_response(controller.AsyncWorkRequest(),
