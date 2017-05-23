@@ -13,9 +13,6 @@ MAX_ROW_PER_REQUEST = 100
 
 class BaseContorller(argutils.IdformaterBase):
 
-    def __init__(self):
-        argutils.IdformaterBase.__init__(self)
-
     @staticmethod
     def create_request(req, body):
         request_time = int(timeutils.realnow())
