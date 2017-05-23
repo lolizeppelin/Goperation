@@ -17,9 +17,11 @@ LOG = logging.getLogger(__name__)
 
 class RpcServerManager(ManagerBase):
 
-    def __init__(self, topic):
+    def __init__(self, rpc_type):
+        self.rpc_type = rpc_type
         ManagerBase.__init__(self,
-                             target=Target(topic=topic, namespace=manager_group.name))
+                             target=Target(topic='agent.%s' % self.rpc_type,
+                                           namespace=manager_group.name))
         self.session = get_session()
         self.rsession = get_session(readonly=True)
 

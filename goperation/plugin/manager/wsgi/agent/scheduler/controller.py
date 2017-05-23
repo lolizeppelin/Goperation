@@ -8,7 +8,7 @@ from simpleutil.utils.argutils import Idformater
 FAULT_MAP = {InvalidArgument: webob.exc.HTTPClientError}
 
 
-class AsyncWorkRequest(object):
+class SchedulerRequest(object):
 
     def __init__(self):
         self._all_server_id = set()

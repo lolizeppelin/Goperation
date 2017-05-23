@@ -131,7 +131,6 @@ class AllocedPort(PluginTableBase):
                      primary_key=True)
     endpoint = sa.Column(VARCHAR(manager_common.MAX_ENDPOINT_NAME_SIZE),
                          nullable=False)
-    dynamic = sa.Column(BOOLEAN, default=0, nullable=False)
     port_desc = sa.Column(VARCHAR(256))
     __table_args__ = (
             InnoDBTableBase.__table_args__
@@ -155,12 +154,9 @@ class Agent(PluginTableBase):
     # disk space can be used
     disk = sa.Column(INTEGER(unsigned=True), server_default='0', nullable=False)
     entiy = sa.Column(INTEGER(unsigned=True), server_default='0', nullable=False)
-    static_ports = sa.Column(VARCHAR(manager_common.MAX_PORT_RANGE_SIZE),
+    ports_range = sa.Column(VARCHAR(manager_common.MAX_PORTS_RANGE_SIZE),
                              server_default='[]',
                              nullable=False)
-    dynamic_ports = sa.Column(VARCHAR(manager_common.MAX_PORT_RANGE_SIZE),
-                              server_default='[]',
-                              nullable=False)
     ports = orm.relationship(AllocedPort, backref='agent', lazy='select',
                              cascade='delete,delete-orphan,save-update')
     endpoints = orm.relationship(AgentEndpoint, backref='agent', lazy='joined',

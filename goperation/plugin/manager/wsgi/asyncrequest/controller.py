@@ -54,9 +54,9 @@ class AsyncWorkRequest(contorller.BaseContorller):
             query = query.filter(WsgiRequest.async_checker != 0)
         if page_num:
             query.seek(page_num*manager_common.ROW_PER_PAGE)
-        ret_dict = resultutils.requests(total=rows_num,
-                                        pagenum=page_num,
-                                        msg='Get request list success')
+        ret_dict = resultutils.results(total=rows_num,
+                                       pagenum=page_num,
+                                       msg='Get request list success')
         for result in query:
             data = dict(request_id=result.request_id,
                         status=result.status,
