@@ -32,6 +32,9 @@ class AsyncWorkRequest(contorller.BaseContorller):
         page_num = int(body.get('page', 0))
         if page_num and page_num*manager_common.ROW_PER_PAGE >= rows_num:
             raise InvalidArgument('Page number over size or no data exist')
+        status = body.get('status', 1)
+        if status not in (0, 1):
+            raise InvalidArgument('Status value error, not 0 or 1')
         # index in request_time
         # so first filter is request_time
         start_time = int(body.get('start_time', 0))
@@ -40,6 +43,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
             query = query.filter(WsgiRequest.request_time >= start_time)
         if end_time:
             query = query.filter(WsgiRequest.request_time < end_time)
+        query.filter(WsgiRequest.status == status)
         sync = body.get('sync', True)
         async = body.get('async', True)
         if not sync and async:
@@ -78,12 +82,11 @@ class AsyncWorkRequest(contorller.BaseContorller):
     def update(self, req, request_id, body):
         """For scheduler update row of
         async_checker,deadline, and status and result"""
-        print body
         async_checker = int(body.get('async_checker', 0))
         if async_checker <= 0:
             raise InvalidArgument('Async checker id is 0')
         data = {'async_checker': async_checker}
-        session = get_session(readonly=True)
+        session = get_session()
         with session.begin(subtransactions=True):
             query = model_query(session, WsgiRequest).filter(or_(WsgiRequest.async_checker == 0,
                                                                  WsgiRequest.async_checker == async_checker))
@@ -92,11 +95,10 @@ class AsyncWorkRequest(contorller.BaseContorller):
             if not unfinish_request:
                 raise InvalidArgument('Reuest is alreday finished or not exist')
             unfinish_request.async_checker = async_checker
-            status = int(body.get('status', None))
-            if status:
-                if status not in (0, 1):
-                    raise InvalidArgument('Status value error, not 0 or 1')
-                data['status'] = status
+            status = int(body.get('status', 0))
+            if status not in (0, 1):
+                raise InvalidArgument('Status value error, not 0 or 1')
+            data['status'] = status
             deadline = int(body.get('deadline', 0))
             if deadline:
                 if deadline < unfinish_request.deadline:
@@ -112,4 +114,3 @@ class AsyncWorkRequest(contorller.BaseContorller):
                 data['result'] = result
             unfinish_request.update(data)
         return resultutils.request(unfinish_request)
-
