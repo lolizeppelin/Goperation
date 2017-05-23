@@ -1,9 +1,9 @@
 from simpleutil.utils import jsonutils
 
 
-def requests(total=0,
-             pagenum=0,
-             msg=None):
+def results(total=0,
+            pagenum=0,
+            msg=None):
     ret_dict = {'total': 0,
                 'pagenum': 0,
                 'msg': '',
