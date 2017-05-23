@@ -1,7 +1,9 @@
-AGENT = 'agent'
-SCHEDULER = 'scheduler'
 ENV_REQUEST_ID = 'goperation.request_id'
 
+# agent tpye
+APPLICATION = 'application'
+SCHEDULER = 'scheduler'
+# agent status
 ACTIVE = 1
 UNACTIVE = 0
 DELETED = -1
