@@ -142,6 +142,7 @@ class Agent(PluginTableBase):
     agent_id = sa.Column(INTEGER(unsigned=True), nullable=False,
                          default=0,
                          primary_key=True, autoincrement=True)
+    agent_type = sa.Column(VARCHAR(64), nullable=False)
     create_time = sa.Column(INTEGER(unsigned=True),
                             default=int(timeutils.realnow()), nullable=False)
     host = sa.Column(VARCHAR(manager_common.MAX_HOST_NAME_SIZE), nullable=False)
@@ -160,9 +161,9 @@ class Agent(PluginTableBase):
     dynamic_ports = sa.Column(VARCHAR(manager_common.MAX_PORT_RANGE_SIZE),
                               server_default='[]',
                               nullable=False)
-    ports = orm.relationship(AllocedPort, backref='agent', lazy='joined',
+    ports = orm.relationship(AllocedPort, backref='agent', lazy='select',
                              cascade='delete,delete-orphan,save-update')
-    endpoints = orm.relationship(AgentEndpoint, backref='agent', lazy='select',
+    endpoints = orm.relationship(AgentEndpoint, backref='agent', lazy='joined',
                                  cascade='delete,delete-orphan,save-update')
     __table_args__ = (
             sa.UniqueConstraint('host'),
