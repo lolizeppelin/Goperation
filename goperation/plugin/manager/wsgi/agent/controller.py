@@ -8,6 +8,8 @@ from simpleutil.utils import argutils
 from simpleutil.utils import timeutils
 from simpleutil.utils import jsonutils
 
+from simpleutil.log import log as logging
+
 from simpleutil.utils.attributes import validators
 
 from simpleutil.common.exceptions import InvalidArgument
@@ -28,6 +30,10 @@ from goperation.plugin.manager.wsgi import resultutils
 from goperation.plugin.manager.dbapi import get_session
 from goperation.plugin.manager.dbapi import get_glock
 
+from sqlalchemy.exc import OperationalError
+from simpleservice.ormdb.exceptions import DBError
+
+LOG = logging.getLogger(__name__)
 
 FAULT_MAP = {InvalidArgument: webob.exc.HTTPClientError,
              }
@@ -40,7 +46,7 @@ class AgentReuest(contorller.BaseContorller):
     def _all_id(self):
         id_set = set()
         session = get_session(readonly=True)
-        query = session.query(Agent.agent_id).filter(Agent.status == 0)
+        query = session.query(Agent.agent_id).filter(Agent.status > manager_common.DELETED)
         results = query.all()
         for result in results:
             id_set.add(result[0])
@@ -62,13 +68,14 @@ class AgentReuest(contorller.BaseContorller):
         session = get_session(readonly=True)
         query = model_query(session, Agent)
         agent = query.filter_by(agent_id=agent_id).first()
-        # agent = query.filter(Agent.agent_id.in_(agent_id)).first()
         if not agent:
             raise InvalidArgument('Agent_id id:%s can not be found' % agent_id)
         result = resultutils.results(total=1, pagenum=0, msg='Create agent success')
         result['data'].append(dict(agent_id=agent.agent_id,
                                    host=agent.host,
+                                   status=agent.status,
                                    ports_range=agent.ports_range,
+                                   endpoints=[v['endpoint'] for v in agent.endpoints],
                                    ))
         return result
 
@@ -101,20 +108,20 @@ class AgentReuest(contorller.BaseContorller):
             new_agent.endpoints = endpoints_entitys
         session = get_session()
         with lock(key='Agent', locktime=60, alloctime=0.3):
-            host_filter=and_(Agent.host == new_agent.host, Agent.status > manager_common.DELETED)
-            count = model_count_with_key(session, Agent.host, filter=host_filter)
-            if count > 0:
+            host_filter = and_(Agent.host == new_agent.host, Agent.status > manager_common.DELETED)
+            if model_count_with_key(session, Agent.host, filter=host_filter) > 0:
                 raise InvalidArgument('Duplicate host exist')
             new_agent_id = model_autoincrement_id(session, Agent.agent_id)
             new_agent.agent_id = new_agent_id
             session.add(new_agent)
             session.flush()
-            result = resultutils.results(total=1, pagenum=0, msg='Create agent success')
-            result['data'].append(dict(agent_id=new_agent.agent_id,
-                                       host=new_agent.host,
-                                       ports_range=new_agent.ports_range,
-                                       endpoints=endpoints
-                                       ))
+            result = resultutils.results(total=1, pagenum=0, msg='Create agent success',
+                                         data=[dict(agent_id=new_agent.agent_id,
+                                                    host=new_agent.host,
+                                                    status=new_agent.status,
+                                                    ports_range=new_agent.ports_range,
+                                                    endpoints=endpoints)
+                                               ])
             return result
 
     @Idformater
@@ -125,13 +132,20 @@ class AgentReuest(contorller.BaseContorller):
     @Idformater
     def update(self, req, agent_id, body):
         """call by agent"""
-        # TODO need redis global lock
+        lock = get_glock()
         session = get_session(readonly=True)
-        query = model_query(session, Agent, filter={'status': manager_common.ACTIVE})
-        if len(agent_id) < len(self.all_id):
-             query = query.filter(Agent.agent_id.in_(agent_id))
-        agents = query.all()
-        return {'msg': 'update', 'data': agent_id}
+        query = model_query(session, Agent, filter=and_(Agent.agent_id == agent_id,
+                                                        Agent.status > manager_common.DELETED))
+        data = {}
+        with lock(key='Agent', locktime=60, alloctime=0.3):
+            if len(agent_id) < model_count_with_key(session, Agent.host,
+                                                    filter=(Agent.status > manager_common.DELETED)):
+                 query = query.filter(Agent.agent_id.in_(agent_id))
+            query.update(data)
+        result = resultutils.results(total=len(agent_id), pagenum=0,
+                                     msg='Update agent success',
+                                     data=[body, ])
+        return result
 
     @Idformater
     def upgrade(self, req, agent_id, body):
@@ -151,3 +165,34 @@ class AgentReuest(contorller.BaseContorller):
         if len(agent_id) != 1:
             raise InvalidArgument('Agent delete just for one agent')
         agent_id = agent_id.pop()
+        lock = get_glock()
+        session = get_session(readonly=True)
+        query = model_query(session, Agent,
+                            filter=and_(Agent.agent_id == agent_id,
+                                        Agent.status > manager_common.DELETED))
+        with lock(key='Agent', locktime=60, alloctime=0.3):
+            agent = query.one_or_none()
+            if not agent:
+                raise InvalidArgument('Can not find agent with %d, not exist or alreay deleted' % agent_id)
+            if agent.entiy > 0:
+                raise InvalidArgument('Can not delete agent, entiy not 0')
+            agent.update({'status': manager_common.DELETED})
+        msg = 'Delete agent success'
+        query = model_query(session, AgentEndpoint,
+                                    filter=AgentEndpoint.agent_id == agent_id)
+        try:
+            query.delete()
+        except (OperationalError, DBError) as e:
+            LOG.error("Delete agent endpoint error:%d, %s" %
+                      (e.orig[0], e.orig[1].replace("'", '')))
+            msg += ' delete endpoint OperationalError'
+        except DBError as e:
+            LOG.error("Delete agent endpoint DBError:%s" % e.message)
+            msg += ' delete endpoint DBError'
+        result = resultutils.results(total=1, pagenum=0, msg=msg,
+                                     data=[dict(agent_id=agent.agent_id,
+                                                host=agent.host,
+                                                status=agent.status,
+                                                ports_range=agent.ports_range)
+                                           ])
+        return result
