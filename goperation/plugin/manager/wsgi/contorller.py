@@ -15,8 +15,14 @@ class BaseContorller(argutils.IdformaterBase):
 
     @staticmethod
     def create_request(req, body):
+        """async request use this to create a new request"""
         request_time = int(timeutils.realnow())
-        client_request_time = body.get('request_time', None)
+        try:
+            client_request_time = int(body.get('request_time'))
+        except KeyError:
+            raise InvalidArgument('Async request need argument request_time')
+        except ValueError:
+            raise InvalidArgument('request_time is not int of time')
         diff_time = request_time - client_request_time
         if abs(diff_time) > 3000:
             raise InvalidArgument('The diff time between send and receive is %d' % diff_time)
