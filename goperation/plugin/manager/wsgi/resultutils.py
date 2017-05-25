@@ -3,6 +3,7 @@ from simpleutil.utils import jsonutils
 
 def results(total=0,
             pagenum=0,
+            data=None,
             msg=None):
     ret_dict = {'total': 0,
                 'pagenum': 0,
@@ -14,6 +15,8 @@ def results(total=0,
         ret_dict['pagenum'] = pagenum
     if msg:
         ret_dict['msg'] = msg
+    if data:
+        ret_dict['data'] = data
     return ret_dict
 
 
