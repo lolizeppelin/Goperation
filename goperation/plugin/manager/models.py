@@ -110,14 +110,14 @@ class AgentResponeBackLog(PluginTableBase):
 class AgentEndpoint(PluginTableBase):
     agent_id = sa.Column(INTEGER(unsigned=True),
                          sa.ForeignKey('agents.agent_id', ondelete="CASCADE", onupdate='CASCADE'),
-                         default=0,
+                         default=1,
                          nullable=False,
                          primary_key=True)
     endpoint = sa.Column(VARCHAR(plugin_common.MAX_ENDPOINT_NAME_SIZE),
                          default=None,
                          nullable=False, primary_key=True)
     __table_args__ = (
-            sa.UniqueConstraint('agent_id'),
+            sa.Index('endpoint_index', 'endpoint'),
             MyISAMTableBase.__table_args__
     )
 
