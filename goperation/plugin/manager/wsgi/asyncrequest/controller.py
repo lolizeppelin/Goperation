@@ -57,7 +57,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
             # query = query.filter(WsgiRequest.async_checker != 0)
         request_filter = and_(*filter_list)
         # count row
-        rows_num = model_count_with_key(session, WsgiRequest, request_filter)
+        rows_num = model_count_with_key(session, WsgiRequest, filter=request_filter)
         # filter query
         query = query.filter(request_filter)
         if rows_num >= manager_common.MAX_ROW_PER_REQUEST:
@@ -67,9 +67,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
             raise InvalidArgument('Page number over size or no data exist')
         if page_num:
             query.seek(page_num*manager_common.ROW_PER_PAGE)
-        ret_dict = resultutils.results(total=rows_num,
-                                       pagenum=page_num,
-                                       msg='Get request list success')
+        request_list = []
         for result in query:
             data = dict(request_id=result.request_id,
                         status=result.status,
@@ -77,13 +75,21 @@ class AsyncWorkRequest(contorller.BaseContorller):
                         async_checker=result.async_checker,
                         result=result.result,
                         )
-            ret_dict['data'].append(data)
+            request_list.append(data)
+        msg = 'Get request list success'
+        if len(request_list) == 0:
+            msg = 'No request list found'
+        ret_dict = resultutils.results(total=rows_num,
+                                       pagenum=page_num,
+                                       data=request_list,
+                                       msg=msg)
         return ret_dict
 
     @argutils.Idformater(key='request_id')
     def show(self, req, request_id, body):
         if len(request_id) != 1:
             raise InvalidArgument('Request show just for one request')
+        request_id = request_id.pop()
         session = get_session(readonly=True)
         query = model_query(session, WsgiRequest)
         request = query.filter_by(request_id=request_id).first()
