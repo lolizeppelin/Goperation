@@ -3,8 +3,8 @@ from simpleutil.utils import jsonutils
 
 def results(total=0,
             pagenum=0,
-            data=None,
-            msg=None):
+            msg=None,
+            data=None,):
     ret_dict = {'total': 0,
                 'pagenum': 0,
                 'msg': '',
@@ -17,6 +17,8 @@ def results(total=0,
         ret_dict['msg'] = msg
     if data:
         ret_dict['data'] = data
+    if not isinstance(ret_dict['data'], list):
+        raise TypeError('results data type error')
     return ret_dict
 
 
