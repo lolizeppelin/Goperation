@@ -1,4 +1,4 @@
-from goperation.server import gcenter
+from goperation.cmd.server import gcenter
 
 
 def main():

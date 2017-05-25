@@ -1,5 +1,3 @@
-
-
 from simpleutil.config import cfg
 from simpleutil.log import log as logging
 from simpleutil.utils import importutils

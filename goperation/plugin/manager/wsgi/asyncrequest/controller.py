@@ -1,13 +1,14 @@
 import webob.exc
 
-from sqlalchemy import func
 from sqlalchemy.sql import or_
+from sqlalchemy.sql import and_
 
 from simpleutil.utils import argutils
 
 from simpleutil.common.exceptions import InvalidArgument
 
 from simpleservice.ormdb.api import model_query
+from simpleservice.ormdb.api import model_count_with_key
 
 from goperation.plugin.manager import common as manager_common
 from goperation.plugin.manager.dbapi import get_session
@@ -26,32 +27,44 @@ class AsyncWorkRequest(contorller.BaseContorller):
     def index(self, req, body):
         session = get_session(readonly=True)
         query = model_query(session, WsgiRequest)
-        rows_num = session.query(func.count("*")).select_from(WsgiRequest).scalar()
-        if rows_num >= manager_common.MAX_ROW_PER_REQUEST:
-            query = query.limit(manager_common.MAX_ROW_PER_REQUEST)
-        page_num = int(body.get('page', 0))
-        if page_num and page_num*manager_common.ROW_PER_PAGE >= rows_num:
-            raise InvalidArgument('Page number over size or no data exist')
         status = body.get('status', 1)
         if status not in (0, 1):
             raise InvalidArgument('Status value error, not 0 or 1')
         # index in request_time
         # so first filter is request_time
+        filter_list = []
         start_time = int(body.get('start_time', 0))
         end_time = int(body.get('start_time', 0))
         if start_time:
-            query = query.filter(WsgiRequest.request_time >= start_time)
+            filter_list.append(WsgiRequest.request_time >= start_time)
+            # query = query.filter()
         if end_time:
-            query = query.filter(WsgiRequest.request_time < end_time)
-        query.filter(WsgiRequest.status == status)
+            if end_time < start_time:
+                raise InvalidArgument('end time less then start time')
+            filter_list.append(WsgiRequest.request_time < end_time)
+            # query = query.filter(WsgiRequest.request_time < end_time)
+        filter_list.append(WsgiRequest.status == status)
+        # query.filter(WsgiRequest.status == status)
         sync = body.get('sync', True)
         async = body.get('async', True)
         if not sync and async:
             raise InvalidArgument('No both sync and async mark')
         if sync and not async:
-            query.filter(WsgiRequest.async_checker == 0)
+            filter_list.append(WsgiRequest.async_checker == 0)
+            # query.filter(WsgiRequest.async_checker == 0)
         elif async and not sync:
-            query = query.filter(WsgiRequest.async_checker != 0)
+            filter_list.append(WsgiRequest.async_checker != 0)
+            # query = query.filter(WsgiRequest.async_checker != 0)
+        request_filter = and_(*filter_list)
+        # count row
+        rows_num = model_count_with_key(session, WsgiRequest, request_filter)
+        # filter query
+        query = query.filter(request_filter)
+        if rows_num >= manager_common.MAX_ROW_PER_REQUEST:
+            query = query.limit(manager_common.MAX_ROW_PER_REQUEST)
+        page_num = int(body.get('page', 0))
+        if page_num and page_num*manager_common.ROW_PER_PAGE >= rows_num:
+            raise InvalidArgument('Page number over size or no data exist')
         if page_num:
             query.seek(page_num*manager_common.ROW_PER_PAGE)
         ret_dict = resultutils.results(total=rows_num,
@@ -69,6 +82,8 @@ class AsyncWorkRequest(contorller.BaseContorller):
 
     @argutils.Idformater(key='request_id')
     def show(self, req, request_id, body):
+        if len(request_id) != 1:
+            raise InvalidArgument('Request show just for one request')
         session = get_session(readonly=True)
         query = model_query(session, WsgiRequest)
         request = query.filter_by(request_id=request_id).first()
@@ -82,14 +97,18 @@ class AsyncWorkRequest(contorller.BaseContorller):
     def update(self, req, request_id, body):
         """For scheduler update row of
         async_checker,deadline, and status and result"""
+        if len(request_id) != 1:
+            raise InvalidArgument('Request update just for one request')
+        request_id = request_id.pop()
         async_checker = int(body.get('async_checker', 0))
         if async_checker <= 0:
             raise InvalidArgument('Async checker id is 0')
         data = {'async_checker': async_checker}
         session = get_session()
         with session.begin(subtransactions=True):
-            query = model_query(session, WsgiRequest).filter(or_(WsgiRequest.async_checker == 0,
-                                                                 WsgiRequest.async_checker == async_checker))
+            query = model_query(session, WsgiRequest,
+                                filter=or_(WsgiRequest.async_checker == 0,
+                                           WsgiRequest.async_checker == async_checker))
             unfinish_request = query.filter_by(request_id=request_id,
                                                status=0).first()
             if not unfinish_request:

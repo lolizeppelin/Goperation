@@ -16,6 +16,7 @@ from simpleservice.ormdb.models import MyISAMTableBase
 from simpleservice.ormdb.models import InnoDBTableBase
 from simpleservice.plugin.models import PluginTableBase
 
+from goperation.plugin import common as plugin_common
 from goperation.plugin.manager import common as manager_common
 
 
@@ -41,9 +42,10 @@ class AgentRespone(PluginTableBase):
     result = sa.Column(VARCHAR(manager_common.MAX_AGENT_RESULT),
                        nullable=False, default='agent respone rpc request')
     # agent respone
-    # if status is 0, means this build by async resopne checker
-    # not by real agent
-    status = sa.Column(BOOLEAN, nullable=False, default=0)
+    # if status -1 means no resopne and  no async checker check it
+    # if status is 0, means this respone build by async resopne checker
+    # if status > 0 means respone by agent
+    status = sa.Column(INTEGER, nullable=False, default=manager_common.STATUS_UNKNOWN)
     details = orm.relationship(ResponeDetail, backref='agentrespone', lazy='select',
                                cascade='delete')
     __table_args__ = (
@@ -111,7 +113,7 @@ class AgentEndpoint(PluginTableBase):
                          default=0,
                          nullable=False,
                          primary_key=True)
-    endpoint = sa.Column(VARCHAR(manager_common.MAX_ENDPOINT_NAME_SIZE),
+    endpoint = sa.Column(VARCHAR(plugin_common.MAX_ENDPOINT_NAME_SIZE),
                          default=None,
                          nullable=False, primary_key=True)
     __table_args__ = (
@@ -129,7 +131,7 @@ class AllocedPort(PluginTableBase):
     port = sa.Column(SMALLINT(unsigned=True), nullable=False,
                      default=0,
                      primary_key=True)
-    endpoint = sa.Column(VARCHAR(manager_common.MAX_ENDPOINT_NAME_SIZE),
+    endpoint = sa.Column(VARCHAR(plugin_common.MAX_ENDPOINT_NAME_SIZE),
                          nullable=False)
     port_desc = sa.Column(VARCHAR(256))
     __table_args__ = (
@@ -139,12 +141,12 @@ class AllocedPort(PluginTableBase):
 
 class Agent(PluginTableBase):
     agent_id = sa.Column(INTEGER(unsigned=True), nullable=False,
-                         default=0,
-                         primary_key=True, autoincrement=True)
+                         default=1,
+                         primary_key=True)
     agent_type = sa.Column(VARCHAR(64), nullable=False)
     create_time = sa.Column(INTEGER(unsigned=True),
                             default=int(timeutils.realnow()), nullable=False)
-    host = sa.Column(VARCHAR(manager_common.MAX_HOST_NAME_SIZE), nullable=False)
+    host = sa.Column(VARCHAR(plugin_common.MAX_HOST_NAME_SIZE), nullable=False)
     # 0 not active, 1 active  -1 mark delete
     status = sa.Column(TINYINT, server_default='0', nullable=False)
     # cpu number
@@ -155,14 +157,14 @@ class Agent(PluginTableBase):
     disk = sa.Column(INTEGER(unsigned=True), server_default='0', nullable=False)
     entiy = sa.Column(INTEGER(unsigned=True), server_default='0', nullable=False)
     ports_range = sa.Column(VARCHAR(manager_common.MAX_PORTS_RANGE_SIZE),
-                             server_default='[]',
-                             nullable=False)
+                            server_default='[]',
+                            nullable=False)
     ports = orm.relationship(AllocedPort, backref='agent', lazy='select',
                              cascade='delete,delete-orphan,save-update')
     endpoints = orm.relationship(AgentEndpoint, backref='agent', lazy='joined',
                                  cascade='delete,delete-orphan,save-update')
     __table_args__ = (
-            sa.UniqueConstraint('host'),
+            sa.Index('host_index', 'host'),
             InnoDBTableBase.__table_args__
     )
 

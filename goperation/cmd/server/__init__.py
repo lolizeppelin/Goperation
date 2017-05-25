@@ -1,7 +1,8 @@
-import sys
 import os
+import sys
 
-from goperation.server.gcenter import run
+from goperation.cmd.server.gcenter import run
+
 
 def main(config_path):
     if not os.path.exists(config_path) or not os.path.isabs(config_path):
