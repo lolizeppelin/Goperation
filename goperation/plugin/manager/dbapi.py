@@ -56,13 +56,13 @@ def init_server_id():
         with _server_id_lock:
             if SERVER_ID is None:
                 session = get_session()
-                with session:
+                with session.begin():
                     query = model_query(session, GkeyMap, filter={'host': CONF.host})
-                    result = query.first()
+                    result = query.one_or_none()
                     if not result:
-                        upquery = model_query(session, GkeyMap).limit(1)
-                        upquery.update(dict(host=CONF.host))
-                        upquery.flush()
+                        upquery = model_query(session, GkeyMap)
+                        upquery.update(dict(host=CONF.host),
+                                       update_args={'mysql_limit': 1})
                         result = query.first()
                     SERVER_ID = result.sid
     else:
@@ -80,7 +80,7 @@ def init_redis():
                 init_server_id()
             conf = CONF[manager_group.name]
             rs = redis(SERVER_ID, conf)
-            rs.start(conf.redis_connect_timeout*5000)
+            rs.start(conf.redis_connect_timeout)
             GLockRedis = rs
 
 
