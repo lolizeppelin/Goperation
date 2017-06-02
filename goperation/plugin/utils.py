@@ -32,6 +32,7 @@ def redis(server_id, conf):
                   host=conf.redis_host,
                   port=conf.redis_post,
                   db=conf.redis_db,
+                  password=conf.redis_pass,
                   socket_connect_timeout=conf.redis_connect_timeout,
                   socket_timeout=conf.redis_socket_timeout,
                   heart_beat_over_time=conf.redis_heartbeat_overtime,
