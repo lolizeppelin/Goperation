@@ -28,7 +28,9 @@ from goperation.plugin.manager.models import AgentEndpoint
 from goperation.plugin.manager.wsgi import contorller
 from goperation.plugin.manager.wsgi import resultutils
 from goperation.plugin.manager.dbapi import get_session
-from goperation.plugin.manager.dbapi import get_glock
+from goperation.plugin.manager.dbapi import mlock
+from goperation.plugin.manager.locktarget import AgentLock
+from goperation.plugin.manager.locktarget import all_agent
 
 from sqlalchemy.exc import OperationalError
 from simpleservice.ormdb.exceptions import DBError
@@ -47,8 +49,9 @@ class AgentReuest(contorller.BaseContorller):
         id_set = set()
         session = get_session(readonly=True)
         query = session.query(Agent.agent_id).filter(Agent.status > manager_common.DELETED)
-        results = query.all()
-        for result in results:
+        # results = query.all()
+        # for result in results:
+        for result in query:
             id_set.add(result[0])
         return id_set
 
@@ -81,7 +84,6 @@ class AgentReuest(contorller.BaseContorller):
 
     def create(self, req, body):
         """call bay agent"""
-        lock = get_glock()
         new_agent = Agent()
         try:
             new_agent.host = validators['type:hostname'](body.pop('host'))
@@ -107,22 +109,22 @@ class AgentReuest(contorller.BaseContorller):
                 endpoints_entitys.append(AgentEndpoint(endpoint=endpoint))
             new_agent.endpoints = endpoints_entitys
         session = get_session()
-        with lock(key='Agent', locktime=60, alloctime=0.3):
+        with mlock(all_agent):
             host_filter = and_(Agent.host == new_agent.host, Agent.status > manager_common.DELETED)
             if model_count_with_key(session, Agent.host, filter=host_filter) > 0:
                 raise InvalidArgument('Duplicate host exist')
-            new_agent_id = model_autoincrement_id(session, Agent.agent_id)
-            new_agent.agent_id = new_agent_id
-            session.add(new_agent)
-            session.flush()
-            result = resultutils.results(total=1, pagenum=0, msg='Create agent success',
-                                         data=[dict(agent_id=new_agent.agent_id,
-                                                    host=new_agent.host,
-                                                    status=new_agent.status,
-                                                    ports_range=new_agent.ports_range,
-                                                    endpoints=endpoints)
-                                               ])
-            return result
+            with session.begin(subtransactions=True):
+                new_agent_id = model_autoincrement_id(session, Agent.agent_id)
+                new_agent.agent_id = new_agent_id
+                session.add(new_agent)
+                result = resultutils.results(total=1, pagenum=0, msg='Create agent success',
+                                             data=[dict(agent_id=new_agent.agent_id,
+                                                        host=new_agent.host,
+                                                        status=new_agent.status,
+                                                        ports_range=new_agent.ports_range,
+                                                        endpoints=endpoints)
+                                                   ])
+                return result
 
     @Idformater
     def file(self, req, agent_id, body):
@@ -132,31 +134,33 @@ class AgentReuest(contorller.BaseContorller):
     @Idformater
     def update(self, req, agent_id, body):
         """call by agent"""
-        lock = get_glock()
         session = get_session(readonly=True)
-        query = model_query(session, Agent, filter=and_(Agent.agent_id == agent_id,
-                                                        Agent.status > manager_common.DELETED))
-        data = {}
-        with lock(key='Agent', locktime=60, alloctime=0.3):
-            if len(agent_id) < model_count_with_key(session, Agent.host,
-                                                    filter=(Agent.status > manager_common.DELETED)):
-                 query = query.filter(Agent.agent_id.in_(agent_id))
-            query.update(data)
-        result = resultutils.results(total=len(agent_id), pagenum=0,
-                                     msg='Update agent success',
-                                     data=[body, ])
-        return result
+        with mlock(all_agent) as lock:
+            query = model_query(session, Agent, filter=(Agent.status > manager_common.DELETED))
+            if len(agent_id) < self.all_id:
+                query = query.filter(Agent.agent_id.in_(agent_id))
+                # degrade lock level
+                lock.degrade([AgentLock(_id) for _id in agent_id])
+            data = {}
+            with session.begin(subtransactions=True):
+                # TODO rpc call update
+                query.update(data)
+            result = resultutils.results(total=len(agent_id), pagenum=0,
+                                         msg='Update agent success',
+                                         data=[body, ])
+            return result
 
     @Idformater
     def upgrade(self, req, agent_id, body):
         """call by client, and asyncrequest"""
-        # TODO need redis global lock
         self.create_request(req, body)
         session = get_session(readonly=True)
-        query = model_query(session, Agent).filter(Agent.status > manager_common.DELETED)
-        if len(agent_id) < self.all_id:
-             query = query.filter(Agent.agent_id.in_(agent_id))
-        agents = query.filter(Agent.agent_id.in_(agent_id)).all()
+        with mlock(all_agent) as lock:
+            query = model_query(session, Agent).filter(Agent.status > manager_common.DELETED)
+            if len(agent_id) < self.all_id:
+                query = query.filter(Agent.agent_id.in_(agent_id))
+                lock.degrade([AgentLock(_id) for _id in agent_id])
+            agents = query.all()
         return {'msg': 'upgrade', 'data': agent_id}
 
     @argutils.Idformater(key='agent_id', formatfunc=int)
@@ -165,34 +169,35 @@ class AgentReuest(contorller.BaseContorller):
         if len(agent_id) != 1:
             raise InvalidArgument('Agent delete just for one agent')
         agent_id = agent_id.pop()
-        lock = get_glock()
         session = get_session(readonly=True)
         query = model_query(session, Agent,
                             filter=and_(Agent.agent_id == agent_id,
                                         Agent.status > manager_common.DELETED))
-        with lock(key='Agent', locktime=60, alloctime=0.3):
-            agent = query.one_or_none()
-            if not agent:
-                raise InvalidArgument('Can not find agent with %d, not exist or alreay deleted' % agent_id)
-            if agent.entiy > 0:
-                raise InvalidArgument('Can not delete agent, entiy not 0')
-            agent.update({'status': manager_common.DELETED})
-        msg = 'Delete agent success'
-        query = model_query(session, AgentEndpoint,
+        with mlock(AgentLock(agent_id)):
+            with session.begin(subtransactions=True):
+                agent = query.one_or_none()
+                if not agent:
+                    raise InvalidArgument('Can not find agent with %d, not exist or alreay deleted' % agent_id)
+                if agent.entiy > 0:
+                    raise InvalidArgument('Can not delete agent, entiy not 0')
+                # TODO rpc call delete!
+                query.update({'status': manager_common.DELETED})
+                msg = 'Delete agent success'
+                query = model_query(session, AgentEndpoint,
                                     filter=AgentEndpoint.agent_id == agent_id)
-        try:
-            query.delete()
-        except (OperationalError, DBError) as e:
-            LOG.error("Delete agent endpoint error:%d, %s" %
-                      (e.orig[0], e.orig[1].replace("'", '')))
-            msg += ' delete endpoint OperationalError'
-        except DBError as e:
-            LOG.error("Delete agent endpoint DBError:%s" % e.message)
-            msg += ' delete endpoint DBError'
-        result = resultutils.results(total=1, pagenum=0, msg=msg,
-                                     data=[dict(agent_id=agent.agent_id,
-                                                host=agent.host,
-                                                status=agent.status,
-                                                ports_range=agent.ports_range)
-                                           ])
-        return result
+                try:
+                    query.delete(synchronize_session='fetch')
+                except (OperationalError, DBError) as e:
+                    LOG.error("Delete agent endpoint error:%d, %s" %
+                              (e.orig[0], e.orig[1].replace("'", '')))
+                    msg += ' delete endpoint OperationalError'
+                except DBError as e:
+                    LOG.error("Delete agent endpoint DBError:%s" % e.message)
+                    msg += ' delete endpoint DBError'
+                result = resultutils.results(total=1, pagenum=0, msg=msg,
+                                             data=[dict(agent_id=agent.agent_id,
+                                                        host=agent.host,
+                                                        status=agent.status,
+                                                        ports_range=agent.ports_range)
+                                                   ])
+                return result
