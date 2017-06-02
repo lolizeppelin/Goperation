@@ -18,6 +18,11 @@ redis_opts = [
     cfg.IntOpt('redis_db',
                default=0,
                help='Redis datababse id'),
+    cfg.StrOpt('redis_password',
+               default=None,
+               max_length=32,
+               regex='^[a-zA-Z0-9_]+$',
+               help='Redis password'),
     cfg.FloatOpt('redis_socket_timeout',
                  default=0.5,
                  help='Timeout before of socket send and receive'),
@@ -42,7 +47,8 @@ redis_opts = [
                help='Over time max count of redis_heartbeat_overtime'),
     cfg.StrOpt('redis_key_prefix',
                default='goperation',
-               max_length=20,
+               max_length=16,
+               regex='^[a-zA-Z0-9]+$',
                help='')
 ]
 
