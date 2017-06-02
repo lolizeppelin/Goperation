@@ -10,7 +10,7 @@ CONF.register_group(manager_group)
 
 redis_opts = [
     cfg.HostnameOpt('redis_host',
-                    default='localhost',
+                    default='127.0.0.1',
                     help='Redis connect host address'),
     cfg.PortOpt('redis_post',
                 default=6379,
