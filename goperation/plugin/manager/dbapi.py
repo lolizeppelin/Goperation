@@ -92,5 +92,5 @@ def get_redis():
 
 class mlock(GlockContext):
 
-    def __init__(self, server_list, locktime=5, alloctime=1.0):
+    def __init__(self, server_list, locktime=10, alloctime=1.0):
         super(mlock, self).__init__(get_redis(), server_list, locktime, alloctime)
