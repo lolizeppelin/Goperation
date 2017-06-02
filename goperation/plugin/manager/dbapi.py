@@ -1,9 +1,17 @@
+from eventlet import patcher
+
+from glockredis.context import GlockContext
+
 from simpleutil.config import cfg
 
 from simpleutil.log import log as logging
 from simpleservice.ormdb.api import MysqlDriver
 
 from goperation.plugin.manager.config import manager_group
+from goperation.plugin.utils import redis
+
+from simpleservice.plugin.models import GkeyMap
+from simpleservice.ormdb.api import model_query
 
 LOG = logging.getLogger(__name__)
 
@@ -11,27 +19,23 @@ CONF = cfg.CONF
 
 DbDriver = None
 GLockRedis = None
+SERVER_ID = None
 
-
-class RedisEmpty(object):
-
-    def __init__(self, *args, **kwargs):
-        """"""
-
-    def __enter__(self):
-        pass
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-       pass
+# double lock from init mysql server_id and redis
+_mysql_lock = patcher.original('threading').Lock()
+_redis_lock = patcher.original('threading').Lock()
+_server_id_lock = patcher.original('threading').Lock()
 
 def init_mysql_session():
     global DbDriver
     if DbDriver is None:
-        LOG.info("Try connect database for manager")
-        mysql_driver = MysqlDriver(manager_group.name,
-                                   CONF[manager_group.name])
-        mysql_driver.start()
-        DbDriver = mysql_driver
+        with _mysql_lock:
+            if DbDriver is None:
+                LOG.info("Try connect database for manager")
+                mysql_driver = MysqlDriver(manager_group.name,
+                                           CONF[manager_group.name])
+                mysql_driver.start()
+                DbDriver = mysql_driver
     else:
         LOG.warning("Do not call init_mysql_session more then once")
 
@@ -45,16 +49,39 @@ def get_session(readonly=False):
     return DbDriver.session
 
 
+def init_server_id():
+    global SERVER_ID
+    if SERVER_ID is None:
+        with _server_id_lock:
+            if SERVER_ID is None:
+                session = get_session()
+                with session:
+                    query = model_query(session, GkeyMap, filter={'host': CONF.host})
+                    result = query.first()
+                    if not result:
+                        upquery = model_query(session, GkeyMap).limit(1)
+                        upquery.update(dict(host=CONF.host))
+                        upquery.flush()
+                        result = query.first()
+                    SERVER_ID = result.sid
+    else:
+        LOG.warning("Do not call init_server_id more then once")
+
+
 def init_redis():
     global GLockRedis
-    if GLockRedis is None:
-        LOG.info("Try connect redis for manager")
-        # redis = RedisEmpty(manager_group.name,
-        #                    CONF[manager_group.name])
-        # redis.start()
-        GLockRedis = RedisEmpty
-    else:
+    if GLockRedis is not None:
         LOG.warning("Do not call init_redis more then once")
+        return
+    with _redis_lock:
+        if GLockRedis is None:
+            if SERVER_ID is None:
+                init_server_id()
+            conf = CONF[manager_group.name]
+
+            rs = redis(SERVER_ID, conf)
+            rs.start(conf.redis_connect_timeout*5000)
+            GLockRedis = rs
 
 
 def get_redis():
@@ -63,4 +90,7 @@ def get_redis():
     return GLockRedis
 
 
-get_glock = get_redis
+class mlock(GlockContext):
+
+    def __init__(self, server_list, locktime=5, alloctime=1.0):
+        super(mlock, self).__init__(get_redis(), server_list, locktime, alloctime)
