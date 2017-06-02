@@ -7,13 +7,13 @@ from goperation.plugin.manager.config import manager_group
 CONF = cfg.CONF
 
 
-class AgentLockAll():
+class AgentLockAll(LockServiceBase):
 
     def __init__(self):
         self.prefix = CONF[manager_group.name].redis_key_prefix
 
     def _key(self):
-        return '%s-agent-all'
+        return '%s-agent-all' % self.prefix
 
     def _parent(self):
         return None
