@@ -21,10 +21,11 @@ DbDriver = None
 GLockRedis = None
 SERVER_ID = None
 
-# double lock from init mysql server_id and redis
+# double lock for init mysql server_id and redis
 _mysql_lock = patcher.original('threading').Lock()
 _redis_lock = patcher.original('threading').Lock()
 _server_id_lock = patcher.original('threading').Lock()
+
 
 def init_mysql_session():
     global DbDriver
@@ -78,7 +79,6 @@ def init_redis():
             if SERVER_ID is None:
                 init_server_id()
             conf = CONF[manager_group.name]
-
             rs = redis(SERVER_ID, conf)
             rs.start(conf.redis_connect_timeout*5000)
             GLockRedis = rs
