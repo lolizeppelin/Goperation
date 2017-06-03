@@ -109,7 +109,9 @@ def get_client():
         init_rpc_client()
     return RPCClient
 
+
 class mlock(GlockContext):
+    """class for global redis lock"""
 
     def __init__(self, server_list, locktime=10, alloctime=1.0):
         super(mlock, self).__init__(get_redis(), server_list, locktime, alloctime)
@@ -117,6 +119,6 @@ class mlock(GlockContext):
 
 @singleton
 class ManagerRpcClient(RPCClientBase):
-    """"""
+    """singleton Rpc client"""
     def __init__(self):
         super(ManagerRpcClient, self).__init__(CONF[manager_rabbit_group.name])
