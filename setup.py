@@ -2,7 +2,7 @@
 import os
 import sys
 
-from glockredis import __version__
+from goperation import __version__
 
 try:
     from setuptools import setup
