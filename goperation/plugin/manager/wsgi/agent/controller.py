@@ -112,7 +112,7 @@ class AgentReuest(contorller.BaseContorller):
         with mlock(all_agent):
             host_filter = and_(Agent.host == new_agent.host, Agent.status > manager_common.DELETED)
             if model_count_with_key(session, Agent.host, filter=host_filter) > 0:
-                raise InvalidArgument('Duplicate host exist')
+                raise InvalidArgument('Duplicate host %s exist' % new_agent.host)
             with session.begin(subtransactions=True):
                 new_agent_id = model_autoincrement_id(session, Agent.agent_id)
                 new_agent.agent_id = new_agent_id
@@ -137,7 +137,7 @@ class AgentReuest(contorller.BaseContorller):
         session = get_session(readonly=True)
         with mlock(all_agent) as lock:
             query = model_query(session, Agent, filter=(Agent.status > manager_common.DELETED))
-            if len(agent_id) < self.all_id:
+            if len(agent_id) < len(self.all_id):
                 query = query.filter(Agent.agent_id.in_(agent_id))
                 # degrade lock level
                 lock.degrade([AgentLock(_id) for _id in agent_id])
@@ -157,10 +157,10 @@ class AgentReuest(contorller.BaseContorller):
         session = get_session(readonly=True)
         with mlock(all_agent) as lock:
             query = model_query(session, Agent).filter(Agent.status > manager_common.DELETED)
-            if len(agent_id) < self.all_id:
+            if len(agent_id) < len(self.all_id):
                 query = query.filter(Agent.agent_id.in_(agent_id))
                 lock.degrade([AgentLock(_id) for _id in agent_id])
-            agents = query.all()
+            # agents = query.all()
         return {'msg': 'upgrade', 'data': agent_id}
 
     @argutils.Idformater(key='agent_id', formatfunc=int)

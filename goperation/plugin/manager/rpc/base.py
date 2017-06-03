@@ -5,14 +5,12 @@ from simpleservice.plugin.base import ManagerBase
 from simpleservice.rpc.target import Target
 
 from goperation.plugin.manager.dbapi import get_session
-from goperation.plugin.manager import manager_group
-
+from goperation.plugin.manager.config import manager_group
 
 
 CONF = cfg.CONF
 
 LOG = logging.getLogger(__name__)
-
 
 
 class RpcServerManager(ManagerBase):

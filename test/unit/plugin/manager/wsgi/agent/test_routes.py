@@ -4,6 +4,7 @@ import requests
 from requests.sessions import Session
 
 from goperation.plugin.manager import common
+import time
 
 version = "v1.0"
 
@@ -49,7 +50,7 @@ def create_test():
 
 
     create_data = {
-                   'host': 'newh43ost',
+                   'host': 'agentserver',
                    'agent_type': common.APPLICATION,
                    'memory': 100,
                    'cpu': 16,
@@ -83,12 +84,27 @@ def update_test():
     print res.text
     session.close()
 
+def upgrade_test():
+    session = Session()
+    url = collection_url + '/all/upgrade'
+    print url
+    res = requests.put(url,
+                       json={'status': 1, 'async_checker': 1,
+                             'request_time': time.time(),
+                             })
+    print 'statu code is', res.status_code
+    print res.text
+    session.close()
+
+
 
 print '\nindex test-----------'
 index_test()
 print '\nshow test-----------'
 show_test('1')
-print '\nupdate test-----------'
-update_test()
+# print '\nupdate test-----------'
+# update_test()
 print '\ncreate test-----------'
 create_test()
+print '\nupgrade test-----------'
+upgrade_test()

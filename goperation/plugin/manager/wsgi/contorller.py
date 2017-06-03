@@ -21,8 +21,8 @@ class BaseContorller(argutils.IdformaterBase):
             client_request_time = int(body.get('request_time'))
         except KeyError:
             raise InvalidArgument('Async request need argument request_time')
-        except ValueError:
-            raise InvalidArgument('request_time is not int of time')
+        except TypeError:
+            raise InvalidArgument('request_time is not int of time or no request_time found')
         diff_time = request_time - client_request_time
         if abs(diff_time) > 3000:
             raise InvalidArgument('The diff time between send and receive is %d' % diff_time)
@@ -33,17 +33,17 @@ class BaseContorller(argutils.IdformaterBase):
             finishtime = int(finishtime) + diff_time
         else:
             finishtime = request_time + 4
-        overtime = body.get('overtime', None)
-        if overtime:
-            overtime = int(overtime) + diff_time
-            if overtime - finishtime < 3:
-                raise InvalidArgument('Job overtime must at least 3 second after finishtime')
+        deadline = body.get('deadline', None)
+        if deadline:
+            deadline = int(deadline) + diff_time
+            if deadline - finishtime < 3:
+                raise InvalidArgument('Job deadline must at least 3 second after finishtime')
         else:
-            overtime = finishtime + 5
+            deadline = finishtime + 5
         request_id = uuidutils.generate_uuid()
         req.environ[manager_common.ENV_REQUEST_ID] = request_id
         new_request = WsgiRequest(request_id=request_id,
                                   request_time=request_time,
-                                  overtime=overtime,
-                                  deadline=finishtime)
+                                  finishtime=finishtime,
+                                  deadline=deadline)
         return new_request

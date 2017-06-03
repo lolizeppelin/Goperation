@@ -116,7 +116,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
                                 filter=or_(WsgiRequest.async_checker == 0,
                                            WsgiRequest.async_checker == async_checker))
             unfinish_request = query.filter_by(request_id=request_id,
-                                               status=0).first()
+                                               status=0).one_or_none()
             if not unfinish_request:
                 raise InvalidArgument('Reuest is alreday finished or not exist')
             unfinish_request.async_checker = async_checker

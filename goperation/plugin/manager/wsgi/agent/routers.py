@@ -23,8 +23,6 @@ class Routers(router.RoutersBase):
                                        member_actions=MEMBER_ACTIONS)
         # send file to agent
         collection.member.link('file', method='POST')
-        # update agent info
-        collection.member.link('update', method='PUT')
         # upgrade agent code
         collection.member.link('upgrade', method='PUT')
         # collection.member.link(rel='active', action='active', method='POST')

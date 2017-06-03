@@ -1,14 +1,14 @@
 import webob.exc
 import webob.dec
 
-from simpleutil.log import log
+from simpleutil.log import log as logging
 
 from simpleservice.wsgi.middleware import default_serializer
 from simpleservice.wsgi.middleware import DEFAULT_CONTENT_TYPE
 from simpleservice.wsgi.filter import FilterBase
 
 
-LOG = log.getLogger(__name__)
+LOG = logging.getLogger(__name__)
 
 class AuthFilter(FilterBase):
     """check Auth
