@@ -3,15 +3,20 @@ from eventlet import patcher
 from glockredis.context import GlockContext
 
 from simpleutil.config import cfg
+from simpleutil.utils import singleton
 
 from simpleutil.log import log as logging
-from simpleservice.ormdb.api import MysqlDriver
+
 
 from goperation.plugin.manager.config import manager_group
+from goperation.plugin.manager.config import manager_rabbit_group
 from goperation.plugin.utils import redis
 
 from simpleservice.plugin.models import GkeyMap
 from simpleservice.ormdb.api import model_query
+from simpleservice.ormdb.api import MysqlDriver
+from simpleservice.rpc.service import RPCClientBase
+
 
 LOG = logging.getLogger(__name__)
 
@@ -20,6 +25,7 @@ CONF = cfg.CONF
 DbDriver = None
 GLockRedis = None
 SERVER_ID = None
+RPCClient = None
 
 # double lock for init mysql server_id and redis
 _mysql_lock = patcher.original('threading').Lock()
@@ -90,7 +96,27 @@ def get_redis():
     return GLockRedis
 
 
+def init_rpc_client():
+    global RPCClient
+    if RPCClient is None:
+        RPCClient = ManagerRpcClient()
+    else:
+        LOG.warning("Do not call init_rpc_client more then once")
+
+
+def get_client():
+    if RPCClient is None:
+        init_rpc_client()
+    return RPCClient
+
 class mlock(GlockContext):
 
     def __init__(self, server_list, locktime=10, alloctime=1.0):
         super(mlock, self).__init__(get_redis(), server_list, locktime, alloctime)
+
+
+@singleton
+class ManagerRpcClient(RPCClientBase):
+    """"""
+    def __init__(self):
+        super(ManagerRpcClient, self).__init__(CONF[manager_rabbit_group.name])

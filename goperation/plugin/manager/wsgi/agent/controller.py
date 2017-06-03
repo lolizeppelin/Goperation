@@ -27,8 +27,8 @@ from goperation.plugin.manager.models import AgentEndpoint
 
 from goperation.plugin.manager.wsgi import contorller
 from goperation.plugin.manager.wsgi import resultutils
-from goperation.plugin.manager.dbapi import get_session
-from goperation.plugin.manager.dbapi import mlock
+from goperation.plugin.manager.api import get_session
+from goperation.plugin.manager.api import mlock
 from goperation.plugin.manager.locktarget import AgentLock
 from goperation.plugin.manager.locktarget import all_agent
 

@@ -4,7 +4,7 @@ from simpleutil.log import log as logging
 from simpleservice.plugin.base import ManagerBase
 from simpleservice.rpc.target import Target
 
-from goperation.plugin.manager.dbapi import get_session
+from goperation.plugin.manager.api import get_session
 from goperation.plugin.manager.config import manager_group
 
 

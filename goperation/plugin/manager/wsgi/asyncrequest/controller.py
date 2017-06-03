@@ -11,7 +11,7 @@ from simpleservice.ormdb.api import model_query
 from simpleservice.ormdb.api import model_count_with_key
 
 from goperation.plugin.manager import common as manager_common
-from goperation.plugin.manager.dbapi import get_session
+from goperation.plugin.manager.api import get_session
 from goperation.plugin.manager.models import WsgiRequest
 from goperation.plugin.manager.wsgi import resultutils
 from goperation.plugin.manager.wsgi import contorller
