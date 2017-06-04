@@ -31,8 +31,8 @@ def configure(config_files=None):
     # set wsgi config
     CONF.register_opts(wsgi_options, group=gcenter_group)
     # set default of paste config
-    CONF.set_default('paste_config', group=gcenter_group,
-                     default='gcenter-paste.ini')
+    CONF.set_default('paste_config', default='gcenter-paste.ini',
+                     group=gcenter_group)
     # add gcenter extend route
     CONF.register_opts(route_opts, gcenter_group)
     for route in CONF[gcenter_group.name].routes:
