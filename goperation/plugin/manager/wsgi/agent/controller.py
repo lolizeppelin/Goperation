@@ -71,7 +71,7 @@ class AgentReuest(contorller.BaseContorller):
         agent_id = agent_id.pop()
         session = get_session(readonly=True)
         query = model_query(session, Agent)
-        agent = query.filter_by(agent_id=agent_id).first()
+        agent = query.filter_by(agent_id=agent_id).one_or_none()
         if not agent:
             raise InvalidArgument('Agent_id id:%s can not be found' % agent_id)
         result = resultutils.results(total=1, pagenum=0, msg='Create agent success')
@@ -83,13 +83,31 @@ class AgentReuest(contorller.BaseContorller):
                                    ))
         return result
 
+    @argutils.Idformater(key='agent_id', formatfunc=int)
+    def register(self, req, agent_id, body):
+        """call buy client"""
+        if len(agent_id) != 1:
+            raise InvalidArgument('Agent register just for one agent')
+        agent_id = agent_id.pop()
+        agent_type = body.pop('agent_type')
+        session = get_session(readonly=True)
+        query = model_query(session, Agent)
+        agent = query.filter_by(agent_id=agent_id).one_or_none()
+        if not agent:
+            ret = {}
+        else:
+            ret = {}
+        result = resultutils.results(total=1, pagenum=0, msg='Register agent function run success')
+        result['data'].append(ret)
+        return result
+
     def create(self, req, body):
         """call bay agent"""
         new_agent = Agent()
         try:
             new_agent.host = validators['type:hostname'](body.pop('host'))
-            new_agent.agent_type = body.pop('agent_type')
-            if len(new_agent.agent_type) > 64:
+            new_agent.agent_type = body.pop('agent_type', None)
+            if new_agent.agent_type is None or len(new_agent.agent_type) > 64:
                 raise ValueError('Agent type info over size')
             new_agent.ports_range = jsonutils.dumps(validators['type:ports_range_list'](body.pop('ports_range')))
             if len(new_agent.ports_range) > manager_common.MAX_PORTS_RANGE_SIZE:
