@@ -1,6 +1,7 @@
 ENV_REQUEST_ID = 'goperation.request_id'
 
 # agent tpye
+AGENT = 'agent'
 APPLICATION = 'application'
 SCHEDULER = 'scheduler'
 # status of agent
