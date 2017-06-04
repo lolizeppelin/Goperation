@@ -2,10 +2,9 @@ from simpleutil.config import cfg
 from simpleutil.log import log as logging
 
 from simpleservice.plugin.base import ManagerBase
-from simpleservice.rpc.target import Target
 
+from goperation.plugin.manager.targetutils import target_server
 from goperation.plugin.manager.api import get_session
-from goperation.plugin.manager.config import manager_group
 
 
 CONF = cfg.CONF
@@ -15,17 +14,16 @@ LOG = logging.getLogger(__name__)
 
 class RpcServerManager(ManagerBase):
 
-    def __init__(self, rpc_type):
-        self.rpc_type = rpc_type
+    def __init__(self, agent_type):
+        self.agent_type = agent_type
         ManagerBase.__init__(self,
-                             target=Target(topic='agent.%s' % self.rpc_type,
-                                           namespace=manager_group.name))
+                             target=target_server(agent_type, CONF.host))
+
         self.session = get_session()
         self.rsession = get_session(readonly=True)
 
     def init_host(self):
-        if self.target.server is None:
-            self.target.server = CONF.host
+        pass
 
     def after_stop(self):
         pass
