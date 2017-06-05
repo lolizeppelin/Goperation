@@ -26,7 +26,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
 
     def index(self, req, body):
         session = get_session(readonly=True)
-        query = model_query(session, WsgiRequest)
+        order = body.get('order', None)
         status = body.get('status', 1)
         if status not in (0, 1):
             raise InvalidArgument('Status value error, not 0 or 1')
@@ -37,52 +37,33 @@ class AsyncWorkRequest(contorller.BaseContorller):
         end_time = int(body.get('start_time', 0))
         if start_time:
             filter_list.append(WsgiRequest.request_time >= start_time)
-            # query = query.filter()
         if end_time:
             if end_time < start_time:
                 raise InvalidArgument('end time less then start time')
             filter_list.append(WsgiRequest.request_time < end_time)
-            # query = query.filter(WsgiRequest.request_time < end_time)
         filter_list.append(WsgiRequest.status == status)
-        # query.filter(WsgiRequest.status == status)
         sync = body.get('sync', True)
         async = body.get('async', True)
         if not sync and async:
             raise InvalidArgument('No both sync and async mark')
         if sync and not async:
             filter_list.append(WsgiRequest.async_checker == 0)
-            # query.filter(WsgiRequest.async_checker == 0)
         elif async and not sync:
             filter_list.append(WsgiRequest.async_checker != 0)
-            # query = query.filter(WsgiRequest.async_checker != 0)
         request_filter = and_(*filter_list)
-        # count row
-        rows_num = model_count_with_key(session, WsgiRequest, filter=request_filter)
-        # filter query
-        query = query.filter(request_filter)
-        if rows_num >= manager_common.MAX_ROW_PER_REQUEST:
-            query = query.limit(manager_common.MAX_ROW_PER_REQUEST)
-        page_num = int(body.get('page', 0))
-        if page_num and page_num*manager_common.ROW_PER_PAGE >= rows_num:
-            raise InvalidArgument('Page number over size or no data exist')
-        if page_num:
-            query.seek(page_num*manager_common.ROW_PER_PAGE)
-        request_list = []
-        for result in query:
-            data = dict(request_id=result.request_id,
-                        status=result.status,
-                        request_time=result.request_time,
-                        async_checker=result.async_checker,
-                        result=result.result,
-                        )
-            request_list.append(data)
-        msg = 'Get request list success'
-        if len(request_list) == 0:
-            msg = 'No request list found'
-        ret_dict = resultutils.results(total=rows_num,
-                                       pagenum=page_num,
-                                       data=request_list,
-                                       msg=msg)
+        if order:
+            order = WsgiRequest.request_time.desc()
+        ret_dict = resultutils.bulk_results(session,
+                                            model=WsgiRequest,
+                                            columns=[WsgiRequest.request_id,
+                                                     WsgiRequest.status,
+                                                     WsgiRequest.request_time,
+                                                     WsgiRequest.async_checker,
+                                                     WsgiRequest.result
+                                                     ],
+                                            counter=WsgiRequest.request_id,
+                                            order=order,
+                                            filter=request_filter)
         return ret_dict
 
     @argutils.Idformater(key='request_id')
