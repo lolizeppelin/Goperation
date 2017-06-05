@@ -24,8 +24,12 @@ class Routers(router.RoutersBase):
         # send file to agent
         collection.member.link('file', method='POST')
         # upgrade agent code
-        collection.member.link('upgrade', method='PUT')
+        collection.member.link('upgrade', method='POST')
+        collection.member.link('active', method='PUT')
         # agent show online when it start
-        collection.member.link('online', method='POST')
-        # collection.member.link(rel='active', action='active', method='POST')
+        self._add_resource(
+            mapper, controller_intance,
+            path='/%s/online' % self.resource_name,
+            put_action='online')
+
         return collection
