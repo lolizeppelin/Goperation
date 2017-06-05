@@ -25,5 +25,7 @@ class Routers(router.RoutersBase):
         collection.member.link('file', method='POST')
         # upgrade agent code
         collection.member.link('upgrade', method='PUT')
+        # agent show online when it start
+        collection.member.link('online', method='POST')
         # collection.member.link(rel='active', action='active', method='POST')
         return collection
