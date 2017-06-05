@@ -88,6 +88,18 @@ def upgrade_test():
     session = Session()
     url = collection_url + '/all/upgrade'
     print url
+    res = requests.post(url,
+                       json={'status': 1, 'async_checker': 1,
+                             'request_time': time.time(),
+                             })
+    print 'statu code is', res.status_code
+    print res.text
+    session.close()
+
+def online_test():
+    session = Session()
+    url = resource_url + '/online'
+    print url
     res = requests.put(url,
                        json={'status': 1, 'async_checker': 1,
                              'request_time': time.time(),
@@ -97,14 +109,30 @@ def upgrade_test():
     session.close()
 
 
+def active_test():
+    session = Session()
+    url = collection_url + '/all/active'
+    print url
+    res = requests.put(url,
+                       json={'status': 1, 'async_checker': 1,
+                             'request_time': time.time(),
+                             })
+    print 'statu code is', res.status_code
+    print res.text
+    session.close()
 
-print '\nindex test-----------'
-index_test()
-print '\nshow test-----------'
-show_test('1')
+
+# print '\nindex test-----------'
+# index_test()
+# print '\nshow test-----------'
+# show_test('1')
 # print '\nupdate test-----------'
 # update_test()
-print '\ncreate test-----------'
-create_test()
-print '\nupgrade test-----------'
-upgrade_test()
+# print '\ncreate test-----------'
+# create_test()
+# print '\nupgrade test-----------'
+# upgrade_test()
+# print '\nactive test-----------'
+# active_test()
+print '\nonline test-----------'
+online_test()
