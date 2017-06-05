@@ -28,9 +28,10 @@ from goperation.plugin.manager.models import AgentEndpoint
 from goperation.plugin.manager import targetutils
 from goperation.plugin.manager.wsgi import contorller
 from goperation.plugin.manager.wsgi import resultutils
-from goperation.plugin.manager.api import get_session
 from goperation.plugin.manager.api import mlock
+from goperation.plugin.manager.api import get_redis
 from goperation.plugin.manager.api import get_client
+from goperation.plugin.manager.api import get_session
 
 
 from sqlalchemy.exc import OperationalError
@@ -58,10 +59,34 @@ class AgentReuest(contorller.BaseContorller):
 
     def index(self, req, body):
         """call buy client"""
+        filter_list = []
         session = get_session(readonly=True)
-        rows_num = model_count_with_key(session, Agent.agent_id)
-        self._all_id()
-        return rows_num
+        agent_type = body.pop('agent_type', None)
+        order = body.pop('order', None)
+        desc = body.pop('desc', False)
+        if agent_type:
+            filter_list.append(Agent.agent_type == agent_type)
+        deleted = body.pop('deleted', False)
+        if not deleted:
+            filter_list.append(Agent.status > manager_common.DELETED)
+
+        agent_filter = and_(*filter_list)
+        ret_dict = resultutils.bulk_results(session,
+                                            model=Agent,
+                                            columns=[Agent.agent_id,
+                                                     Agent.agent_type,
+                                                     Agent.status,
+                                                     Agent.cpu,
+                                                     Agent.memory,
+                                                     Agent.disk,
+                                                     Agent.entiy,
+                                                     Agent.endpoints,
+                                                     Agent.create_time,
+                                                     ],
+                                            counter=Agent.agent_id,
+                                            order=order, desc=desc,
+                                            filter=agent_filter)
+        return ret_dict
 
     @argutils.Idformater(key='agent_id', formatfunc=int)
     def show(self, req, agent_id, body):
@@ -74,7 +99,7 @@ class AgentReuest(contorller.BaseContorller):
         agent = query.filter_by(agent_id=agent_id).one_or_none()
         if not agent:
             raise InvalidArgument('Agent_id id:%s can not be found' % agent_id)
-        result = resultutils.results(total=1, pagenum=0, msg='Create agent success')
+        result = resultutils.results(total=1, pagenum=0, msg='Show agent success')
         result['data'].append(dict(agent_id=agent.agent_id,
                                    host=agent.host,
                                    status=agent.status,
@@ -83,23 +108,43 @@ class AgentReuest(contorller.BaseContorller):
                                    ))
         return result
 
-    @argutils.Idformater(key='agent_id', formatfunc=int)
-    def register(self, req, agent_id, body):
-        """call buy client"""
-        if len(agent_id) != 1:
-            raise InvalidArgument('Agent register just for one agent')
-        agent_id = agent_id.pop()
-        agent_type = body.pop('agent_type')
+    def online(self, req, body):
+        """call buy agent
+        when a agent start, it will call online to show it's ipaddr
+        and get agent_id from gcenter
+        """
+        host = validators['type:hostname'](body.pop('host'))
+        agent_type = body.pop('agent_type', 'nonetype')
+        agent_ipaddr = validators['type:ip_address'](body.pop('agent_ipaddr'))
         session = get_session(readonly=True)
-        query = model_query(session, Agent)
-        agent = query.filter_by(agent_id=agent_id).one_or_none()
-        if not agent:
-            ret = {}
-        else:
-            ret = {}
-        result = resultutils.results(total=1, pagenum=0, msg='Register agent function run success')
-        result['data'].append(ret)
-        return result
+        query = model_query(session, Agent,
+                            filter=(and_(Agent.status > manager_common.DELETED,
+                                         Agent.agent_type == agent_type, Agent.host == host)))
+        with mlock(targetutils.lock_all_agent) as lock:
+            agent = query.one_or_none()
+            if not agent:
+                ret = {'agent_id': None}
+            else:
+                lock.degrade([targetutils.AgentLock(agent.agent_id)])
+                ret = {'agent_id': agent.agent_id}
+                _cache_server = get_redis()
+                host_online_key = targetutils.host_online_key(agent.agent_id)
+                exist_host_ipaddr = _cache_server.get(host_online_key)
+                if exist_host_ipaddr:
+                    if exist_host_ipaddr != agent_ipaddr:
+                        raise InvalidArgument('Host %s with ipaddr %s alreday eixst' % (host, exist_host_ipaddr))
+                    # key exist, set new expire time
+                    if not _cache_server.expire(host_online_key, 300):
+                        if not _cache_server.set(host_online_key, agent_ipaddr, px=300, nx=True):
+                            raise InvalidArgument('Another agent login with same host or someone set key %s' %
+                                                  host_online_key)
+                else:
+                    if not _cache_server.set(host_online_key, agent_ipaddr, px=300, nx=True):
+                        raise InvalidArgument('Another agent login with same host or someone set key %s' %
+                                              host_online_key)
+            result = resultutils.results(total=1, pagenum=0, msg='Register agent function run success')
+            result['data'].append(ret)
+            return result
 
     def create(self, req, body):
         """call bay agent"""
@@ -148,7 +193,17 @@ class AgentReuest(contorller.BaseContorller):
     @Idformater
     def file(self, req, agent_id, body):
         """call by client, and asyncrequest"""
-        pass
+        self.create_request(req, body)
+        agent_type = body.get('agent_type', None)
+        method = body.get('method')
+        host = body.get('host')
+        path = body.get('path')
+        rpc = get_client()
+        if agent_type:
+            cast_ret = rpc.cast(target=targetutils.target_alltype(agent_type))
+        else:
+            cast_ret = rpc.cast(target=targetutils.target_all())
+        call_ret = rpc.call(target='')
 
     @Idformater
     def update(self, req, agent_id, body):
