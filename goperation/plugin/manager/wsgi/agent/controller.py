@@ -113,9 +113,14 @@ class AgentReuest(contorller.BaseContorller):
         when a agent start, it will call online to show it's ipaddr
         and get agent_id from gcenter
         """
-        host = validators['type:hostname'](body.pop('host'))
-        agent_type = body.pop('agent_type', 'nonetype')
-        agent_ipaddr = validators['type:ip_address'](body.pop('agent_ipaddr'))
+        try:
+            host = validators['type:hostname'](body.pop('host'))
+            agent_type = body.pop('agent_type', 'nonetype')
+            agent_ipaddr = validators['type:ip_address'](body.pop('agent_ipaddr'))
+        except KeyError as e:
+            raise InvalidArgument('Can not find argument: %s' % e.message)
+        except ValueError as e:
+            raise InvalidArgument('Argument value type error: %s' % e.message)
         session = get_session(readonly=True)
         query = model_query(session, Agent,
                             filter=(and_(Agent.status > manager_common.DELETED,
@@ -223,6 +228,10 @@ class AgentReuest(contorller.BaseContorller):
                                          msg='Update agent success',
                                          data=[body, ])
             return result
+
+    @Idformater
+    def active(self, req, agent_id, body):
+        return {'msg': 'active'}
 
     @Idformater
     def upgrade(self, req, agent_id, body):
