@@ -69,7 +69,7 @@ def bulk_results(session,
                  model,
                  columns,
                  counter=None,
-                 order=None,
+                 order=None, desc=None,
                  filter=None,
                  page_num=0):
     query = model_query(session, model, filter=filter)
@@ -98,6 +98,8 @@ def bulk_results(session,
     # formater order
     if order is not None:
         order = validator(order)[0]
+        if desc:
+            order = order.desc()
         query = query.order_by(order)
 
     # format columns list to basestring

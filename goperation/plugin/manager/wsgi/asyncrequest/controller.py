@@ -27,6 +27,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
     def index(self, req, body):
         session = get_session(readonly=True)
         order = body.get('order', None)
+        desc = body.get('desc', False)
         status = body.get('status', 1)
         if status not in (0, 1):
             raise InvalidArgument('Status value error, not 0 or 1')
@@ -51,8 +52,6 @@ class AsyncWorkRequest(contorller.BaseContorller):
         elif async and not sync:
             filter_list.append(WsgiRequest.async_checker != 0)
         request_filter = and_(*filter_list)
-        if order:
-            order = WsgiRequest.request_time.desc()
         ret_dict = resultutils.bulk_results(session,
                                             model=WsgiRequest,
                                             columns=[WsgiRequest.request_id,
@@ -62,7 +61,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
                                                      WsgiRequest.result
                                                      ],
                                             counter=WsgiRequest.request_id,
-                                            order=order,
+                                            order=order, desc=desc,
                                             filter=request_filter)
         return ret_dict
 
