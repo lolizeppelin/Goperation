@@ -8,6 +8,7 @@ from simpleservice.ormdb.api import model_query
 
 from simpleservice.ormdb.engines import create_engine
 
+from goperation.plugin.manager import common
 
 dst = {'host':'172.20.0.3',
        'port':3304,
@@ -31,6 +32,8 @@ print request_row.request_id
 
 agent_row =  Agent()
 agent_row.host = uuidutils.generate_uuid()[:5]
+agent_row.agent_type = common.APPLICATION
+agent_row.agent_id = 22
 with session.begin(subtransactions=True):
     session.add(agent_row)
 
@@ -95,6 +98,8 @@ report_row.closeing = 342
 with session.begin():
     session.add(report_row)
 
+with session.begin():
+    session.delete(report_row)
 
 with session.begin():
     session.delete(agent_row)
@@ -118,15 +123,19 @@ metadata.reflect(bind=engine)
 for tab in metadata.tables.keys():
     print tab
 
-print 'try get data from metada'
+# print 'try get data from metada'
 
-with session.begin():
-    for tab in metadata.tables.keys():
-        print tab, type(tab), type(metadata.tables[tab])
-        if tab is not None:
-            query = model_query(session, metadata.tables[tab])
-            rets = query.all()
-            if rets:
-                print tab
-                print rets
+# with session.begin():
+#     for tab in metadata.tables.keys():
+#         print tab, type(tab), type(metadata.tables[tab])
+#         if tab is not None:
+#             y = metadata.tables[tab]
+#             dirs =  dir(y)
+#             for x in dirs:
+#                 print x
+#             query = model_query(session, metadata.tables[tab])
+#             rets = query.all()
+#             if rets:
+#                 print tab
+#                 print rets
 
