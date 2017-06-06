@@ -13,6 +13,7 @@ from simpleutil.log import log as logging
 from simpleutil.utils.attributes import validators
 
 from simpleutil.common.exceptions import InvalidArgument
+from simpleutil.common.exceptions import InvalidInput
 
 from simpleservice.ormdb.api import model_query
 from simpleservice.ormdb.api import model_count_with_key
@@ -122,6 +123,8 @@ class AgentReuest(contorller.BaseContorller):
             raise InvalidArgument('Can not find argument: %s' % e.message)
         except ValueError as e:
             raise InvalidArgument('Argument value type error: %s' % e.message)
+        except InvalidInput as e:
+            raise InvalidArgument(e.message)
         session = get_session(readonly=True)
         query = model_query(session, Agent,
                             filter=(and_(Agent.status > manager_common.DELETED,
@@ -129,8 +132,16 @@ class AgentReuest(contorller.BaseContorller):
         with mlock(targetutils.lock_all_agent) as lock:
             agent = query.one_or_none()
             if not agent:
+                LOG.info('Online called but no Agent found')
                 ret = {'agent_id': None}
             else:
+                LOG.info('Agent online called. agent_id:%(agent_id)s, type:%(agent_type)s, '
+                         'host:%(host)s, ipaddr:%(ipaddr)s' %
+                         {'agent_id': agent.agent_id,
+                          'agent_type': agent_type,
+                          'host': host,
+                          'ipaddr': agent_ipaddr})
+
                 lock.degrade([targetutils.AgentLock(agent.agent_id)])
                 ret = {'agent_id': agent.agent_id}
                 _cache_server = get_redis()
@@ -138,17 +149,22 @@ class AgentReuest(contorller.BaseContorller):
                 exist_host_ipaddr = _cache_server.get(host_online_key)
                 if exist_host_ipaddr:
                     if exist_host_ipaddr != agent_ipaddr:
+                        LOG.error('Host call online with %s, but %s alreday exist on redis' %
+                                  (agent_ipaddr, exist_host_ipaddr))
                         raise InvalidArgument('Host %s with ipaddr %s alreday eixst' % (host, exist_host_ipaddr))
                     # key exist, set new expire time
-                    if not _cache_server.expire(host_online_key, 300):
-                        if not _cache_server.set(host_online_key, agent_ipaddr, px=300, nx=True):
+                    if not _cache_server.expire(host_online_key,
+                                                manager_common.ONLINE_EXIST_TIME):
+                        if not _cache_server.set(host_online_key, agent_ipaddr,
+                                                 ex=manager_common.ONLINE_EXIST_TIME, nx=True):
                             raise InvalidArgument('Another agent login with same host or someone set key %s' %
                                                   host_online_key)
                 else:
-                    if not _cache_server.set(host_online_key, agent_ipaddr, px=300, nx=True):
+                    if not _cache_server.set(host_online_key, agent_ipaddr,
+                                             ex=manager_common.ONLINE_EXIST_TIME, nx=True):
                         raise InvalidArgument('Another agent login with same host or someone set key %s' %
                                               host_online_key)
-            result = resultutils.results(total=1, pagenum=0, msg='Register agent function run success')
+            result = resultutils.results(total=1, pagenum=0, msg='Online agent function run success')
             result['data'].append(ret)
             return result
 
