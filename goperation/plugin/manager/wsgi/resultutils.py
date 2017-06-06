@@ -119,6 +119,8 @@ def bulk_results(session,
                                         filter=filter)
     # check page number
     if page_num:
+        if not isinstance(page_num, (int, long)):
+            raise InvalidArgument('Page number type error')
         if page_num*manager_common.ROW_PER_PAGE >= all_rows_num:
             raise InvalidArgument('Page number over size or no data exist')
         query.seek(page_num*manager_common.ROW_PER_PAGE)

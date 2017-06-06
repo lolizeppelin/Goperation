@@ -64,6 +64,7 @@ class AgentReuest(contorller.BaseContorller):
         agent_type = body.pop('agent_type', None)
         order = body.pop('order', None)
         desc = body.pop('desc', False)
+        page_num = body.pop('page_num', 0)
         if agent_type:
             filter_list.append(Agent.agent_type == agent_type)
         deleted = body.pop('deleted', False)
@@ -85,7 +86,7 @@ class AgentReuest(contorller.BaseContorller):
                                                      ],
                                             counter=Agent.agent_id,
                                             order=order, desc=desc,
-                                            filter=agent_filter)
+                                            filter=agent_filter, page_num=page_num)
         return ret_dict
 
     @argutils.Idformater(key='agent_id', formatfunc=int)

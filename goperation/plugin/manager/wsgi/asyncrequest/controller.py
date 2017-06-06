@@ -29,6 +29,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
         order = body.get('order', None)
         desc = body.get('desc', False)
         status = body.get('status', 1)
+        page_num = body.pop('page_num', 0)
         if status not in (0, 1):
             raise InvalidArgument('Status value error, not 0 or 1')
         # index in request_time
@@ -62,7 +63,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
                                                      ],
                                             counter=WsgiRequest.request_id,
                                             order=order, desc=desc,
-                                            filter=request_filter)
+                                            filter=request_filter, page_num=page_num)
         return ret_dict
 
     @argutils.Idformater(key='request_id')
