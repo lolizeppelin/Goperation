@@ -113,7 +113,10 @@ def get_client():
 class mlock(GlockContext):
     """class for global redis lock"""
 
-    def __init__(self, server_list, locktime=10, alloctime=1.0):
+    def __init__(self, server_list, locktime=10.0, alloctime=1.0):
+        """locktime  lock time  seconds
+        alloctime  time of alloc lock  seconds
+        """
         super(mlock, self).__init__(get_redis(), server_list, locktime, alloctime)
 
 
