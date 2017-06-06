@@ -1,6 +1,4 @@
-from sqlalchemy.ext.declarative.api import DeclarativeMeta
 from sqlalchemy.orm.attributes import InstrumentedAttribute
-from sqlalchemy.orm.properties import ColumnProperty
 
 from simpleutil.utils import jsonutils
 
@@ -14,11 +12,15 @@ from goperation.plugin.manager import common as manager_common
 def results(total=0,
             pagenum=0,
             msg=None,
-            data=None,):
-    ret_dict = {'total': 0,
+            data=None,
+            result=0):
+    ret_dict = {'result': 0,
+                'total': 0,
                 'pagenum': 0,
                 'msg': '',
                 'data': []}
+    if result:
+        ret_dict['result'] = result
     if total:
         ret_dict['total'] = total
     if pagenum:
