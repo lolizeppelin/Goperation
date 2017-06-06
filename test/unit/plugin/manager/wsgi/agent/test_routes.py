@@ -101,8 +101,9 @@ def online_test():
     url = resource_url + '/online'
     print url
     res = requests.put(url,
-                       json={'status': 1, 'async_checker': 1,
-                             'request_time': time.time(),
+                       json={'host': 'newh43ost',
+                             'agent_type': common.APPLICATION,
+                             'agent_ipaddr': '172.20.0.1'
                              })
     print 'statu code is', res.status_code
     print res.text
