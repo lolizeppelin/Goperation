@@ -12,7 +12,7 @@ from simpleservice.ormdb.api import model_count_with_key
 
 from goperation.plugin.manager import common as manager_common
 from goperation.plugin.manager.api import get_session
-from goperation.plugin.manager.models import WsgiRequest
+from goperation.plugin.manager.models import AsyncRequest
 from goperation.plugin.manager.wsgi import resultutils
 from goperation.plugin.manager.wsgi import contorller
 
@@ -38,30 +38,30 @@ class AsyncWorkRequest(contorller.BaseContorller):
         start_time = int(body.get('start_time', 0))
         end_time = int(body.get('start_time', 0))
         if start_time:
-            filter_list.append(WsgiRequest.request_time >= start_time)
+            filter_list.append(AsyncRequest.request_time >= start_time)
         if end_time:
             if end_time < start_time:
                 raise InvalidArgument('end time less then start time')
-            filter_list.append(WsgiRequest.request_time < end_time)
-        filter_list.append(WsgiRequest.status == status)
+            filter_list.append(AsyncRequest.request_time < end_time)
+        filter_list.append(AsyncRequest.status == status)
         sync = body.get('sync', True)
         async = body.get('async', True)
         if not sync and async:
             raise InvalidArgument('No both sync and async mark')
         if sync and not async:
-            filter_list.append(WsgiRequest.async_checker == 0)
+            filter_list.append(AsyncRequest.async_checker == 0)
         elif async and not sync:
-            filter_list.append(WsgiRequest.async_checker != 0)
+            filter_list.append(AsyncRequest.async_checker != 0)
         request_filter = and_(*filter_list)
         ret_dict = resultutils.bulk_results(session,
-                                            model=WsgiRequest,
-                                            columns=[WsgiRequest.request_id,
-                                                     WsgiRequest.status,
-                                                     WsgiRequest.request_time,
-                                                     WsgiRequest.async_checker,
-                                                     WsgiRequest.result
+                                            model=AsyncRequest,
+                                            columns=[AsyncRequest.request_id,
+                                                     AsyncRequest.status,
+                                                     AsyncRequest.request_time,
+                                                     AsyncRequest.async_checker,
+                                                     AsyncRequest.result
                                                      ],
-                                            counter=WsgiRequest.request_id,
+                                            counter=AsyncRequest.request_id,
                                             order=order, desc=desc,
                                             filter=request_filter, page_num=page_num)
         return ret_dict
@@ -72,7 +72,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
             raise InvalidArgument('Request show just for one request')
         request_id = request_id.pop()
         session = get_session(readonly=True)
-        query = model_query(session, WsgiRequest)
+        query = model_query(session, AsyncRequest)
         request = query.filter_by(request_id=request_id).first()
         if not request:
             raise InvalidArgument('Request id:%s can not be found' % request_id)
@@ -93,9 +93,9 @@ class AsyncWorkRequest(contorller.BaseContorller):
         data = {'async_checker': async_checker}
         session = get_session()
         with session.begin(subtransactions=True):
-            query = model_query(session, WsgiRequest,
-                                filter=or_(WsgiRequest.async_checker == 0,
-                                           WsgiRequest.async_checker == async_checker))
+            query = model_query(session, AsyncRequest,
+                                filter=or_(AsyncRequest.async_checker == 0,
+                                           AsyncRequest.async_checker == async_checker))
             unfinish_request = query.filter_by(request_id=request_id,
                                                status=0).one_or_none()
             if not unfinish_request:

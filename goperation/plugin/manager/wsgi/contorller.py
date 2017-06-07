@@ -4,7 +4,7 @@ from simpleutil.utils import uuidutils
 
 from simpleutil.common.exceptions import InvalidArgument
 
-from goperation.plugin.manager.models import WsgiRequest
+from goperation.plugin.manager.models import AsyncRequest
 from goperation.plugin.manager import common as manager_common
 
 
@@ -14,7 +14,7 @@ MAX_ROW_PER_REQUEST = 100
 class BaseContorller(argutils.IdformaterBase):
 
     @staticmethod
-    def create_request(req, body):
+    def create_asyncrequest(req, body):
         """async request use this to create a new request"""
         request_time = int(timeutils.realnow())
         try:
@@ -42,7 +42,7 @@ class BaseContorller(argutils.IdformaterBase):
             deadline = finishtime + 5
         request_id = uuidutils.generate_uuid()
         req.environ[manager_common.ENV_REQUEST_ID] = request_id
-        new_request = WsgiRequest(request_id=request_id,
+        new_request = AsyncRequest(request_id=request_id,
                                   request_time=request_time,
                                   finishtime=finishtime,
                                   deadline=deadline)

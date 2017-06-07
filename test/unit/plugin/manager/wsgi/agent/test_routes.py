@@ -46,9 +46,6 @@ def index_test():
 
 def create_test():
     session = Session()
-
-
-
     create_data = {
                    'host': 'agentserver',
                    'agent_type': common.APPLICATION,
@@ -60,6 +57,16 @@ def create_test():
                    }
 
     res = requests.post(collection_url, json=create_data)
+    print 'statu code is', res.status_code
+    print res.text
+    session.close()
+
+
+def delete_test(agent_id):
+    session = Session()
+    url = collection_url + '/%s' % str(agent_id)
+    data = {'force': False}
+    res = requests.delete(url, json=data)
     print 'statu code is', res.status_code
     print res.text
     session.close()
@@ -109,7 +116,6 @@ def online_test():
     print res.text
     session.close()
 
-
 def active_test():
     session = Session()
     url = collection_url + '/all/active'
@@ -123,17 +129,19 @@ def active_test():
     session.close()
 
 
-# print '\nindex test-----------'
-# index_test()
-# print '\nshow test-----------'
-# show_test('1')
-# print '\nupdate test-----------'
-# update_test()
-# print '\ncreate test-----------'
-# create_test()
-# print '\nupgrade test-----------'
-# upgrade_test()
-# print '\nactive test-----------'
-# active_test()
+print '\nindex test-----------'
+index_test()
+print '\nshow test-----------'
+show_test('1')
+print '\nupdate test-----------'
+update_test()
+print '\ncreate test-----------'
+create_test()
+print '\nupgrade test-----------'
+upgrade_test()
+print '\nactive test-----------'
+active_test()
 print '\nonline test-----------'
 online_test()
+print '\ndelete test-----------'
+delete_test(3)

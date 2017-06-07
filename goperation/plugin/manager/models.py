@@ -54,7 +54,7 @@ class AgentRespone(PluginTableBase):
     )
 
 
-class WsgiRequest(PluginTableBase):
+class AsyncRequest(PluginTableBase):
     request_id = sa.Column(VARCHAR(36), default=uuidutils.generate_uuid,
                            nullable=False, primary_key=True)
     request_time = sa.Column(INTEGER(unsigned=True),

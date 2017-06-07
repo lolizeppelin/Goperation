@@ -23,7 +23,7 @@ engine = create_engine(sql_connection)
 session_maker = orm.get_maker(engine=engine)
 session = session_maker()
 
-request_row =  WsgiRequest()
+request_row =  AsyncRequest()
 with session.begin():
     session.add(request_row)
 
@@ -44,7 +44,7 @@ print agent_row.agent_id
 print '~~~~~test filter_by~~~~~~~'
 
 with session.begin():
-    query = model_query(session, WsgiRequest)
+    query = model_query(session, AsyncRequest)
     rets = query.filter_by(request_id=request_row.request_id).all()
     print rets
     ret = query.filter_by(request_id=request_row.request_id).first()
@@ -54,7 +54,7 @@ with session.begin():
 print '~~~~~test filter~~~~~~~'
 
 with session.begin():
-    query = model_query(session, WsgiRequest, filter={'request_id':request_row.request_id})
+    query = model_query(session, AsyncRequest, filter={'request_id':request_row.request_id})
     rets = query.all()
     print rets
     ret = query.first()

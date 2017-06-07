@@ -18,6 +18,7 @@ from simpleutil.common.exceptions import InvalidInput
 from simpleservice.ormdb.api import model_query
 from simpleservice.ormdb.api import model_count_with_key
 from simpleservice.ormdb.api import model_autoincrement_id
+from simpleservice.rpc.driver.exceptions import MessagingTimeout
 
 from goperation.plugin import utils
 
@@ -37,10 +38,13 @@ from goperation.plugin.manager.api import get_session
 
 from sqlalchemy.exc import OperationalError
 from simpleservice.ormdb.exceptions import DBError
+from simpleservice.rpc.driver.exceptions import NoSuchMethod
 
 LOG = logging.getLogger(__name__)
 
 FAULT_MAP = {InvalidArgument: webob.exc.HTTPClientError,
+             NoSuchMethod: webob.exc.HTTPNotImplemented,
+             MessagingTimeout: webob.exc.HTTPServiceUnavailable,
              }
 
 Idformater = argutils.Idformater(key='agent_id', all_key="all", formatfunc=int)
@@ -215,7 +219,7 @@ class AgentReuest(contorller.BaseContorller):
     @Idformater
     def file(self, req, agent_id, body):
         """call by client, and asyncrequest"""
-        self.create_request(req, body)
+        self.create_asyncrequest(req, body)
         agent_type = body.get('agent_type', None)
         method = body.get('method')
         host = body.get('host')
@@ -237,7 +241,9 @@ class AgentReuest(contorller.BaseContorller):
                 query = query.filter(Agent.agent_id.in_(agent_id))
                 # degrade lock level
                 lock.degrade([targetutils.AgentLock(_id) for _id in agent_id])
-            data = {}
+            data = body
+            if not data:
+                raise InvalidInput('Not data exist')
             with session.begin(subtransactions=True):
                 # TODO rpc call update
                 query.update(data)
@@ -253,7 +259,7 @@ class AgentReuest(contorller.BaseContorller):
     @Idformater
     def upgrade(self, req, agent_id, body):
         """call by client, and asyncrequest"""
-        self.create_request(req, body)
+        self.create_asyncrequest(req, body)
         session = get_session(readonly=True)
         with mlock(targetutils.lock_all_agent) as lock:
             query = model_query(session, Agent).filter(Agent.status > manager_common.DELETED)
@@ -264,13 +270,15 @@ class AgentReuest(contorller.BaseContorller):
         return {'msg': 'upgrade', 'data': agent_id}
 
     @argutils.Idformater(key='agent_id', formatfunc=int)
-    def delete(self, agent_id, body):
+    def delete(self, req, agent_id, body):
         """call buy client"""
         if len(agent_id) != 1:
             raise InvalidArgument('Agent delete just for one agent')
         agent_id = agent_id.pop()
+        force = body.get('force', False)
         rpc = get_client()
         session = get_session(readonly=True)
+        _cache_server = get_redis()
         query = model_query(session, Agent,
                             filter=and_(Agent.agent_id == agent_id,
                                         Agent.status > manager_common.DELETED))
@@ -281,10 +289,22 @@ class AgentReuest(contorller.BaseContorller):
                     raise InvalidArgument('Can not find agent with %d, not exist or alreay deleted' % agent_id)
                 if agent.entiy > 0:
                     raise InvalidArgument('Can not delete agent, entiy not 0')
-                # TODO rpc call delete!
-                rpc_ret = rpc.call(targetutils.target_agent(agent),
-                                   )
-                query.update({'status': manager_common.DELETED})
+                host_online_key = targetutils.host_online_key(agent.agent_id)
+                agent_ipaddr = _cache_server.get(host_online_key)
+                delete_ret = rpc.call(targetutils.target_agent(agent), ctxt={},
+                                      msg={
+                                          'method': 'delete',
+                                          'args': {'agent_id': agent.agent_id,
+                                                   'agent_type': agent.agent_type,
+                                                   'host': agent.host,
+                                                   'ipaddr': agent_ipaddr}
+                                      })
+                if not delete_ret.get('result'):
+                    if not force:
+                        return resultutils.results(total=1, pagenum=0, msg=delete_ret.get('message'), result=1)
+                    else:
+                        query.update({'status': manager_common.DELETED})
+                        LOG.warning('Delete rpc call error:%s, delete agent in force' % delete_ret.get('message'))
                 msg = 'Delete agent success'
                 query = model_query(session, AgentEndpoint,
                                     filter=AgentEndpoint.agent_id == agent_id)
