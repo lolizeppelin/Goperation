@@ -86,7 +86,7 @@ def update_test():
     url = collection_url + '/all'
     print url
     res = requests.put(url,
-                       json={'status': 1, 'async_checker': 1})
+                       json={'status': 1, 'scheduler': 1})
     print 'statu code is', res.status_code
     print res.text
     session.close()
@@ -96,7 +96,7 @@ def upgrade_test():
     url = collection_url + '/all/upgrade'
     print url
     res = requests.post(url,
-                       json={'status': 1, 'async_checker': 1,
+                       json={'status': 1, 'scheduler': 1,
                              'request_time': time.time(),
                              })
     print 'statu code is', res.status_code
@@ -121,7 +121,7 @@ def active_test():
     url = collection_url + '/all/active'
     print url
     res = requests.put(url,
-                       json={'status': 1, 'async_checker': 1,
+                       json={'status': 1, 'scheduler': 1,
                              'request_time': time.time(),
                              })
     print 'statu code is', res.status_code

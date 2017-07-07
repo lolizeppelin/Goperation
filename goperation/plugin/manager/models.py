@@ -25,10 +25,17 @@ class ResponeDetail(PluginTableBase):
                          sa.ForeignKey('agentrespones.agent_id', ondelete="CASCADE", onupdate='RESTRICT'),
                          default=0,
                          nullable=False, primary_key=True)
+    request_id = sa.Column(VARCHAR(36),
+                           sa.ForeignKey('agentrespones.request_id', ondelete="CASCADE", onupdate='RESTRICT'),
+                           nullable=False,
+                           primary_key=True)
     detail_id = sa.Column(INTEGER(unsigned=True), default=0, primary_key=True, nullable=False)
+    resultcode = sa.Column(TINYINT, nullable=False, default=manager_common.RESULT_UNKNOWN)
     result = sa.Column(VARCHAR(manager_common.MAX_DETAIL_RESULT), nullable=False, default='{}')
     __table_args__ = (
+            sa.Index('request_id_index', 'request_id'),
             MyISAMTableBase.__table_args__
+
     )
 
 
@@ -39,6 +46,7 @@ class AgentRespone(PluginTableBase):
                            nullable=False, primary_key=True)
     server_time = sa.Column(INTEGER(unsigned=True), default=int(timeutils.realnow()), nullable=False)
     agent_time = sa.Column(INTEGER(unsigned=True), nullable=False)
+    resultcode = sa.Column(TINYINT, nullable=False, default=manager_common.RESULT_UNKNOWN)
     result = sa.Column(VARCHAR(manager_common.MAX_AGENT_RESULT),
                        nullable=False, default='agent respone rpc request')
     # agent respone
@@ -65,14 +73,13 @@ class AsyncRequest(PluginTableBase):
     finishtime = sa.Column(INTEGER(unsigned=True), default=int(timeutils.realnow()) + 3, nullable=False)
     # request should finish before deadline time
     # if task scheduler find cur time > deadline, it will not check return any more
-    deadline = sa.Column(INTEGER(unsigned=True),
-                         default=int(timeutils.realnow()) + 10, nullable=False)
+    deadline = sa.Column(INTEGER(unsigned=True), default=int(timeutils.realnow())+10, nullable=False)
     # async resopne checker id, means scheduled timer server id
     # 0 means no checker now
-    async_checker = sa.Column(INTEGER(unsigned=True), default=0, nullable=False)
+    scheduler = sa.Column(INTEGER(unsigned=True), default=0, nullable=False)
     # if request finish
     status = sa.Column(BOOLEAN, nullable=False, default=0)
-    # number of agent not resopne
+    resultcode = sa.Column(TINYINT, nullable=False, default=manager_common.RESULT_UNKNOWN)
     result = sa.Column(VARCHAR(manager_common.MAX_REQUEST_RESULT),
                        nullable=False, default='waiting respone')
     # AgentRespone list
@@ -85,7 +92,7 @@ class AsyncRequest(PluginTableBase):
 
 
 class AgentResponeBackLog(PluginTableBase):
-    """request after deadline scheduled timer will upload a AgentRespone log with time out
+    """request after deadline scheduled timer will insert a AgentRespone log with status time out
     if agent respone affter deadline, will get an error primary key error
     at this time, recode into  agentresponebacklogs table
     """
@@ -95,6 +102,7 @@ class AgentResponeBackLog(PluginTableBase):
                            nullable=False, primary_key=True)
     server_time = sa.Column(INTEGER(unsigned=True), default=int(timeutils.realnow()), nullable=False)
     agent_time = sa.Column(INTEGER(unsigned=True), nullable=False)
+    resultcode = sa.Column(TINYINT, nullable=False, default=manager_common.RESULT_UNKNOWN)
     result = sa.Column(VARCHAR(manager_common.MAX_AGENT_RESULT),
                        nullable=False, default='agent respone rpc request')
     status = sa.Column(BOOLEAN, nullable=False, default=0)
@@ -141,8 +149,7 @@ class AllocedPort(PluginTableBase):
 
 class Agent(PluginTableBase):
     agent_id = sa.Column(INTEGER(unsigned=True), nullable=False,
-                         default=1,
-                         primary_key=True)
+                         default=1, primary_key=True)
     agent_type = sa.Column(VARCHAR(64), nullable=False)
     create_time = sa.Column(INTEGER(unsigned=True),
                             default=int(timeutils.realnow()), nullable=False)

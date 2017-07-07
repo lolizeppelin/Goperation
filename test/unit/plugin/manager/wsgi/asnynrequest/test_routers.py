@@ -75,7 +75,7 @@ def update_test(request_id):
     url = collection_url + '/%s' % str(request_id)
     print url
     res = requests.put(url,
-                       json={'status': 1, 'async_checker': 1})
+                       json={'status': 1, 'scheduler': 1})
     print 'statu code is', res.status_code
     print res.text
     session.close()

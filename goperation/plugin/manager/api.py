@@ -4,10 +4,12 @@ from glockredis.context import GlockContext
 
 from simpleutil.config import cfg
 from simpleutil.utils import singleton
+from simpleutil.utils import timeutils
 
 from simpleutil.log import log as logging
 
 
+from goperation.plugin.manager import common as manager_common
 from goperation.plugin.manager.config import manager_group
 from goperation.plugin.manager.config import manager_rabbit_group
 from goperation.plugin.utils import redis
@@ -16,6 +18,7 @@ from simpleservice.plugin.models import GkeyMap
 from simpleservice.ormdb.api import model_query
 from simpleservice.ormdb.api import MysqlDriver
 from simpleservice.rpc.service import RPCClientBase
+from simpleservice.rpc.config import rpc_client_opts
 
 
 LOG = logging.getLogger(__name__)
@@ -110,10 +113,14 @@ def get_client():
     return RPCClient
 
 
+def rpcdeadline(starttime=int(timeutils.realnow())):
+    return starttime + manager_common.RPC_CALL_TIMEOUT * (manager_common.RPC_SEND_RETRY + 1) - 1
+
+
 class mlock(GlockContext):
     """class for global redis lock"""
 
-    def __init__(self, server_list, locktime=10.0, alloctime=1.0):
+    def __init__(self, server_list, locktime=15.0, alloctime=1.0):
         """locktime  lock time  seconds
         alloctime  time of alloc lock  seconds
         """
@@ -124,5 +131,8 @@ class mlock(GlockContext):
 class ManagerRpcClient(RPCClientBase):
     """singleton Rpc client"""
     def __init__(self):
+        CONF.register_cli_opts(rpc_client_opts, manager_rabbit_group)
         super(ManagerRpcClient, self).__init__(CONF[manager_rabbit_group.name],
-                                               timeout=3, retry=1)
+                                               timeout=manager_common.RPC_CALL_TIMEOUT,
+                                               retry=manager_common.RPC_SEND_RETRY)
+        self.rpcdriver.init_timeout_record(session=get_session())

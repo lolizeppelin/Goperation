@@ -61,6 +61,11 @@ def target_alltype(agent_type):
                   namespace=manager_group.name)
 
 
+def target_anyone(agent_type):
+    return Target(topic='%s.%s' % (AGENT, agent_type),
+                  namespace=manager_group.name)
+
+
 def target_server(agent_type, host):
     return Target(topic='%s.%s' % (AGENT, agent_type),
                   server=host,

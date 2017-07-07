@@ -15,10 +15,13 @@ from simpleutil.utils.attributes import validators
 from simpleutil.common.exceptions import InvalidArgument
 from simpleutil.common.exceptions import InvalidInput
 
+
 from simpleservice.ormdb.api import model_query
 from simpleservice.ormdb.api import model_count_with_key
 from simpleservice.ormdb.api import model_autoincrement_id
 from simpleservice.rpc.driver.exceptions import MessagingTimeout
+from simpleservice.rpc.driver.exceptions import ClientSendError
+
 
 from goperation.plugin import utils
 
@@ -34,6 +37,9 @@ from goperation.plugin.manager.api import mlock
 from goperation.plugin.manager.api import get_redis
 from goperation.plugin.manager.api import get_client
 from goperation.plugin.manager.api import get_session
+from goperation.plugin.manager.api import rpcdeadline
+
+from goperation.plugin.manager.rpc.exceptions import RPCResultError
 
 
 from sqlalchemy.exc import OperationalError
@@ -45,22 +51,40 @@ LOG = logging.getLogger(__name__)
 FAULT_MAP = {InvalidArgument: webob.exc.HTTPClientError,
              NoSuchMethod: webob.exc.HTTPNotImplemented,
              MessagingTimeout: webob.exc.HTTPServiceUnavailable,
+             RPCResultError: webob.exc.HTTPNotImplemented,
+             ClientSendError: webob.exc.HTTPNotImplemented,
              }
 
-Idformater = argutils.Idformater(key='agent_id', all_key="all", formatfunc=int)
+Idformater = argutils.Idformater(key='agent_id', magic='all', formatfunc=int)
 
 
 class AgentReuest(contorller.BaseContorller):
 
-    def _all_id(self):
-        id_set = set()
+
+    def __init__(self):
+        self.id_set = set()
         session = get_session(readonly=True)
         query = session.query(Agent.agent_id).filter(Agent.status > manager_common.DELETED)
         # results = query.all()
         # for result in results:
         for result in query:
-            id_set.add(result[0])
-        return id_set
+            self.id_set.add(result[0])
+
+    def _all_id(self):
+        return self.id_set
+
+    def check_agent_id(self, agent_id):
+        if not isinstance(agent_id, set):
+            id_set = set()
+            id_set.add(agent_id)
+            agent_id = id_set
+        # if agent_id is not self.all_id:
+        if agent_id is not self.id_set:
+            session = get_session(readonly=True)
+            agent_filter = and_(Agent.agent_id.in_(agent_id), Agent.status > manager_common.DELETED)
+            id_count = model_count_with_key(session, Agent.agent_id, filter=agent_filter)
+            if id_count != len(agent_id):
+                raise InvalidArgument('Some agent id can not be found')
 
     def index(self, req, body):
         """call buy client"""
@@ -97,15 +121,12 @@ class AgentReuest(contorller.BaseContorller):
     @argutils.Idformater(key='agent_id', formatfunc=int)
     def show(self, req, agent_id, body):
         """call buy client"""
-        if len(agent_id) != 1:
-            raise InvalidArgument('Agent show just for one agent')
-        agent_id = agent_id.pop()
         session = get_session(readonly=True)
         query = model_query(session, Agent)
         agent = query.filter_by(agent_id=agent_id).one_or_none()
         if not agent:
             raise InvalidArgument('Agent_id id:%s can not be found' % agent_id)
-        result = resultutils.results(total=1, pagenum=0, msg='Show agent success')
+        result = resultutils.results(total=1, pagenum=0, result='Show agent success')
         result['data'].append(dict(agent_id=agent.agent_id,
                                    host=agent.host,
                                    status=agent.status,
@@ -114,63 +135,40 @@ class AgentReuest(contorller.BaseContorller):
                                    ))
         return result
 
-    def online(self, req, body):
-        """call buy agent
-        when a agent start, it will call online to show it's ipaddr
-        and get agent_id from gcenter
-        """
-        try:
-            host = validators['type:hostname'](body.pop('host'))
-            agent_type = body.pop('agent_type', 'nonetype')
-            agent_ipaddr = validators['type:ip_address'](body.pop('agent_ipaddr'))
-        except KeyError as e:
-            raise InvalidArgument('Can not find argument: %s' % e.message)
-        except ValueError as e:
-            raise InvalidArgument('Argument value type error: %s' % e.message)
-        except InvalidInput as e:
-            raise InvalidArgument(e.message)
+    @argutils.Idformater(key='agent_id', formatfunc=int)
+    def status(self, req, agent_id, body):
+        """get status from agent, not from database"""
         session = get_session(readonly=True)
-        query = model_query(session, Agent,
-                            filter=(and_(Agent.status > manager_common.DELETED,
-                                         Agent.agent_type == agent_type, Agent.host == host)))
-        with mlock(targetutils.lock_all_agent) as lock:
-            agent = query.one_or_none()
-            if not agent:
-                LOG.info('Online called but no Agent found')
-                ret = {'agent_id': None}
-            else:
-                LOG.info('Agent online called. agent_id:%(agent_id)s, type:%(agent_type)s, '
-                         'host:%(host)s, ipaddr:%(ipaddr)s' %
-                         {'agent_id': agent.agent_id,
-                          'agent_type': agent_type,
-                          'host': host,
-                          'ipaddr': agent_ipaddr})
-
-                lock.degrade([targetutils.AgentLock(agent.agent_id)])
-                ret = {'agent_id': agent.agent_id}
-                _cache_server = get_redis()
-                host_online_key = targetutils.host_online_key(agent.agent_id)
-                exist_host_ipaddr = _cache_server.get(host_online_key)
-                if exist_host_ipaddr:
-                    if exist_host_ipaddr != agent_ipaddr:
-                        LOG.error('Host call online with %s, but %s alreday exist on redis' %
-                                  (agent_ipaddr, exist_host_ipaddr))
-                        raise InvalidArgument('Host %s with ipaddr %s alreday eixst' % (host, exist_host_ipaddr))
-                    # key exist, set new expire time
-                    if not _cache_server.expire(host_online_key,
-                                                manager_common.ONLINE_EXIST_TIME):
-                        if not _cache_server.set(host_online_key, agent_ipaddr,
-                                                 ex=manager_common.ONLINE_EXIST_TIME, nx=True):
-                            raise InvalidArgument('Another agent login with same host or someone set key %s' %
-                                                  host_online_key)
-                else:
-                    if not _cache_server.set(host_online_key, agent_ipaddr,
-                                             ex=manager_common.ONLINE_EXIST_TIME, nx=True):
-                        raise InvalidArgument('Another agent login with same host or someone set key %s' %
-                                              host_online_key)
-            result = resultutils.results(total=1, pagenum=0, msg='Online agent function run success')
-            result['data'].append(ret)
-            return result
+        rpc = get_client()
+        _cache_server = get_redis()
+        query = model_query(session, Agent, filter=Agent.agent_id == agent_id)
+        agent = query.one_or_none()
+        if not agent:
+            raise InvalidArgument('Agent_id id:%s can not be found' % agent_id)
+        host_online_key = targetutils.host_online_key(agent.agent_id)
+        # make sure agent is online
+        agent_ipaddr = _cache_server.get(host_online_key)
+        if agent_ipaddr is None:
+            raise ClientSendError(str(agent_id), 'Can not get status from offline agent')
+        status_agent = rpc.call(targetutils.target_agent(agent),
+                                ctxt = {'deadline': rpcdeadline()},
+                                msg = {'method': 'status_agent',
+                                       'args': {'agent_id': agent.agent_id,
+                                                'agent_type': agent.agent_type,
+                                                'host': agent.host,
+                                                'ipaddr': agent_ipaddr}.update(body)
+                                       })
+        if not status_agent:
+            raise RPCResultError('status_agent result is None')
+        result = resultutils.results(total=1, pagenum=0,
+                                     resultcode=status_agent.pop('resultcode'),
+                                     result=status_agent.pop('result'),
+                                     data=[dict(agent_id=agent.agent_id,
+                                                host=agent.host,
+                                                status=agent.status,
+                                                ports_range=agent.ports_range).update(status_agent)
+                                           ])
+        return result
 
     def create(self, req, body):
         """call bay agent"""
@@ -207,13 +205,14 @@ class AgentReuest(contorller.BaseContorller):
                 new_agent_id = model_autoincrement_id(session, Agent.agent_id)
                 new_agent.agent_id = new_agent_id
                 session.add(new_agent)
-                result = resultutils.results(total=1, pagenum=0, msg='Create agent success',
+                result = resultutils.results(total=1, pagenum=0, result='Create agent success',
                                              data=[dict(agent_id=new_agent.agent_id,
                                                         host=new_agent.host,
                                                         status=new_agent.status,
                                                         ports_range=new_agent.ports_range,
                                                         endpoints=endpoints)
                                                    ])
+                self.id_set.add(new_agent.agent_id)
                 return result
 
     @Idformater
@@ -248,7 +247,7 @@ class AgentReuest(contorller.BaseContorller):
                 # TODO rpc call update
                 query.update(data)
             result = resultutils.results(total=len(agent_id), pagenum=0,
-                                         msg='Update agent success',
+                                         result='Update agent success',
                                          data=[body, ])
             return result
 
@@ -259,26 +258,51 @@ class AgentReuest(contorller.BaseContorller):
     @Idformater
     def upgrade(self, req, agent_id, body):
         """call by client, and asyncrequest"""
-        self.create_asyncrequest(req, body)
+        md5 = body.pop('md5', None)
+        crc32 = body.pop('crc32', None)
+        url = body.pop('url', None)
+        if not crc32 and not md5 and not url:
+            raise InvalidArgument('update file must be set, need md5 or crc32 or url')
+        force = body.pop('force', False)
         session = get_session(readonly=True)
+        rpc = get_client()
         with mlock(targetutils.lock_all_agent) as lock:
-            query = model_query(session, Agent).filter(Agent.status > manager_common.DELETED)
+            self.check_agent_id(agent_id)
             if len(agent_id) < len(self.all_id):
-                query = query.filter(Agent.agent_id.in_(agent_id))
                 lock.degrade([targetutils.AgentLock(_id) for _id in agent_id])
-            # agents = query.all()
-        return {'msg': 'upgrade', 'data': agent_id}
+            rpc.cast(targetutils.target_all(),
+                     ctxt = {'deadline': rpcdeadline()},
+                     msg = {'method': 'upgrade_agent',
+                            'args': {'agent_id': agent_id,
+                                     'md5': md5,
+                                     'crc32': crc32,
+                                     'force': force}
+                            })
+            asyncrequest = self.create_asyncrequest(req, body)
+            asyncrequest.result = \
+                'upgrade agent method has send, wait %d agent respone' % len(agent_id)
+            session.add(asyncrequest)
+            session.flush()
+            rpc.cast(targetutils.target_anyone(manager_common.SCHEDULER),
+                     ctxt = {'finishtime':asyncrequest.finishtime,
+                             'deadline': asyncrequest.deadline},
+                     msg = {'method': 'async_request_check',
+                            'args': {'domain': '',
+                                     'request_id': asyncrequest.request_id,
+                                     'agent_id': agent_id}})
+            return resultutils.results(result=asyncrequest.result)
+
 
     @argutils.Idformater(key='agent_id', formatfunc=int)
     def delete(self, req, agent_id, body):
         """call buy client"""
-        if len(agent_id) != 1:
-            raise InvalidArgument('Agent delete just for one agent')
-        agent_id = agent_id.pop()
+        # if force is true
+        # will not notify agent, just delete agent from database
         force = body.get('force', False)
-        rpc = get_client()
+        if not force:
+            _cache_server = get_redis()
+            rpc = get_client()
         session = get_session(readonly=True)
-        _cache_server = get_redis()
         query = model_query(session, Agent,
                             filter=and_(Agent.agent_id == agent_id,
                                         Agent.status > manager_common.DELETED))
@@ -289,38 +313,116 @@ class AgentReuest(contorller.BaseContorller):
                     raise InvalidArgument('Can not find agent with %d, not exist or alreay deleted' % agent_id)
                 if agent.entiy > 0:
                     raise InvalidArgument('Can not delete agent, entiy not 0')
-                host_online_key = targetutils.host_online_key(agent.agent_id)
-                agent_ipaddr = _cache_server.get(host_online_key)
-                delete_ret = rpc.call(targetutils.target_agent(agent), ctxt={},
-                                      msg={
-                                          'method': 'delete',
-                                          'args': {'agent_id': agent.agent_id,
-                                                   'agent_type': agent.agent_type,
-                                                   'host': agent.host,
-                                                   'ipaddr': agent_ipaddr}
-                                      })
-                if not delete_ret.get('result'):
-                    if not force:
-                        return resultutils.results(total=1, pagenum=0, msg=delete_ret.get('message'), result=1)
-                    else:
-                        query.update({'status': manager_common.DELETED})
-                        LOG.warning('Delete rpc call error:%s, delete agent in force' % delete_ret.get('message'))
-                msg = 'Delete agent success'
+                if not force:
+                    host_online_key = targetutils.host_online_key(agent.agent_id)
+                    # make sure agent is online
+                    agent_ipaddr = _cache_server.get(host_online_key)
+                    if agent_ipaddr is None:
+                        raise ClientSendError(str(agent_id), 'Can not delete offline agent, try force')
+                    # tell agent wait delete
+                    delete_agent_precommit = rpc.call(targetutils.target_agent(agent),
+                                                      ctxt = {'deadline': rpcdeadline()},
+                                                      msg = {'method': 'delete_agent_precommit',
+                                                             'args': {'agent_id': agent.agent_id,
+                                                                      'agent_type': agent.agent_type,
+                                                                      'host': agent.host,
+                                                                      'ipaddr': agent_ipaddr}
+                                                             })
+                    if not delete_agent_precommit:
+                        raise RPCResultError('delete_agent_precommit result is None')
+                    if delete_agent_precommit.get('resultcode') != manager_common.RESULT_SUCCESS:
+                        return resultutils.results(total=1, pagenum=0,
+                                                   result=delete_agent_precommit.get('result'), resultcode=1)
+                # Mark agent deleted
+                query.update({'status': manager_common.DELETED})
+                # Delete endpoint of agent
                 query = model_query(session, AgentEndpoint,
                                     filter=AgentEndpoint.agent_id == agent_id)
                 try:
                     query.delete()
-                except (OperationalError, DBError) as e:
+                except OperationalError as e:
                     LOG.error("Delete agent endpoint error:%d, %s" %
                               (e.orig[0], e.orig[1].replace("'", '')))
-                    msg += ' delete endpoint OperationalError'
+                    raise
                 except DBError as e:
                     LOG.error("Delete agent endpoint DBError:%s" % e.message)
-                    msg += ' delete endpoint DBError'
-                result = resultutils.results(total=1, pagenum=0, msg=msg,
+                    raise
+                if not force:
+                    # tell agent delete itself
+                    delete_agent_postcommit = rpc.call(targetutils.target_agent(agent),
+                                                       ctxt = {'deadline': rpcdeadline()},
+                                                       msg = {'method': 'delete_agent_postcommit',
+                                                              'args':{'agent_id': agent.agent_id,
+                                                                      'agent_type': agent.agent_type,
+                                                                      'host': agent.host,
+                                                                      'ipaddr': agent_ipaddr}
+                                                              })
+                    if not delete_agent_postcommit:
+                        raise RPCResultError('delete_agent_postcommit result is None')
+                    if delete_agent_postcommit.get('resultcode') != manager_common.RESULT_SUCCESS:
+                        raise RPCResultError('Call agent delete fail: ' + delete_agent_postcommit.get('result'))
+                result = resultutils.results(total=1, pagenum=0, result='Delete agent success',
                                              data=[dict(agent_id=agent.agent_id,
                                                         host=agent.host,
                                                         status=agent.status,
                                                         ports_range=agent.ports_range)
                                                    ])
                 return result
+
+    def online(self, req, body):
+        """call buy agent
+        when a agent start, it will call online to show it's ipaddr
+        and get agent_id from gcenter
+        """
+        try:
+            host = validators['type:hostname'](body.pop('host'))
+            agent_type = body.pop('agent_type', 'nonetype')
+            agent_ipaddr = validators['type:ip_address'](body.pop('agent_ipaddr'))
+        except KeyError as e:
+            raise InvalidArgument('Can not find argument: %s' % e.message)
+        except ValueError as e:
+            raise InvalidArgument('Argument value type error: %s' % e.message)
+        except InvalidInput as e:
+            raise InvalidArgument(e.message)
+        session = get_session(readonly=True)
+        _cache_server = get_redis()
+        query = model_query(session, Agent,
+                            filter=(and_(Agent.status > manager_common.DELETED,
+                                         Agent.agent_type == agent_type, Agent.host == host)))
+        # with mlock(targetutils.lock_all_agent) as lock:
+        agent = query.one_or_none()
+        if not agent:
+            LOG.info('Online called but no Agent found')
+            ret = {'agent_id': None}
+        else:
+            LOG.info('Agent online called. agent_id:%(agent_id)s, type:%(agent_type)s, '
+                     'host:%(host)s, ipaddr:%(ipaddr)s' %
+                     {'agent_id': agent.agent_id,
+                      'agent_type': agent_type,
+                      'host': host,
+                      'ipaddr': agent_ipaddr})
+            # lock.degrade([targetutils.AgentLock(agent.agent_id)])
+            ret = {'agent_id': agent.agent_id}
+            host_online_key = targetutils.host_online_key(agent.agent_id)
+            exist_host_ipaddr = _cache_server.get(host_online_key)
+            if exist_host_ipaddr is not None:
+                if exist_host_ipaddr != agent_ipaddr:
+                    LOG.error('Host call online with %s, but %s alreday exist on redis' %
+                              (agent_ipaddr, exist_host_ipaddr))
+                    raise InvalidArgument('Host %s with ipaddr %s alreday eixst' % (host, exist_host_ipaddr))
+                # key exist, set new expire time
+                if not _cache_server.expire(host_online_key,
+                                            manager_common.ONLINE_EXIST_TIME):
+                    if not _cache_server.set(host_online_key, agent_ipaddr,
+                                             ex=manager_common.ONLINE_EXIST_TIME, nx=True):
+                        raise InvalidArgument('Another agent login with same host or someone set key %s' %
+                                              host_online_key)
+            else:
+                if not _cache_server.set(host_online_key, agent_ipaddr,
+                                         ex=manager_common.ONLINE_EXIST_TIME, nx=True):
+                    raise InvalidArgument('Another agent login with same host or someone set key %s' %
+                                          host_online_key)
+        result = resultutils.results(total=1, pagenum=0, result='Online agent function run success')
+        result['data'].append(ret)
+        self.id_set.remove(agent.agent_id)
+        return result

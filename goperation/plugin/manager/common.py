@@ -1,4 +1,9 @@
+from simpleservice.common import *
+
 ENV_REQUEST_ID = 'goperation.request_id'
+
+RPC_CALL_TIMEOUT = 3
+RPC_SEND_RETRY = 1
 
 # agent tpye
 AGENT = 'agent'
@@ -25,3 +30,5 @@ STATUS_UNKNOWN = -1
 STATUS_OVER_TIME = 0
 STATUS_ALL_SUCCESS = 2
 STATUS_NOT_ALL_SUCCESS = 1
+
+RESULT_ERROR_EXT = RESULT_ERROR + 1

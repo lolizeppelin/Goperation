@@ -6,6 +6,7 @@ from simpleutil.common.exceptions import InvalidArgument
 
 from goperation.plugin.manager.models import AsyncRequest
 from goperation.plugin.manager import common as manager_common
+from goperation.plugin.manager.api import rpcdeadline
 
 
 MAX_ROW_PER_REQUEST = 100
@@ -24,22 +25,22 @@ class BaseContorller(argutils.IdformaterBase):
         except TypeError:
             raise InvalidArgument('request_time is not int of time or no request_time found')
         diff_time = request_time - client_request_time
-        if abs(diff_time) > 3000:
+        if abs(diff_time) > 5:
             raise InvalidArgument('The diff time between send and receive is %d' % diff_time)
         finishtime = body.get('finishtime', None)
         if finishtime:
-            if finishtime - client_request_time < 3:
-                raise InvalidArgument('Job can not be finished in 3 second')
             finishtime = int(finishtime) + diff_time
         else:
             finishtime = request_time + 4
+        if finishtime - request_time < 3:
+            raise InvalidArgument('Job can not be finished in 3 second')
         deadline = body.get('deadline', None)
         if deadline:
             deadline = int(deadline) + diff_time
-            if deadline - finishtime < 3:
-                raise InvalidArgument('Job deadline must at least 3 second after finishtime')
         else:
-            deadline = finishtime + 5
+            deadline = rpcdeadline(deadline)
+        if deadline - finishtime < 3:
+            raise InvalidArgument('Job deadline must at least 3 second after finishtime')
         request_id = uuidutils.generate_uuid()
         req.environ[manager_common.ENV_REQUEST_ID] = request_id
         new_request = AsyncRequest(request_id=request_id,

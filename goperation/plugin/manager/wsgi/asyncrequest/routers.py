@@ -21,5 +21,10 @@ class Routers(router.RoutersBase):
                                        member_prefix='/{request_id}',
                                        collection_actions=COLLECTION_ACTIONS,
                                        member_actions=MEMBER_ACTIONS)
-        # collection.member.link(rel='active', action='active', method='POST')
+        # get details of agent resopne
+        collection.member.link('details', method='GET')
+        # agent post respone
+        collection.member.link('respone', method='POST')
+        # scheduler post overtime
+        collection.member.link('overtime', method='POST')
         return collection
