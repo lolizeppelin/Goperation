@@ -51,6 +51,14 @@ def host_online_key(agent_id):
     return '%s-online-%s-%d' % (CONF[manager_group.name].redis_key_prefix, AGENT, agent_id)
 
 
+def async_request_key(request_id, agent_id):
+    return '%s-asyncrequest-%s-%d' % (CONF[manager_group.name].redis_key_prefix, request_id, agent_id)
+
+
+def async_request_pattern(request_id):
+    return '%s-asyncrequest-%s-*' % (CONF[manager_group.name].redis_key_prefix, request_id)
+
+
 def target_all():
     return Target(topic='%s.*' % AGENT,
                   namespace=manager_group.name)
