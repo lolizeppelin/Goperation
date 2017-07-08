@@ -157,7 +157,7 @@ class Agent(PluginTableBase):
                             default=int(timeutils.realnow()), nullable=False)
     host = sa.Column(VARCHAR(plugin_common.MAX_HOST_NAME_SIZE), nullable=False)
     # 0 not active, 1 active  -1 mark delete
-    status = sa.Column(TINYINT, server_default='0', nullable=False)
+    status = sa.Column(TINYINT, default=manager_common.UNACTIVE, nullable=False)
     # cpu number
     cpu = sa.Column(INTEGER(unsigned=True), server_default='0', nullable=False)
     # memory can be used
