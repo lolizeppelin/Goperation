@@ -82,6 +82,8 @@ class AsyncRequest(PluginTableBase):
     resultcode = sa.Column(TINYINT, nullable=False, default=manager_common.RESULT_UNKNOWN)
     result = sa.Column(VARCHAR(manager_common.MAX_REQUEST_RESULT),
                        nullable=False, default='waiting respone')
+    # write agent respone into database
+    persist = sa.Column(BOOLEAN, nullable=False, default=1)
     # AgentRespone list
     respones = orm.relationship(AgentRespone, backref='wsgirequest', lazy='select',
                                 cascade='delete, delete-orphan')
