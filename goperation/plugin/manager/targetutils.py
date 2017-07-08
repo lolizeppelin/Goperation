@@ -47,6 +47,10 @@ class AgentLock(LockServiceBase):
         return None
 
 
+def agent_all_id():
+    return '%s-%s-id-all' % (CONF[manager_group.name].redis_key_prefix, AGENT)
+
+
 def host_online_key(agent_id):
     return '%s-online-%s-%d' % (CONF[manager_group.name].redis_key_prefix, AGENT, agent_id)
 
