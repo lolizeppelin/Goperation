@@ -3,17 +3,21 @@ import webob.exc
 from sqlalchemy.sql import or_
 from sqlalchemy.sql import and_
 
+from redis.exceptions import RedisError
+
 from simpleutil.utils import argutils
 from simpleutil.utils import jsonutils
-from simpleutil.utils import timeutils
+# from simpleutil.utils import timeutils
 from simpleutil.log import log as logging
 
 from simpleutil.common.exceptions import InvalidArgument
 
 from simpleservice.ormdb.api import model_query
 
+from goperation.plugin.manager import targetutils
 from goperation.plugin.manager import common as manager_common
 from goperation.plugin.manager.api import get_session
+from goperation.plugin.manager.api import get_redis
 from goperation.plugin.manager.models import AsyncRequest
 from goperation.plugin.manager.models import AgentRespone
 from goperation.plugin.manager.models import ResponeDetail
@@ -79,14 +83,26 @@ class AsyncWorkRequest(contorller.BaseContorller):
     @Idformater
     def show(self, req, request_id, body):
         request_id = request_id.pop()
+        agents = body.get('agents', True)
+        details = body.get('details', False)
         session = get_session(readonly=True)
         query = model_query(session, AsyncRequest)
         request = query.filter_by(request_id=request_id).first()
         if not request:
             raise InvalidArgument('Request id:%s can not be found' % request_id)
-        agents = body.get('agents', True)
-        details = body.get('details', False)
-        return resultutils.async_request(request, agents, details)
+        if request.persist:
+            return resultutils.async_request(request, agents, details)
+        else:
+            ret_dict = resultutils.async_request(request)
+            _cache_server = get_redis()
+            key_pattern = targetutils.async_request_pattern(request_id)
+            respone_keys = _cache_server.keys(key_pattern)
+            if not _cache_server.exists(respone_keys):
+                return ret_dict
+            agent_respones = _cache_server.mget(respone_keys)
+            for agent_respone in agent_respones:
+                ret_dict['respones'].append(jsonutils.loads(agent_respone))
+            return ret_dict
 
     @Idformater
     def details(self, req, request_id, body):
@@ -141,11 +157,11 @@ class AsyncWorkRequest(contorller.BaseContorller):
                 unfinish_request.result = result
                 data['result'] = result
             unfinish_request.update(data)
-        return resultutils.results(result='Request %s update success' %  request_id)
+        return resultutils.results(result='Request %s update success' % request_id)
 
     @Idformater
     def respone(self, req, request_id, body):
-        """agent report api"""
+        """agent report respone api"""
         try:
             agent_id = body.get('agent_id')
             agent_time = body.get('agent_time')
@@ -153,72 +169,95 @@ class AsyncWorkRequest(contorller.BaseContorller):
             result = body.get('result')
             status = body.get('status')
             details = body.get('details')
+            persist = body.get('persist', 1)
+            expire = body.get('persist', 30)
         except KeyError as e:
             raise InvalidArgument('Agent respone need key %s' % e.message)
-        AgentRespone(request_id=request_id,
-                     agent_id=agent_id,
-                     agent_time=agent_time,
-                     resultcode=resultcode,
-                     result=result,
-                     status=status,
-                     details=[ResponeDetail(agent_id=agent_id,
-                                            request_id=request_id,
-                                            detail_id=detail['detail'],
-                                            resultcode=detail['resultcode'],
-                                            result=detail['result'] if isinstance(detail['result'], basestring)
-                                            else jsonutils.dumps(detail['result']))
-                              for detail in details])
+        _cache_server = get_redis()
         session = get_session()
-        try:
-            session.add(AgentRespone)
-        except DBDuplicateEntry:
-            LOG.warning('Agent %d respone %s get DBDuplicateEntry error' % (agent_id, request_id))
-            query = model_query(session, AgentRespone,
-                                filter=and_(AgentRespone.request_id == request_id,
-                                            AgentRespone.agent_id == agent_id))
-            with session.begin(subtransactions=True):
-                respone = query.one()
-                if respone.status != manager_common.STATUS_OVER_TIME:
-                    LOG.error('Agent %d respone %s with another agent with same agent_id' % (agent_id, request_id))
-                    raise
-                query.update({'server_time': timeutils.realnow(),
-                              'agent_time': agent_time,
-                              'resultcode': resultcode,
-                              'result': result,
-                              'status': status,
-                              'details': [ResponeDetail(agent_id=agent_id,
-                                                        request_id=request_id,
-                                                        detail_id=detail['detail'],
-                                                        resultcode=detail['resultcode'],
-                                                        result=detail['result']
-                                                        if isinstance(detail['result'], basestring)
-                                                        else jsonutils.dumps(detail['result']))
-                                          for detail in details]
-                              })
+        data = dict(request_id=request_id,
+                    agent_id=agent_id,
+                    agent_time=agent_time,
+                    resultcode=resultcode,
+                    result=result,
+                    status=status,
+                    details=[dict(agent_id=agent_id,
+                                  request_id=request_id,
+                                  detail_id=detail['detail'],
+                                  resultcode=detail['resultcode'],
+                                  result=detail['result'] if isinstance(detail['result'], basestring)
+                                  else jsonutils.dumps(detail['result']))
+                             for detail in details])
+        if persist:
+            data['details'] = [ResponeDetail().update(detail) for detail in data.pop(details)]
+            # data['details']
+            try:
+                session.add(AgentRespone().update(data))
+            except DBDuplicateEntry:
+                LOG.warning('Agent %d respone %s get DBDuplicateEntry error' % (agent_id, request_id))
+                query = model_query(session, AgentRespone,
+                                    filter=and_(AgentRespone.request_id == request_id,
+                                                AgentRespone.agent_id == agent_id))
+                with session.begin(subtransactions=True):
+                    respone = query.one()
+                    if respone.status != manager_common.STATUS_OVER_TIME:
+                        result = 'Agent %d respone %s fail,another agent with same agent_id in database' % \
+                                 (agent_id, request_id)
+                        LOG.error(result)
+                        return resultutils.results(result=result,
+                                                   resultcode=manager_common.RESULT_ERROR)
+                    query.update(data)
+        else:
+            respone_key = targetutils.async_request_key(request_id, agent_id)
+            try:
+                if not _cache_server.set(respone_key, jsonutils.dumps(data), ex=expire, nx=True):
+                    LOG.warning('Scheduler set agent overtime to redis get a Duplicate Entry, Agent responed?')
+                    respone = jsonutils.loads(_cache_server.get(respone_key))
+                    if respone.get('status') != manager_common.STATUS_OVER_TIME:
+                        result = 'Agent %d respone %s fail,another agent ' \
+                                 'with same agent_id in redis' % (agent_id, request_id)
+                        LOG.error(result)
+                        return resultutils.results(result=result,resultcode=manager_common.RESULT_ERROR)
+                    _cache_server.set(respone_key, jsonutils.dumps(data), ex=expire, nx=False)
+            except RedisError as e:
+                LOG.error('Scheduler set agent overtime to redis get RedisError %s: %s' % (e.__class__.__name__,
+                                                                                           e.message))
+                result = 'Agent %d respne %s fail, write to redis fail' % \
+                         (agent_id, request_id)
+                return resultutils.results(result=result,
+                                           resultcode=manager_common.RESULT_ERROR)
         return resultutils.results(result='Agent %d Post respone of %s success' % (agent_id, request_id))
 
     @Idformater
     def overtime(self, req, request_id, body):
         """agent not resopne, async checker send a overtime respone"""
-        try:
-            agents = body.get('agents')
-            agent_time = body.get('agent_time')
-            scheduler = body.get('scheduler')
-        except KeyError as e:
-            raise InvalidArgument('Agent respone need key %s' % e.message)
-        # TODO check argverment
+        agents = body.get('agents')
+        agent_time = body.get('agent_time')
+        scheduler = body.get('scheduler')
+        persist = body.get('persist', 1)
+        expire = body.get('expire', 30)
         session = get_session()
+        _cache_server = get_redis()
         for agent_id in agents:
-            AgentRespone(request_id=request_id,
-                         agent_id=agent_id,
-                         agent_time=agent_time,
-                         resultcode=manager_common.RESULT_UNKNOWN,
-                         result='Agent respone overtime, report by Scheduler:%d' % scheduler,
-                         status=manager_common.STATUS_OVER_TIME)
-            try:
-                session.add(AgentRespone)
-            except DBDuplicateEntry:
-                LOG.warning('Scheduler set agent overtime get a DBDuplicateEntry, Agent responed?')
-            except DBError as e:
-                LOG.error('Scheduler set agent overtime get DBError %s: %s' % (e.__class__.__name__, e.message))
-        return resultutils.results(result='Scheduler Post overtime success')
+            data = dict(request_id=request_id,
+                        agent_id=agent_id,
+                        agent_time=agent_time,
+                        resultcode=manager_common.RESULT_UNKNOWN,
+                        result='Agent respone overtime, report by Scheduler:%d' % scheduler,
+                        status=manager_common.STATUS_OVER_TIME)
+            if persist:
+                try:
+                    session.add(AgentRespone().update(data))
+                except DBDuplicateEntry:
+                    LOG.warning('Scheduler set agent overtime get a DBDuplicateEntry, Agent responed?')
+                except DBError as e:
+                    LOG.error('Scheduler set agent overtime get DBError %s: %s' % (e.__class__.__name__, e.message))
+            else:
+                respone_key = targetutils.async_request_key(request_id, agent_id)
+                try:
+                     if not _cache_server.set(respone_key, jsonutils.dumps(data), ex=expire, nx=True):
+                        LOG.warning('Scheduler set agent overtime to redis get a Duplicate Entry, Agent responed?')
+                except RedisError as e:
+                    LOG.error('Scheduler set agent overtime to redis get RedisError %s: %s' % (e.__class__.__name__,
+                                                                                               e.message))
+        return resultutils.results(result='Scheduler post agent overtime success')
