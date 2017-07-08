@@ -18,6 +18,9 @@ class BaseContorller(argutils.IdformaterBase):
     def create_asyncrequest(req, body):
         """async request use this to create a new request"""
         request_time = int(timeutils.realnow())
+        persist = body.get('persist', 1)
+        if persist not in (0, 1):
+            raise InvalidArgument('Async argv persist not in 0, 1')
         try:
             client_request_time = int(body.get('request_time'))
         except KeyError:
@@ -44,7 +47,8 @@ class BaseContorller(argutils.IdformaterBase):
         request_id = uuidutils.generate_uuid()
         req.environ[manager_common.ENV_REQUEST_ID] = request_id
         new_request = AsyncRequest(request_id=request_id,
-                                  request_time=request_time,
-                                  finishtime=finishtime,
-                                  deadline=deadline)
+                                   request_time=request_time,
+                                   finishtime=finishtime,
+                                   deadline=deadline,
+                                   persist=persist)
         return new_request
