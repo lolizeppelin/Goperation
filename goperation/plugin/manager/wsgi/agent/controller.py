@@ -201,7 +201,7 @@ class AgentReuest(contorller.BaseContorller):
         if not force:
             _cache_server = get_redis()
             rpc = get_client()
-        session = get_session(readonly=True)
+        session = get_session()
         query = model_query(session, Agent,
                             filter=and_(Agent.agent_id == agent_id,
                                         Agent.status > manager_common.DELETED))
@@ -309,7 +309,7 @@ class AgentReuest(contorller.BaseContorller):
     @Idformater
     def update(self, req, agent_id, body):
         """call by agent"""
-        session = get_session(readonly=True)
+        session = get_session()
         with mlock(targetutils.lock_all_agent) as lock:
             query = model_query(session, Agent, filter=(Agent.status > manager_common.DELETED))
             if len(agent_id) < len(self.all_id):
@@ -331,7 +331,7 @@ class AgentReuest(contorller.BaseContorller):
         """call buy client"""
         _cache_server = get_redis()
         rpc = get_client()
-        session = get_session(readonly=True)
+        session = get_session()
         query = model_query(session, Agent,
                             filter=and_(Agent.agent_id == agent_id,
                                         Agent.status > manager_common.DELETED))
