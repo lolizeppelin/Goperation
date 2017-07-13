@@ -2,6 +2,7 @@ from simpleservice.wsgi import router
 from simpleservice.wsgi.middleware import controller_return_response
 
 from goperation.plugin.manager.wsgi.agent import controller
+from goperation.plugin.manager import common as manager_common
 
 COLLECTION_ACTIONS = ['index', 'create']
 MEMBER_ACTIONS = ['show', 'update', 'delete']
@@ -9,7 +10,7 @@ MEMBER_ACTIONS = ['show', 'update', 'delete']
 
 class Routers(router.RoutersBase):
 
-    resource_name = 'agent'
+    resource_name = manager_common.AGENT
     collection_name = resource_name + 's'
 
     def append_routers(self, mapper, routers):
