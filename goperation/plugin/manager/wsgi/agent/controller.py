@@ -441,11 +441,11 @@ class AgentReuest(contorller.BaseContorller):
             ret = {'agent_id': None}
         else:
             LOG.info('Agent online called. agent_id:%(agent_id)s, type:%(agent_type)s, '
-                     'host:%(host)s, ipaddr:%(ipaddr)s' %
+                     'host:%(host)s, ipaddr:%(agent_ipaddr)s' %
                      {'agent_id': agent.agent_id,
                       'agent_type': agent_type,
                       'host': host,
-                      'ipaddr': agent_ipaddr})
+                      'agent_ipaddr': agent_ipaddr})
             # lock.degrade([targetutils.AgentLock(agent.agent_id)])
             ret = {'agent_id': agent.agent_id, 'status': agent.status}
             host_online_key = targetutils.host_online_key(agent.agent_id)
