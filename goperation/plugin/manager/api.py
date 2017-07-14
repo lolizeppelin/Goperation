@@ -131,7 +131,7 @@ class mlock(GlockContext):
 class ManagerRpcClient(RPCClientBase):
     """singleton Rpc client"""
     def __init__(self):
-        CONF.register_cli_opts(rpc_client_opts, manager_rabbit_group)
+        CONF.register_opts(rpc_client_opts, manager_rabbit_group)
         super(ManagerRpcClient, self).__init__(CONF[manager_rabbit_group.name],
                                                timeout=manager_common.RPC_CALL_TIMEOUT,
                                                retry=manager_common.RPC_SEND_RETRY)
