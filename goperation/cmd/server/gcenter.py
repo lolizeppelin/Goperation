@@ -47,8 +47,8 @@ def configure(config_files=None):
             for route in CONF[endpoint_group.name].routes:
                 plugin.EXTEND_ROUTES.append(importutils.import_class(route))
 
-    paste_fild_path = find_paste_abs(CONF[gcenter_group.name])
-    return gcenter_group.name, paste_fild_path
+    paste_file_path = find_paste_abs(CONF[gcenter_group.name])
+    return gcenter_group.name, paste_file_path
 
 
 def run(config_files):
@@ -58,4 +58,4 @@ def run(config_files):
     wsgi_server = LauncheWsgiServiceBase(name, app)
     wsgi_wrapper = ServerWrapper(wsgi_server, CONF[name].wsgi_process)
     servers.append(wsgi_wrapper)
-    launch(servers, CONF.user, CONF.group)
+    launch(servers, CONF[name].user, CONF[name].group)
