@@ -12,7 +12,6 @@ from simpleutil.log import log as logging
 from goperation.plugin.manager import common as manager_common
 from goperation.plugin.manager.config import manager_group
 from goperation.plugin.manager.config import manager_rabbit_group
-from goperation.plugin.utils import redis
 
 from simpleservice.plugin.models import GkeyMap
 from simpleservice.ormdb.api import model_query
@@ -20,6 +19,7 @@ from simpleservice.ormdb.api import MysqlDriver
 from simpleservice.rpc.service import RPCClientBase
 from simpleservice.rpc.config import rpc_client_opts
 
+from glockredis.client import ApiRedis
 
 LOG = logging.getLogger(__name__)
 
@@ -88,7 +88,7 @@ def init_redis():
             if SERVER_ID is None:
                 init_server_id()
             conf = CONF[manager_group.name]
-            rs = redis(SERVER_ID, conf)
+            rs = ApiRedis(SERVER_ID, conf)
             rs.start(conf.redis_connect_timeout)
             GLockRedis = rs
 
