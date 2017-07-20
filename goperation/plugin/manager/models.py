@@ -49,11 +49,6 @@ class AgentRespone(PluginTableBase):
     resultcode = sa.Column(TINYINT, nullable=False, default=manager_common.RESULT_UNKNOWN)
     result = sa.Column(VARCHAR(manager_common.MAX_AGENT_RESULT),
                        nullable=False, default='agent respone rpc request')
-    # agent respone
-    # if status -1 means no resopne and  no async checker check it
-    # if status is 0, means this respone build by async resopne checker
-    # if status > 0 means respone by agent
-    status = sa.Column(INTEGER, nullable=False, default=manager_common.STATUS_UNKNOWN)
     details = orm.relationship(ResponeDetail, backref='agentrespone', lazy='select',
                                cascade='delete')
     __table_args__ = (
@@ -158,16 +153,16 @@ class Agent(PluginTableBase):
     host = sa.Column(VARCHAR(plugin_common.MAX_HOST_NAME_SIZE), nullable=False)
     # 0 not active, 1 active  -1 mark delete
     status = sa.Column(TINYINT, default=manager_common.UNACTIVE, nullable=False)
-    # cpu number
+    # total cpu number
     cpu = sa.Column(INTEGER(unsigned=True), server_default='0', nullable=False)
-    # memory can be used
+    # total memory can be used
     memory = sa.Column(INTEGER(unsigned=True), server_default='0', nullable=False)
-    # disk space can be used
+    # total disk space left can be used
     disk = sa.Column(INTEGER(unsigned=True), server_default='0', nullable=False)
-    entiy = sa.Column(INTEGER(unsigned=True), server_default='0', nullable=False)
-    ports_range = sa.Column(VARCHAR(manager_common.MAX_PORTS_RANGE_SIZE),
+    ports_range = sa.Column(VARCHAR(plugin_common.MAX_PORTS_RANGE_SIZE),
                             server_default='[]',
                             nullable=False)
+    entiy = sa.Column(INTEGER(unsigned=True), server_default='0', nullable=False)
     ports = orm.relationship(AllocedPort, backref='agent', lazy='select',
                              cascade='delete,delete-orphan,save-update')
     endpoints = orm.relationship(AgentEndpoint, backref='agent', lazy='joined',
