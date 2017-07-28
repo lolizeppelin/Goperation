@@ -24,9 +24,9 @@ class Routers(router.RoutersBase):
                                        member_actions=MEMBER_ACTIONS)
         # send file to agent
         collection.member.link('file', method='POST')
-        # upgrade agent code
-        collection.member.link('upgrade', method='POST')
-        collection.member.link('active', method='PUT')
+        # upgrade agent code (upgrade rpm package)
+        collection.member.link('upgrade', method='PUT')
+        collection.member.link('active', method='PATCH')
         # agent show online when it start
         self._add_resource(
             mapper, controller_intance,
