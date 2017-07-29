@@ -9,7 +9,7 @@ from simpleservice.ormdb.api import model_count_with_key
 
 from goperation.plugin.manager import common as manager_common
 
-def results(total=1,
+def results(total=0,
             pagenum=0,
             result=None,
             data=None,
@@ -29,6 +29,8 @@ def results(total=1,
         ret_dict['resultcode'] = resultcode
     if data:
         ret_dict['data'] = data
+        if not ret_dict['total']:
+            ret_dict['total'] = len(ret_dict['data'])
     if not isinstance(ret_dict['data'], list):
         raise TypeError('results data type error')
     return ret_dict
