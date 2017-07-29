@@ -10,9 +10,19 @@ AGENT = 'agent'
 APPLICATION = 'application'
 SCHEDULER = 'scheduler'
 # status of agent
+
+
 ACTIVE = 1
 UNACTIVE = 0
-DELETED = -1
+INITIALIZING = -1
+SOFTBUSY = - 99
+HARDBUSY = -100
+DELETED = -127
+# per delete status can not be recode into database
+# agent set status as PERDELETE when get a rpc cast of delete_agent_precommit
+PERDELETE = -128
+
+
 # default time of agent status key in redis
 ONLINE_EXIST_TIME = 600
 
@@ -20,15 +30,9 @@ MAX_REQUEST_RESULT = 256
 MAX_DETAIL_RESULT = 20000
 MAX_AGENT_RESULT = 1024
 
-MAX_PORTS_RANGE_SIZE = 1024
 
 MAX_ROW_PER_REQUEST = 100
 ROW_PER_PAGE = MAX_ROW_PER_REQUEST/10
 
-# status of agent respone
-STATUS_UNKNOWN = -1
-STATUS_OVER_TIME = 0
-STATUS_ALL_SUCCESS = 2
-STATUS_NOT_ALL_SUCCESS = 1
 
-RESULT_ERROR_EXT = RESULT_ERROR + 1
+RESULT_NOT_ALL_SUCCESS = RESULT_SUCCESS + 1
