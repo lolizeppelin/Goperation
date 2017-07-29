@@ -45,6 +45,7 @@ class AgentRespone(PluginTableBase):
                            sa.ForeignKey('wsgirequests.request_id', ondelete="RESTRICT", onupdate='RESTRICT'),
                            nullable=False, primary_key=True)
     server_time = sa.Column(INTEGER(unsigned=True), default=int(timeutils.realnow()), nullable=False)
+    # agent respone unix time in seconds
     agent_time = sa.Column(INTEGER(unsigned=True), nullable=False)
     resultcode = sa.Column(TINYINT, nullable=False, default=manager_common.RESULT_UNKNOWN)
     result = sa.Column(VARCHAR(manager_common.MAX_AGENT_RESULT),
