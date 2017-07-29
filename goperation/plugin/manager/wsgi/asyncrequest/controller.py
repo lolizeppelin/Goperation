@@ -167,7 +167,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
             agent_time = body.get('agent_time')
             resultcode = body.get('resultcode')
             result = body.get('result')
-            details = body.get('details')
+            details = body.get('details', [])
             persist = body.get('persist', 1)
             expire = body.get('expire', 30)
         except KeyError as e:
@@ -186,9 +186,8 @@ class AsyncWorkRequest(contorller.BaseContorller):
                                   result=detail['result'] if isinstance(detail['result'], basestring)
                                   else jsonutils.dump_as_bytes(detail['result']))
                              for detail in details])
-        if persist:
+        if persist and details:
             data['details'] = [ResponeDetail().update(detail) for detail in data.pop(details)]
-            # data['details']
             try:
                 session.add(AgentRespone().update(data))
             except DBDuplicateEntry:
