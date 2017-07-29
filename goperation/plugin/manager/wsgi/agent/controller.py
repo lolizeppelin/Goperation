@@ -133,27 +133,26 @@ class AgentReuest(contorller.BaseContorller):
         query = model_query(session, Agent)
         agent = query.filter_by(agent_id=agent_id).one_or_none()
         if not agent:
-            raise InvalidArgument('Agent_id id:%s can not be found' % agent_id)
+            return resultutils.results(resultcode=1,
+                                       result='Agent_id id:%s can not be found' % agent_id)
         result = resultutils.results(total=1, pagenum=0, result='Show agent success')
         result['data'].append(dict(agent_id=agent.agent_id,
                                    host=agent.host,
                                    status=agent.status,
-                                   ports_range=agent.ports_range,
+                                   ports=[v.to_dict() for v in agent.ports],
                                    endpoints=[v['endpoint'] for v in agent.endpoints],
                                    ))
         return result
 
     def create(self, req, body):
-        """call bay agent"""
+        """call bay agent in the normal case"""
         new_agent = Agent()
         try:
             new_agent.host = validators['type:hostname'](body.pop('host'))
             new_agent.agent_type = body.pop('agent_type', None)
             if new_agent.agent_type is None or len(new_agent.agent_type) > 64:
                 raise ValueError('Agent type info over size')
-            new_agent.ports_range = jsonutils.dumps(validators['type:ports_range_list'](body.pop('ports_range')))
-            if len(new_agent.ports_range) > manager_common.MAX_PORTS_RANGE_SIZE:
-                raise ValueError('Ports range info over size')
+            new_agent.ports_range = jsonutils.dump_as_bytes(validators['type:ports_range'](body.pop('ports_range')))
             new_agent.memory = int(body.pop('memory'))
             new_agent.cpu = int(body.pop('cpu'))
             new_agent.disk = int(body.pop('disk'))
@@ -187,6 +186,7 @@ class AgentReuest(contorller.BaseContorller):
                                                         endpoints=endpoints)
                                                    ])
                 key = targetutils.agent_all_id()
+                # add new agent_id to cache all agent_id
                 if not _cache_server.sadd(key, str(new_agent.agent_id)):
                     # TODO error type shoud be replace
                     raise RuntimeError('Cant not add agent_id to redis, key %s' % key)
@@ -194,7 +194,7 @@ class AgentReuest(contorller.BaseContorller):
 
     @argutils.Idformater(key='agent_id', formatfunc=int)
     def delete(self, req, agent_id, body):
-        """call buy client"""
+        """call buy agent"""
         # if force is true
         # will not notify agent, just delete agent from database
         force = body.get('force', False)
@@ -440,14 +440,14 @@ class AgentReuest(contorller.BaseContorller):
             LOG.info('Online called but no Agent found')
             ret = {'agent_id': None}
         else:
-            LOG.info('Agent online called. agent_id:%(agent_id)s, type:%(agent_type)s, '
-                     'host:%(host)s, ipaddr:%(agent_ipaddr)s' %
-                     {'agent_id': agent.agent_id,
-                      'agent_type': agent_type,
-                      'host': host,
-                      'agent_ipaddr': agent_ipaddr})
+            LOG.debug('Agent online called. agent_id:%(agent_id)s, type:%(agent_type)s, '
+                      'host:%(host)s, ipaddr:%(agent_ipaddr)s' %
+                      {'agent_id': agent.agent_id,
+                       'agent_type': agent_type,
+                       'host': host,
+                       'agent_ipaddr': agent_ipaddr})
             # lock.degrade([targetutils.AgentLock(agent.agent_id)])
-            ret = {'agent_id': agent.agent_id, 'status': agent.status}
+            ret = {'agent_id': agent.agent_id}
             host_online_key = targetutils.host_online_key(agent.agent_id)
             exist_host_ipaddr = _cache_server.get(host_online_key)
             if exist_host_ipaddr is not None:
@@ -466,7 +466,7 @@ class AgentReuest(contorller.BaseContorller):
                 if not _cache_server.set(host_online_key, agent_ipaddr,
                                          ex=manager_common.ONLINE_EXIST_TIME, nx=True):
                     raise InvalidArgument('Another agent login with same host or someone set key %s' %
-                                          host_online_key)
+                                           host_online_key)
         result = resultutils.results(total=1, pagenum=0, result='Online agent function run success')
         result['data'].append(ret)
         return result
