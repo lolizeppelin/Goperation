@@ -173,7 +173,9 @@ class AgentReuest(contorller.BaseContorller):
         with mlock(targetutils.lock_all_agent):
             host_filter = and_(Agent.host == new_agent.host, Agent.status > manager_common.DELETED)
             if model_count_with_key(session, Agent.host, filter=host_filter) > 0:
-                raise InvalidArgument('Duplicate host %s exist' % new_agent.host)
+                result = resultutils.results(resultcode=manager_common.RESULT_ERROR,
+                                             result='Create agent fail, host all ready exist with other id')
+                return result
             with session.begin(subtransactions=True):
                 new_agent_id = model_autoincrement_id(session, Agent.agent_id)
                 new_agent.agent_id = new_agent_id
@@ -231,7 +233,8 @@ class AgentReuest(contorller.BaseContorller):
                         raise RPCResultError('delete_agent_precommit result is None')
                     if delete_agent_precommit.get('resultcode') != manager_common.RESULT_SUCCESS:
                         return resultutils.results(total=1, pagenum=0,
-                                                   result=delete_agent_precommit.get('result'), resultcode=1)
+                                                   result=delete_agent_precommit.get('result'),
+                                                   resultcode=manager_common.RESULT_SUCCESS)
                 # Mark agent deleted
                 query.update({'status': manager_common.DELETED})
                 # Delete endpoint of agent
@@ -406,10 +409,10 @@ class AgentReuest(contorller.BaseContorller):
         rpc.cast(targetutils.target_anyone(manager_common.SCHEDULER),
                  ctxt={'finishtime': asyncrequest.finishtime,
                        'deadline': asyncrequest.deadline,
+                       'request_id': asyncrequest.request_id,
                        'persist': 1},
                  msg={'method': 'async_request_check',
                       'args': {'domain': '',
-                               'request_id': asyncrequest.request_id,
                                'agent_id': agent_id}
                       })
         return resultutils.results(result=asyncrequest.result)
