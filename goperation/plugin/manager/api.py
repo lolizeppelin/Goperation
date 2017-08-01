@@ -99,6 +99,10 @@ def get_redis():
     return GLockRedis
 
 
+def get_cache():
+    return get_redis()
+
+
 def init_rpc_client():
     global RPCClient
     if RPCClient is None:
