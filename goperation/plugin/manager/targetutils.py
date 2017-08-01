@@ -63,8 +63,8 @@ def async_request_pattern(request_id):
     return '%s-asyncrequest-%s-*' % (CONF[manager_group.name].redis_key_prefix, request_id)
 
 
-def target_all():
-    return Target(topic='%s.*' % AGENT,
+def target_all(fanout=False):
+    return Target(topic='%s.*' % AGENT, fanout=AGENT if fanout else None,
                   namespace=manager_group.name)
 
 
@@ -78,9 +78,9 @@ def target_anyone(agent_type):
                   namespace=manager_group.name)
 
 
-def target_server(agent_type, host):
+def target_server(agent_type, host, fanout=False):
     return Target(topic='%s.%s' % (AGENT, agent_type),
-                  server=host,
+                  server=host, fanout=AGENT if fanout else None,
                   namespace=manager_group.name)
 
 
