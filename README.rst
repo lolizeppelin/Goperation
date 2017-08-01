@@ -20,10 +20,10 @@ Goperation
 请求方法
 GET:用来从服务器端读取状态
 POST:在服务器端创建某种状态,非幂等
-PUT:主要还是用来在服务器端更新状态的
+PUT:主要还是用来在服务器端完整更新资源(Create or Update)
 DELETE:用来在服务器端删除状态
 HEAD:获取元数据
-PATCH:部分修改服务器端数据,非幂等
+PATCH:部分修改服务器端数据,局部更新,非幂等
 
 安全性与幂等性
 方法名	安全性	幂等性
@@ -33,6 +33,18 @@ OPTIONS	是	    是
 DELETE	否	    是
 PUT	    否	    是
 POST	否	    否
+PATCH	否	    否
+
+routers对应http方法
+
+        方法名  作用域          HTTP方法
+index   GET     collection      GET
+show    GET     member          GET
+create  POST    collection      CREATE
+update  PUT     member          PUT
+delete  DELETE  member          DELETE
+edit    ?       member
+new     ?       new
 
 ---
 
