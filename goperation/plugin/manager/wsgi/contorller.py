@@ -1,4 +1,3 @@
-from simpleutil.utils import argutils
 from simpleutil.utils import timeutils
 from simpleutil.utils import uuidutils
 
@@ -12,11 +11,22 @@ from goperation.plugin.manager.api import rpcdeadline
 MAX_ROW_PER_REQUEST = 100
 
 
-class BaseContorller(argutils.IdformaterBase):
+class BaseContorller():
+
+    @staticmethod
+    def request_id_check(request_id):
+        if not uuidutils.is_uuid_like(request_id):
+            raise InvalidArgument('Request id is not uuid like')
 
     @staticmethod
     def create_asyncrequest(req, body):
-        """async request use this to create a new request"""
+        """async request use this to create a new request
+        argv in body
+        request_time:  unix time in seconds that client send async request
+        finishtime:  unix time in seconds that work shoud be finished after this time
+        deadline:  unix time in seconds that work will igonre after this time
+        persist: 0 or 1, if zero, respone will store into redis else store into database
+        """
         request_time = int(timeutils.realnow())
         persist = body.get('persist', 1)
         if persist not in (0, 1):
@@ -39,7 +49,7 @@ class BaseContorller(argutils.IdformaterBase):
             raise InvalidArgument('Job can not be finished in 3 second')
         deadline = body.get('deadline', None)
         if deadline:
-            deadline = int(deadline) + diff_time
+            deadline = int(deadline) + diff_time - 1
         else:
             deadline = rpcdeadline(deadline)
         if deadline - finishtime < 3:
