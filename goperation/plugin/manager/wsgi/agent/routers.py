@@ -27,6 +27,7 @@ class Routers(router.RoutersBase):
         # upgrade agent code (upgrade rpm package)
         collection.member.link('upgrade', method='PUT')
         collection.member.link('active', method='PATCH')
+        collection.member.link('status', method='GET')
         # agent show online when it start
         self._add_resource(
             mapper, controller_intance,
