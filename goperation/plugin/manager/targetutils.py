@@ -1,5 +1,6 @@
 from simpleutil.config import cfg
 from simpleutil.utils import singleton
+from simpleutil.common.exceptions import InvalidArgument
 
 from glockredis import LockServiceBase
 
@@ -56,11 +57,11 @@ def host_online_key(agent_id):
 
 
 def async_request_key(request_id, agent_id):
-    return '%s-asyncrequest-%s-%d' % (CONF[manager_group.name].redis_key_prefix, request_id, agent_id)
+    return '%s-async-%s-%d' % (CONF[manager_group.name].redis_key_prefix, request_id, agent_id)
 
 
 def async_request_pattern(request_id):
-    return '%s-asyncrequest-%s-*' % (CONF[manager_group.name].redis_key_prefix, request_id)
+    return '%s-async-%s-*' % (CONF[manager_group.name].redis_key_prefix, request_id)
 
 
 def target_all(fanout=False):
