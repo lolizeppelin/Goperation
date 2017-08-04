@@ -16,7 +16,7 @@ from goperation.plugin.manager.config import manager_rabbit_group
 from simpleservice.plugin.models import GkeyMap
 from simpleservice.ormdb.api import model_query
 from simpleservice.ormdb.api import MysqlDriver
-from simpleservice.rpc.service import RPCClientBase
+from simpleservice.rpc.client import RPCClientBase
 from simpleservice.rpc.config import rpc_client_opts
 
 from glockredis.client import ApiRedis
