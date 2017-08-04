@@ -10,6 +10,7 @@ from simpleservice.wsgi.filter import FilterBase
 
 LOG = logging.getLogger(__name__)
 
+
 class AuthFilter(FilterBase):
     """check Auth
     """
@@ -32,3 +33,7 @@ class AuthFilter(FilterBase):
             body = default_serializer({'msg': msg})
             kwargs = {'body': body, 'content_type': DEFAULT_CONTENT_TYPE}
             # return webob.exc.HTTPUnauthorized(**kwargs)
+
+
+class RequestLimitFilter(FilterBase):
+    """limit request times"""
