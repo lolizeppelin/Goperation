@@ -160,7 +160,7 @@ class Agent(PluginTableBase):
     memory = sa.Column(INTEGER(unsigned=True), server_default='0', nullable=False)
     # total disk space left can be used
     disk = sa.Column(INTEGER(unsigned=True), server_default='0', nullable=False)
-    ports_range = sa.Column(VARCHAR(plugin_common.MAX_PORTS_RANGE_SIZE),
+    ports_range = sa.Column(VARCHAR(manager_common.MAX_PORTS_RANGE_SIZE),
                             server_default='[]',
                             nullable=False)
     entiy = sa.Column(INTEGER(unsigned=True), server_default='0', nullable=False)
