@@ -74,7 +74,7 @@ class AsyncRequest(PluginTableBase):
     # 0 means no checker now
     scheduler = sa.Column(INTEGER(unsigned=True), default=0, nullable=False)
     # if request finish
-    status = sa.Column(BOOLEAN, nullable=False, default=0)
+    status = sa.Column(BOOLEAN, nullable=False, default=manager_common.UNFINISH)
     resultcode = sa.Column(TINYINT, nullable=False, default=manager_common.RESULT_UNKNOWN)
     result = sa.Column(VARCHAR(manager_common.MAX_REQUEST_RESULT),
                        nullable=False, default='waiting respone')
