@@ -23,8 +23,11 @@ class Routers(router.RoutersBase):
                                        member_actions=MEMBER_ACTIONS)
         # get details of agent resopne
         collection.member.link('details', method='GET')
-        # agent post respone
+        # agent send respone data
         collection.member.link('respone', method='POST')
-        # scheduler post overtime
-        collection.member.link('overtime', method='POST')
+        # scheduler add overtime recode for overtime agent
+        collection.member.link('overtime', method='PUT')
+        # scheduler mark as async request check
+        # scheduler set async request finish
+        collection.member.link('scheduler', method='POST')
         return collection

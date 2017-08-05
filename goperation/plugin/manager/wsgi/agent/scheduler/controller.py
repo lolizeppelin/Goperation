@@ -16,6 +16,5 @@ class SchedulerRequest(object):
     def index(self, req, body):
         return 'index'
 
-    @Idformater(key='request_id', all_key=None)
     def show(self, req, request_id, body):
         return 'show'

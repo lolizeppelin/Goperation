@@ -4,10 +4,10 @@ from simpleutil.utils import importutils
 
 from simpleservice.server import ServerWrapper
 from simpleservice.server import launch
+from simpleservice.rpc.service import LauncheRpcServiceBase
 
 from goperation import plugin
 from goperation.plugin import config as plugin_config
-
 
 
 CONF = cfg.CONF
@@ -30,11 +30,12 @@ def configure(agent_group, config_files=None):
     return agent_group.name
 
 
-def run(rpc_server, config_files):
-    aplication_group = cfg.OptGroup(name=rpc_server.agent_type,
-                                    title='group of goperation %s agent' % agent_type)
+def run(manager, config_files):
+    aplication_group = cfg.OptGroup(name=manager.agent_type,
+                                    title='group of goperation %s agent' % manager.agent_type)
     configure(aplication_group, config_files=config_files)
     servers = []
+    rpc_server = LauncheRpcServiceBase(manager, CONF.endpoints)
     rpc_wrapper = ServerWrapper(rpc_server, 1)
     servers.append(rpc_wrapper)
     launch(servers, CONF.user, CONF.group)

@@ -1,3 +1,4 @@
+import eventlet
 import webob.exc
 
 from sqlalchemy.sql import or_
@@ -7,7 +8,6 @@ from redis.exceptions import RedisError
 
 from simpleutil.utils import argutils
 from simpleutil.utils import jsonutils
-# from simpleutil.utils import timeutils
 from simpleutil.log import log as logging
 
 from simpleutil.common.exceptions import InvalidArgument
@@ -17,7 +17,7 @@ from simpleservice.ormdb.api import model_query
 from goperation.plugin.manager import targetutils
 from goperation.plugin.manager import common as manager_common
 from goperation.plugin.manager.api import get_session
-from goperation.plugin.manager.api import get_redis
+from goperation.plugin.manager.api import get_cache
 from goperation.plugin.manager.models import AsyncRequest
 from goperation.plugin.manager.models import AgentRespone
 from goperation.plugin.manager.models import ResponeDetail
@@ -34,7 +34,7 @@ FAULT_MAP = {InvalidArgument: webob.exc.HTTPClientError}
 MAX_ROW_PER_REQUEST = 100
 
 
-Idformater = argutils.Idformater(key='request_id')
+Idformater = argutils.Idformater(key='request_id', formatfunc='request_id_check')
 
 
 class AsyncWorkRequest(contorller.BaseContorller):
@@ -87,21 +87,30 @@ class AsyncWorkRequest(contorller.BaseContorller):
         details = body.get('details', False)
         session = get_session(readonly=True)
         query = model_query(session, AsyncRequest)
-        request = query.filter_by(request_id=request_id).first()
+        request = query.filter_by(request_id=request_id).one_or_none()
         if not request:
             raise InvalidArgument('Request id:%s can not be found' % request_id)
         if request.persist:
+            # get resopne from database
             return resultutils.async_request(request, agents, details)
         else:
-            ret_dict = resultutils.async_request(request)
-            _cache_server = get_redis()
+            ret_dict = resultutils.async_request(request,
+                                                 agents=False, details=False)
+            _cache_server = get_cache()
+            # get respone from cache redis server
             key_pattern = targetutils.async_request_pattern(request_id)
             respone_keys = _cache_server.keys(key_pattern)
-            if not _cache_server.exists(respone_keys):
-                return ret_dict
             agent_respones = _cache_server.mget(respone_keys)
-            for agent_respone in agent_respones:
-                ret_dict['respones'].append(jsonutils.loads(agent_respone))
+            if agent_respones:
+                for agent_respone in agent_respones:
+                    if agent_respone:
+                        try:
+                            agent_respone_data = jsonutils.loads(agent_respone)
+                            if isinstance(agent_respone_data, (int, long)):
+                                raise ValueError
+                        except (TypeError, ValueError):
+                            continue
+                        ret_dict['respones'].append(agent_respone_data)
             return ret_dict
 
     @Idformater
@@ -123,41 +132,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
 
     @Idformater
     def update(self, req, request_id, body):
-        """For scheduler update row of
-        scheduler,deadline, and status and result"""
-        scheduler = int(body.get('scheduler', 0))
-        if scheduler <= 0:
-            raise InvalidArgument('Async checker id is 0')
-        data = {'scheduler': scheduler}
-        session = get_session()
-        with session.begin(subtransactions=True):
-            query = model_query(session, AsyncRequest,
-                                filter=or_(AsyncRequest.scheduler == 0,
-                                           AsyncRequest.scheduler == scheduler))
-            unfinish_request = query.filter_by(request_id=request_id,
-                                               status=0).one_or_none()
-            if not unfinish_request:
-                raise InvalidArgument('Reuest is alreday finished or not exist')
-            unfinish_request.scheduler = scheduler
-            status = int(body.get('status', 0))
-            if status not in (0, 1):
-                raise InvalidArgument('Status value error, not 0 or 1')
-            data['status'] = status
-            # deadline = int(body.get('deadline', 0))
-            # if deadline:
-            #     if deadline < unfinish_request.deadline:
-            #         raise InvalidArgument('New deadline time can not small then old deadline time')
-            #     if deadline - unfinish_request.deadline > 3600:
-            #         raise InvalidArgument('New deadline over old deleline time more then one hour')
-            #     data['deadline'] = deadline
-            result = body.get('result', None)
-            if result:
-                if len(result) > manager_common.MAX_REQUEST_RESULT:
-                    raise InvalidArgument('Msg of request over range')
-                unfinish_request.result = result
-                data['result'] = result
-            unfinish_request.update(data)
-        return resultutils.results(result='Request %s update success' % request_id)
+      raise NotImplementedError
 
     @Idformater
     def respone(self, req, request_id, body):
@@ -172,7 +147,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
             expire = body.get('expire', 30)
         except KeyError as e:
             raise InvalidArgument('Agent respone need key %s' % e.message)
-        _cache_server = get_redis()
+        _cache_server = get_cache()
         session = get_session()
         data = dict(request_id=request_id,
                     agent_id=agent_id,
@@ -187,9 +162,10 @@ class AsyncWorkRequest(contorller.BaseContorller):
                                   else jsonutils.dump_as_bytes(detail['result']))
                              for detail in details])
         if persist and details:
-            data['details'] = [ResponeDetail().update(detail) for detail in data.pop(details)]
+            data['details'] = [ResponeDetail(**detail) for detail in data.pop(details)]
             try:
-                session.add(AgentRespone().update(data))
+                respone = AgentRespone(**data)
+                session.add(respone)
             except DBDuplicateEntry:
                 LOG.warning('Agent %d respone %s get DBDuplicateEntry error' % (agent_id, request_id))
                 query = model_query(session, AgentRespone,
@@ -227,25 +203,80 @@ class AsyncWorkRequest(contorller.BaseContorller):
         return resultutils.results(result='Agent %d Post respone of %s success' % (agent_id, request_id))
 
     @Idformater
+    def scheduler(self, req, request_id, body):
+        """scheduler declare async request check and
+           scheduler mark saync request finish
+        """
+        scheduler = int(body.get('scheduler', 0))
+        status = int(body.get('status', manager_common.UNFINISH))
+        result = body.get('result', 'Scheduler declare')
+        resultcode = body.get('resultcode', None)
+        if scheduler <= 0:
+            raise InvalidArgument('Async checker id is 0')
+        if status not in (manager_common.FINISH, manager_common.UNFINISH):
+            raise InvalidArgument('Async request status value error')
+        data = {'scheduler': scheduler}
+        if status:
+            data.setdefault('status', status)
+        if resultcode is not None:
+            data.setdefault('resultcode', resultcode)
+        if result:
+            if not isinstance(result, basestring):
+                raise InvalidArgument('Msg of result not basestring')
+            if len(result) > manager_common.MAX_REQUEST_RESULT:
+                raise InvalidArgument('Msg of result over range')
+            data.setdefault('result', result)
+        session = get_session()
+        with session.begin(subtransactions=True):
+            query = model_query(session, AsyncRequest,
+                                filter=or_(AsyncRequest.scheduler == 0,
+                                           AsyncRequest.scheduler == scheduler))
+            unfinish_request = query.filter_by(request_id=request_id,
+                                               status=manager_common.UNFINISH).one_or_none()
+            if not unfinish_request:
+                raise InvalidArgument('Reuest is alreday finished or not exist')
+            unfinish_request.update(data)
+        return resultutils.results(result='Request %s update scheduler and status success' % request_id)
+
+    @Idformater
     def overtime(self, req, request_id, body):
         """agent not resopne, async checker send a overtime respone"""
-        agents = body.get('agents')
-        agent_time = body.get('agent_time')
         scheduler = body.get('scheduler')
+        agent_time = body.get('agent_time')
+        agents = body.get('agents')
         persist = body.get('persist', 1)
         expire = body.get('expire', 30)
-        session = get_session()
-        _cache_server = get_redis()
+        if not agents:
+            raise InvalidArgument('Not agets report overtime?')
+        bulk_data = []
         for agent_id in agents:
             data = dict(request_id=request_id,
                         agent_id=agent_id,
                         agent_time=agent_time,
                         resultcode=manager_common.RESULT_OVER_DEADLINE,
                         result='Agent respone overtime, report by Scheduler:%d' % scheduler)
+            bulk_data.append(data)
+        # TODO bluk_insert should run background
+        self.bluk_insert(bulk_data, persist, expire)
+        return resultutils.results(result='Scheduler post agent overtime success')
+
+    @staticmethod
+    def bluk_insert(bulk_data, persist, expire):
+        # TODO shoud async stone write
+        session = get_session()
+        if not persist:
+            _cache_server = get_cache()
+        request_id = bulk_data[0]['request_id']
+        agent_id = bulk_data[0]['agent_id']
+        count_finish = 0
+        for data in bulk_data:
             if persist:
                 try:
-                    session.add(AgentRespone().update(data))
+                    resp = AgentRespone(**data)
+                    session.add(resp)
+                    session.commit()
                 except DBDuplicateEntry:
+                    count_finish += 1
                     LOG.warning('Scheduler set agent overtime get a DBDuplicateEntry, Agent responed?')
                 except DBError as e:
                     LOG.error('Scheduler set agent overtime get DBError %s: %s' % (e.__class__.__name__, e.message))
@@ -253,8 +284,14 @@ class AsyncWorkRequest(contorller.BaseContorller):
                 respone_key = targetutils.async_request_key(request_id, agent_id)
                 try:
                     if not _cache_server.set(respone_key, jsonutils.dump_as_bytes(data), ex=expire, nx=True):
+                        count_finish += 1
                         LOG.warning('Scheduler set agent overtime to redis get a Duplicate Entry, Agent responed?')
                 except RedisError as e:
                     LOG.error('Scheduler set agent overtime to redis get RedisError %s: %s' % (e.__class__.__name__,
                                                                                                e.message))
-        return resultutils.results(result='Scheduler post agent overtime success')
+        data = {'status': manager_common.FINISH, 'resultcode': manager_common.RESULT_SUCCESS}
+        query = model_query(session, AsyncRequest).filter_by(request_id=request_id)
+        if count_finish < len(bulk_data):
+            data.update({'resultcode': manager_common.RESULT_NOT_ALL_SUCCESS})
+        query.update(data)
+        session.commit()

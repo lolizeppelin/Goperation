@@ -23,15 +23,15 @@ class Routers(router.RoutersBase):
                                        collection_actions=COLLECTION_ACTIONS,
                                        member_actions=MEMBER_ACTIONS)
         # send file to agent
-        collection.member.link('file', method='POST')
+        collection.member.link('file', method='PUT')
         # upgrade agent code (upgrade rpm package)
-        collection.member.link('upgrade', method='PUT')
+        collection.member.link('upgrade', method='POST')
+        # change agent status
         collection.member.link('active', method='PATCH')
+        # send async request to check agent status
         collection.member.link('status', method='GET')
-        # agent show online when it start
-        self._add_resource(
-            mapper, controller_intance,
-            path='/%s/online' % self.resource_name,
-            put_action='online')
-
+        # edit agent
+        collection.member.link('edit', method='PATCH')
+        # agent report online
+        collection.link('online', method='PUT')
         return collection
