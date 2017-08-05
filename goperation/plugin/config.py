@@ -1,4 +1,3 @@
-import os
 import logging as defalut_logging
 
 from simpleutil.log import log as logging
@@ -12,7 +11,11 @@ plugin_opts = [
     cfg.MultiOpt('endpoints',
                  default=[],
                  item_type=cfg.types.MultiImportString(),
-                 help='The endpoints class')
+                 help='The endpoints class'),
+    cfg.StrOpt('trusted',
+               default='goperation-trusted-user',
+               help='Trusted token, means a unlimit user'
+               )
 ]
 
 def configure(name, default_log_levels=None):
