@@ -6,34 +6,9 @@ from simpleutil.common.exceptions import InvalidArgument
 
 from simpleservice.ormdb.api import model_query
 from simpleservice.ormdb.api import model_count_with_key
+from simpleservice.wsgi.client import results
 
 from goperation.plugin.manager import common as manager_common
-
-def results(total=0,
-            pagenum=0,
-            result=None,
-            data=None,
-            resultcode=manager_common.RESULT_SUCCESS):
-    ret_dict = {'resultcode': 0,
-                'total': 0,
-                'pagenum': 0,
-                'result': 'unkonwn result',
-                'data': []}
-    if result:
-        ret_dict['result'] = result
-    if total:
-        ret_dict['total'] = total
-    if pagenum:
-        ret_dict['pagenum'] = pagenum
-    if resultcode:
-        ret_dict['resultcode'] = resultcode
-    if data:
-        ret_dict['data'] = data
-        if not ret_dict['total']:
-            ret_dict['total'] = len(ret_dict['data'])
-    if not isinstance(ret_dict['data'], list):
-        raise TypeError('results data type error')
-    return ret_dict
 
 
 def bulk_results(session,
@@ -113,20 +88,24 @@ def bulk_results(session,
 
 def async_request(_request, agents=False, details=False):
     """this function just for route asynrequest show"""
-    ret_dict = {'request_id': _request.request_id,
+    res_dict = {'request_id': _request.request_id,
                 'request_time': _request.request_time,
                 'finishtime': _request.finishtime,
                 'deadline': _request.deadline,
                 'scheduler': _request.scheduler,
                 'status': _request.status,
+                'persist': _request.persist,
                 'resultcode': _request.resultcode,
                 'result': _request.result,
                 'respones': []
                 }
+    ret_dict = results(data=[res_dict, ], result='Get async request data finish')
+    if not _request.persist:
+        ret_dict['result'] += ',Data in cache,May miss some respone'
     if agents:
         for agent_data in _request.respones:
-            ret_dict['respones'].append(agent(agent_data),
-                                        details=details)
+            ret_dict['data'][0]['respones'].append(agent(agent_data),
+                                                   details=details)
     return ret_dict
 
 
@@ -136,7 +115,6 @@ def agent(_agent, details=False):
                 'agent_time': _agent.agent_time,
                 'resultcode': _agent.resultcode,
                 'result': _agent.result,
-                'status': _agent.status,
                 'details': []}
     if details:
         for detail_data in _agent.details:
@@ -145,6 +123,7 @@ def agent(_agent, details=False):
                                             )
                                        )
     return ret_dict
+
 
 def details(_detail):
     ret_dict = {'detail_id': _detail.detail_id,
