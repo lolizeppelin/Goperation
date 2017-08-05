@@ -1,4 +1,3 @@
-import sys
 import re
 import os
 import psutil
@@ -6,13 +5,15 @@ import eventlet
 from eventlet import hubs
 import greenlet
 
+from simpleutil import system
 from simpleutil.log import log as logging
+
 
 from simpleservice.base import SignalHandler
 
 from goperation.plugin import common as plugin_common
 
-mswindows = (sys.platform == "win32")
+
 
 
 def validate_endpoint(value):
@@ -46,12 +47,8 @@ def suicide(delay=0):
     g = greenlet.greenlet(_suicide, parent=hub.greenlet)
     hub.schedule_call_global(delay, g.switch)
 
-if mswindows:
 
-    def safe_fork():
-        raise NotImplementedError
-
-else:
+if system.LINUX:
 
     def safe_fork():
         pid = os.fork()
@@ -79,3 +76,7 @@ else:
                 sysexit()
         return pid
 
+else:
+
+    def safe_fork():
+        raise NotImplementedError

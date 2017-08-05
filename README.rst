@@ -54,8 +54,7 @@ routers对应http方法
 
 RPC调用规范
 
-    CAST: 用于不接收执行结果的RPC调用的, 必须预先在rabbit中创建队列,
-          target中有fanout标记使用广播交换机广播发送
+    CAST: 用于不接收执行结果的RPC调用的,必须预先在rabbit中创建队列,target中有fanout标记使用广播交换机广播发送
 
     CALL: 用于需要接收执行结果的RPC调用, 必须预先在rabbit中创建队列
 
