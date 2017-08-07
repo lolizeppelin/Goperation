@@ -12,7 +12,7 @@ class Routers(router.RoutersBase):
     resource_name='asyncrequest'
     collection_name = resource_name + 's'
 
-    def append_routers(self, mapper, routers):
+    def append_routers(self, mapper, routers=None):
         controller_intance = controller_return_response(controller.AsyncWorkRequest(),
                                                         controller.FAULT_MAP)
         collection = mapper.collection(collection_name=self.collection_name,
