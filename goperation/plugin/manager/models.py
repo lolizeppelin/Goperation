@@ -120,6 +120,7 @@ class AgentEndpoint(PluginTableBase):
     endpoint = sa.Column(VARCHAR(plugin_common.MAX_ENDPOINT_NAME_SIZE),
                          default=None,
                          nullable=False, primary_key=True)
+    entiy = sa.Column(INTEGER(unsigned=True), default=0, server_default='0', nullable=False)
     __table_args__ = (
             sa.Index('endpoint_index', 'endpoint'),
             MyISAMTableBase.__table_args__
@@ -159,15 +160,22 @@ class Agent(PluginTableBase):
     ports_range = sa.Column(VARCHAR(manager_common.MAX_PORTS_RANGE_SIZE),
                             default='[]',
                             nullable=False)
-    entiy = sa.Column(INTEGER(unsigned=True), server_default='0', nullable=False)
-    ports = orm.relationship(AllocatedPort, backref='agent', lazy='select',
-                             cascade='delete,delete-orphan,save-update')
     endpoints = orm.relationship(AgentEndpoint, backref='agent', lazy='joined',
                                  cascade='delete,delete-orphan,save-update')
+    ports = orm.relationship(AllocatedPort, backref='agent', lazy='select',
+                             cascade='delete,delete-orphan,save-update')
+
     __table_args__ = (
             sa.Index('host_index', 'host'),
             InnoDBTableBase.__table_args__
     )
+
+    @property
+    def entiy(self):
+        entiy = 0
+        for endpoint in self.endpoints:
+            entiy += endpoint.entiy
+        return entiy
 
 
 class AgentReportLog(PluginTableBase):
