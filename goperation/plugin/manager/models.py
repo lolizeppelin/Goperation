@@ -1,9 +1,6 @@
 import sqlalchemy as sa
 from sqlalchemy import orm
 
-from simpleutil.utils import timeutils
-from simpleutil.utils import uuidutils
-
 from sqlalchemy.dialects.mysql import VARCHAR
 from sqlalchemy.dialects.mysql import SMALLINT
 from sqlalchemy.dialects.mysql import INTEGER
@@ -11,6 +8,9 @@ from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy.dialects.mysql import BOOLEAN
 from sqlalchemy.dialects.mysql import LONGBLOB
+
+from simpleutil.utils import timeutils
+from simpleutil.utils import uuidutils
 
 from simpleservice.ormdb.models import MyISAMTableBase
 from simpleservice.ormdb.models import InnoDBTableBase
@@ -21,28 +21,24 @@ from goperation.plugin.manager import common as manager_common
 
 
 class ResponeDetail(PluginTableBase):
-    agent_id = sa.Column(INTEGER(unsigned=True),
-                         sa.ForeignKey('agentrespones.agent_id', ondelete="CASCADE", onupdate='RESTRICT'),
-                         default=0,
-                         nullable=False, primary_key=True)
-    request_id = sa.Column(VARCHAR(36),
-                           sa.ForeignKey('agentrespones.request_id', ondelete="CASCADE", onupdate='RESTRICT'),
+    detail_id = sa.Column(INTEGER(unsigned=True), nullable=False, primary_key=True)
+    agent_id = sa.Column(sa.ForeignKey('agentrespones.agent_id', ondelete="CASCADE", onupdate='RESTRICT'),
+                         default=0, nullable=False, primary_key=True)
+    request_id = sa.Column(sa.ForeignKey('agentrespones.request_id', ondelete="CASCADE", onupdate='RESTRICT'),
                            nullable=False,
                            primary_key=True)
-    detail_id = sa.Column(INTEGER(unsigned=True), default=0, primary_key=True, nullable=False)
     resultcode = sa.Column(TINYINT, nullable=False, default=manager_common.RESULT_UNKNOWN)
     result = sa.Column(VARCHAR(manager_common.MAX_DETAIL_RESULT), nullable=False, default='{}')
     __table_args__ = (
             sa.Index('request_id_index', 'request_id'),
-            MyISAMTableBase.__table_args__
 
+            MyISAMTableBase.__table_args__
     )
 
 
 class AgentRespone(PluginTableBase):
     agent_id = sa.Column(INTEGER(unsigned=True), nullable=False, default=0, primary_key=True)
-    request_id = sa.Column(VARCHAR(36),
-                           sa.ForeignKey('wsgirequests.request_id', ondelete="RESTRICT", onupdate='RESTRICT'),
+    request_id = sa.Column(sa.ForeignKey('asyncrequests.request_id', ondelete="RESTRICT", onupdate='RESTRICT'),
                            nullable=False, primary_key=True)
     server_time = sa.Column(INTEGER(unsigned=True), default=int(timeutils.realnow()), nullable=False)
     # agent respone unix time in seconds
@@ -51,6 +47,8 @@ class AgentRespone(PluginTableBase):
     result = sa.Column(VARCHAR(manager_common.MAX_AGENT_RESULT),
                        nullable=False, default='agent respone rpc request')
     details = orm.relationship(ResponeDetail, backref='agentrespone', lazy='select',
+                               primaryjoin="and_(AgentRespone.agent_id==ResponeDetail.agent_id, "
+                                           "AgentRespone.request_id==ResponeDetail.request_id)",
                                cascade='delete')
     __table_args__ = (
             sa.Index('request_id_index', 'request_id'),
@@ -81,7 +79,7 @@ class AsyncRequest(PluginTableBase):
     # write agent respone into database
     persist = sa.Column(BOOLEAN, nullable=False, default=1)
     # AgentRespone list
-    respones = orm.relationship(AgentRespone, backref='wsgirequest', lazy='select',
+    respones = orm.relationship(AgentRespone, backref='asyncrequest', lazy='select',
                                 cascade='delete, delete-orphan')
     __table_args__ = (
         sa.Index('request_time_index', 'request_time'),
@@ -96,7 +94,6 @@ class AgentResponeBackLog(PluginTableBase):
     """
     agent_id = sa.Column(INTEGER(unsigned=True), nullable=False, default=0, primary_key=True)
     request_id = sa.Column(VARCHAR(36),
-                           default=None,
                            nullable=False, primary_key=True)
     server_time = sa.Column(INTEGER(unsigned=True), default=int(timeutils.realnow()), nullable=False)
     agent_time = sa.Column(INTEGER(unsigned=True), nullable=False)
@@ -114,9 +111,7 @@ class AgentResponeBackLog(PluginTableBase):
 
 
 class AgentEndpoint(PluginTableBase):
-    agent_id = sa.Column(INTEGER(unsigned=True),
-                         sa.ForeignKey('agents.agent_id', ondelete="CASCADE", onupdate='CASCADE'),
-                         default=1,
+    agent_id = sa.Column(sa.ForeignKey('agents.agent_id', ondelete="CASCADE", onupdate='CASCADE'),
                          nullable=False,
                          primary_key=True)
     endpoint = sa.Column(VARCHAR(plugin_common.MAX_ENDPOINT_NAME_SIZE),
@@ -129,9 +124,7 @@ class AgentEndpoint(PluginTableBase):
 
 
 class AllocedPort(PluginTableBase):
-    agent_id = sa.Column(INTEGER(unsigned=True),
-                         sa.ForeignKey('agents.agent_id', ondelete="CASCADE", onupdate='CASCADE'),
-                         default=0,
+    agent_id = sa.Column(sa.ForeignKey('agents.agent_id', ondelete="CASCADE", onupdate='CASCADE'),
                          nullable=False,
                          primary_key=True)
     port = sa.Column(SMALLINT(unsigned=True), nullable=False,
@@ -161,7 +154,7 @@ class Agent(PluginTableBase):
     # total disk space left can be used
     disk = sa.Column(INTEGER(unsigned=True), server_default='0', nullable=False)
     ports_range = sa.Column(VARCHAR(manager_common.MAX_PORTS_RANGE_SIZE),
-                            server_default='[]',
+                            default='[]',
                             nullable=False)
     entiy = sa.Column(INTEGER(unsigned=True), server_default='0', nullable=False)
     ports = orm.relationship(AllocedPort, backref='agent', lazy='select',
@@ -178,8 +171,7 @@ class AgentReportLog(PluginTableBase):
     """Table for recode agent status"""
     # build by Gprimarykey
     report_time = sa.Column(BIGINT(unsigned=True), nullable=False, default=0, primary_key=True)
-    agent_id = sa.Column(INTEGER(unsigned=True),
-                         sa.ForeignKey('agents.agent_id', ondelete="CASCADE", onupdate='CASCADE'),
+    agent_id = sa.Column(sa.ForeignKey('agents.agent_id', ondelete="CASCADE", onupdate='CASCADE'),
                          nullable=False)
     # psutil.process_iter()
     # status()
