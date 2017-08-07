@@ -1,6 +1,8 @@
 import sqlalchemy as sa
 from sqlalchemy import orm
 
+from sqlalchemy.sql import and_
+
 from sqlalchemy.dialects.mysql import VARCHAR
 from sqlalchemy.dialects.mysql import SMALLINT
 from sqlalchemy.dialects.mysql import INTEGER
@@ -31,7 +33,6 @@ class ResponeDetail(PluginTableBase):
     result = sa.Column(VARCHAR(manager_common.MAX_DETAIL_RESULT), nullable=False, default='{}')
     __table_args__ = (
             sa.Index('request_id_index', 'request_id'),
-
             MyISAMTableBase.__table_args__
     )
 
@@ -49,6 +50,8 @@ class AgentRespone(PluginTableBase):
     details = orm.relationship(ResponeDetail, backref='agentrespone', lazy='select',
                                primaryjoin="and_(AgentRespone.agent_id==ResponeDetail.agent_id, "
                                            "AgentRespone.request_id==ResponeDetail.request_id)",
+                               # primaryjoin=and_(agent_id == ResponeDetail.agent_id,
+                               #                  request_id == ResponeDetail.request_id),
                                cascade='delete')
     __table_args__ = (
             sa.Index('request_id_index', 'request_id'),
@@ -123,7 +126,7 @@ class AgentEndpoint(PluginTableBase):
     )
 
 
-class AllocedPort(PluginTableBase):
+class AllocatedPort(PluginTableBase):
     agent_id = sa.Column(sa.ForeignKey('agents.agent_id', ondelete="CASCADE", onupdate='CASCADE'),
                          nullable=False,
                          primary_key=True)
@@ -132,7 +135,7 @@ class AllocedPort(PluginTableBase):
                      primary_key=True)
     endpoint = sa.Column(VARCHAR(plugin_common.MAX_ENDPOINT_NAME_SIZE),
                          nullable=False)
-    port_desc = sa.Column(VARCHAR(256))
+    port_desc = sa.Column(VARCHAR(256), nullable=True, default=None)
     __table_args__ = (
             InnoDBTableBase.__table_args__
     )
@@ -157,7 +160,7 @@ class Agent(PluginTableBase):
                             default='[]',
                             nullable=False)
     entiy = sa.Column(INTEGER(unsigned=True), server_default='0', nullable=False)
-    ports = orm.relationship(AllocedPort, backref='agent', lazy='select',
+    ports = orm.relationship(AllocatedPort, backref='agent', lazy='select',
                              cascade='delete,delete-orphan,save-update')
     endpoints = orm.relationship(AgentEndpoint, backref='agent', lazy='joined',
                                  cascade='delete,delete-orphan,save-update')
