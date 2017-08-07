@@ -27,6 +27,7 @@ from goperation.plugin.manager import common as manager_common
 
 from goperation.plugin.manager.models import Agent
 from goperation.plugin.manager.models import AgentEndpoint
+from goperation.plugin.manager.models import AllocatedPort
 
 from goperation.plugin.manager import targetutils
 from goperation.plugin.manager.wsgi import contorller
@@ -95,6 +96,7 @@ class AgentReuest(contorller.BaseContorller):
         return agents_set
 
     def agent_id_check(self, agent_id):
+        """For one agent"""
         if agent_id == 'all':
             raise InvalidArgument('Just for one agent')
         agent_id = self.agents_id_check(agent_id)
@@ -477,14 +479,14 @@ class AgentReuest(contorller.BaseContorller):
             else:
                 if not _cache_server.set(host_online_key, agent_ipaddr,
                                          ex=manager_common.ONLINE_EXIST_TIME, nx=True):
-                    raise InvalidArgument('Another agent login with same host or someone set key %s' %
-                                           host_online_key)
+                    raise InvalidArgument('Another agent login with same host or '
+                                          'someone set key %s' % host_online_key)
         result = resultutils.results(result='Online agent function run success')
         result['data'].append(ret)
         return result
 
     @Idformater
-    def file(self, req, agent_id, body):
+    def send_file(self, req, agent_id, body):
         """call by client, and asyncrequest
         send file to agents
         """
@@ -499,3 +501,46 @@ class AgentReuest(contorller.BaseContorller):
         # else:
         #     cast_ret = rpc.cast(target=targetutils.target_all())
         # call_ret = rpc.call(target='')
+
+    @argutils.Idformater(key='agent_id', formatfunc='agent_id_check')
+    def get_ports(self, req, agent_id):
+        session = get_session(readonly=True)
+        query = model_query(session, AllocatedPort, filter=AllocatedPort.agent_id == agent_id)
+        return resultutils.results(result='Get port for %d success' % agent_id,
+                                   data=[dict(port=x.port, endpoint=x.endpoint, port_desc=x.port_desc)
+                                         for x in query.all()])
+
+    @argutils.Idformater(key='agent_id', formatfunc='agent_id_check')
+    def edit_ports(self, req, agent_id, body):
+        allocate = body.get('allocate', False)
+        release = body.get('release', False)
+        ports = body.get('ports', None)
+        strict = body.get('strict', True)
+        if (allocate and release) or (not allocate and not release):
+            raise InvalidArgument('What do you want to do for edit ports')
+        if not ports:
+            raise InvalidArgument('Ports is None for edit ports')
+        if not isinstance(ports, list):
+            ports = [ports, ]
+        for port in ports:
+            if not isinstance(port, (int, long)):
+                raise InvalidArgument('Port in ports not int, can not edit ports')
+            if not (0 <= port <= 65535):
+                raise InvalidArgument('Port in ports over range, can not edit ports')
+        session = get_session()
+        with mlock(targetutils.AgentLock(agent_id)):
+            with session.begin(subtransactions=True):
+                if allocate:
+                    for port in ports:
+                        session.add(AllocatedPort(agent_id=agent_id, port=port))
+                if release:
+                    port_filter = and_(AllocatedPort.agent_id == agent_id, AllocatedPort.port.in_(ports))
+                    query = model_query(session, AllocatedPort, filter=port_filter)
+                    delete_count = query.delete()
+                    need_to_delete = len(ports)
+                    if delete_count != len(ports):
+                        LOG.warning('Delete %d ports, but expect count is %d' % (delete_count, need_to_delete))
+                        if strict:
+                            raise InvalidArgument('Submit %d ports, but only %d ports found' %
+                                                  (len(ports), need_to_delete))
+        return resultutils.results(result='edit ports success')
