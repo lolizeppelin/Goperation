@@ -13,7 +13,7 @@ class Routers(router.RoutersBase):
     resource_name = manager_common.AGENT
     collection_name = resource_name + 's'
 
-    def append_routers(self, mapper, routers):
+    def append_routers(self, mapper, routers=None):
         controller_intance = controller_return_response(controller.AgentReuest(),
                                                         controller.FAULT_MAP)
         collection = mapper.collection(collection_name=self.collection_name,
@@ -22,8 +22,8 @@ class Routers(router.RoutersBase):
                                        member_prefix='/{agent_id}',
                                        collection_actions=COLLECTION_ACTIONS,
                                        member_actions=MEMBER_ACTIONS)
-        # send file to agent
-        collection.member.link('file', method='PUT')
+        # agent report online
+        collection.link('online', method='PUT')
         # upgrade agent code (upgrade rpm package)
         collection.member.link('upgrade', method='POST')
         # change agent status
@@ -32,6 +32,10 @@ class Routers(router.RoutersBase):
         collection.member.link('status', method='GET')
         # edit agent
         collection.member.link('edit', method='PATCH')
-        # agent report online
-        collection.link('online', method='PUT')
+        # send file to agent
+        collection.member.link('file', name='send_file', action='send_file', method='PUT')
+        # get alloced ports
+        collection.member.link('ports', name='get_ports', action='get_ports', method='GET')
+        # alloced or release ports
+        collection.member.link('ports', name='edit_ports', action='edit_ports', method='PATCH')
         return collection
