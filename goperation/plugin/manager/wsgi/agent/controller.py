@@ -30,10 +30,12 @@ from goperation.plugin.manager.models import AgentEndpoint
 from goperation.plugin.manager.models import AllocatedPort
 
 from goperation.plugin.manager import targetutils
+from goperation.plugin.manager import goplockutils
 from goperation.plugin.manager.wsgi import contorller
 from goperation.plugin.manager.wsgi import resultutils
 from goperation.plugin.manager.api import mlock
 from goperation.plugin.manager.api import get_cache
+from goperation.plugin.manager.api import get_redis
 from goperation.plugin.manager.api import get_client
 from goperation.plugin.manager.api import get_session
 from goperation.plugin.manager.api import rpcdeadline
@@ -60,13 +62,13 @@ Idformater = argutils.Idformater(key='agent_id', formatfunc='agents_id_check')
 class AgentReuest(contorller.BaseContorller):
 
     def _all_id(self):
-        _cache_server = get_cache()
+        _cache_server = get_redis()
         key = targetutils.agent_all_id()
         all_ids = _cache_server.smembers(key)
         if not all_ids:
             # lazy init all agent id cache
             session = get_session(readonly=True)
-            with mlock(targetutils.lock_all_agent):
+            with mlock(goplockutils.lock_all_agent):
                 query = session.query(Agent.agent_id).filter(Agent.status > manager_common.DELETED)
                 ADDED = False
                 for result in query:
@@ -149,6 +151,7 @@ class AgentReuest(contorller.BaseContorller):
         result['data'].append(dict(agent_id=agent.agent_id,
                                    host=agent.host,
                                    status=agent.status,
+                                   ports_range=agent.ports_range,
                                    ports=[v.to_dict() for v in agent.ports],
                                    endpoints=[v['endpoint'] for v in agent.endpoints],
                                    ))
@@ -172,7 +175,6 @@ class AgentReuest(contorller.BaseContorller):
         except ValueError as e:
             raise InvalidArgument('Argument value type error: %s' % e.message)
         new_agent.create_time = timeutils.realnow()
-        new_agent.entiy = 0
         if endpoints:
             endpoints_entitys = []
             for endpoint in endpoints:
@@ -180,7 +182,7 @@ class AgentReuest(contorller.BaseContorller):
             new_agent.endpoints = endpoints_entitys
         session = get_session()
         _cache_server = get_cache()
-        with mlock(targetutils.lock_all_agent):
+        with mlock(goplockutils.lock_all_agent):
             host_filter = and_(Agent.host == new_agent.host, Agent.status > manager_common.DELETED)
             if model_count_with_key(session, Agent.host, filter=host_filter) > 0:
                 result = resultutils.results(resultcode=manager_common.RESULT_ERROR,
@@ -217,7 +219,7 @@ class AgentReuest(contorller.BaseContorller):
         query = model_query(session, Agent,
                             filter=and_(Agent.agent_id == agent_id,
                                         Agent.status > manager_common.DELETED))
-        with mlock(targetutils.AgentLock(agent_id)):
+        with mlock(goplockutils.AgentLock(agent_id)):
             with session.begin(subtransactions=True):
                 agent = query.one_or_none()
                 if not agent:
@@ -328,10 +330,11 @@ class AgentReuest(contorller.BaseContorller):
     @argutils.Idformater(key='agent_id', formatfunc='agent_id_check')
     def edit(self, req, agent_id, body):
         """call by agent"""
-        # TODO
+        # TODO  check data in body
         session = get_session()
-        with mlock(targetutils.AgentLock(agent_id)):
-            query = model_query(session, Agent, filter=(Agent.status > manager_common.DELETED))
+        with mlock(goplockutils.AgentLock(agent_id)):
+            query = model_query(session, Agent, filter=(and_(Agent.agent_id == agent_id,
+                                                             Agent.status > manager_common.DELETED)))
             data = body
             if not data:
                 raise InvalidInput('Not data exist')
@@ -395,7 +398,7 @@ class AgentReuest(contorller.BaseContorller):
         force = body.pop('force', False)
         session = get_session()
         rpc = get_client()
-        with mlock(targetutils.lock_all_agent):
+        with mlock(goplockutils.lock_all_agent):
             agent_id = list(agent_id)
             asyncrequest = self.create_asyncrequest(req, body)
             asyncrequest.result = \
@@ -503,21 +506,44 @@ class AgentReuest(contorller.BaseContorller):
         # call_ret = rpc.call(target='')
 
     @argutils.Idformater(key='agent_id', formatfunc='agent_id_check')
-    def get_ports(self, req, agent_id):
+    def get_ports(self, req, agent_id, body):
+        endpoint = body.get('endpoint', None)
         session = get_session(readonly=True)
-        query = model_query(session, AllocatedPort, filter=AllocatedPort.agent_id == agent_id)
-        return resultutils.results(result='Get port for %d success' % agent_id,
-                                   data=[dict(port=x.port, endpoint=x.endpoint, port_desc=x.port_desc)
-                                         for x in query.all()])
+        get_filter = (AllocatedPort.agent_id == agent_id)
+        if endpoint:
+            get_filter = and_(get_filter, AllocatedPort.endpoint == endpoint)
+        query = model_query(session, AllocatedPort, filter=get_filter)
+        with mlock(goplockutils.AgentLock(agent_id)):
+            return resultutils.results(result='Get port for %d success' % agent_id,
+                                       data=[dict(port=x.port, endpoint=x.endpoint, port_desc=x.port_desc)
+                                             for x in query.all()])
 
     @argutils.Idformater(key='agent_id', formatfunc='agent_id_check')
-    def edit_ports(self, req, agent_id, body):
-        allocate = body.get('allocate', False)
-        release = body.get('release', False)
+    def add_ports(self, req, agent_id, body):
+        ports = body.get('ports', None)
+        endpoint = body.get('endpoint', None)
+        if not ports:
+            raise InvalidArgument('Ports is None for add ports')
+        if not endpoint:
+            raise InvalidArgument('Endpoint is None for add ports')
+        if not isinstance(ports, list):
+            ports = [ports, ]
+        for port in ports:
+            if not isinstance(port, (int, long)):
+                raise InvalidArgument('Port in ports not int, can not edit ports')
+            if not (0 <= port <= 65535):
+                raise InvalidArgument('Port in ports over range, can not edit ports')
+        session = get_session()
+        with mlock(goplockutils.AgentLock(agent_id)):
+            with session.begin(subtransactions=True):
+                for port in ports:
+                    session.add(AllocatedPort(agent_id=agent_id, port=port, endpoint=endpoint))
+        return resultutils.results(result='edit ports success')
+
+    @argutils.Idformater(key='agent_id', formatfunc='agent_id_check')
+    def delete_ports(self, req, agent_id, body):
         ports = body.get('ports', None)
         strict = body.get('strict', True)
-        if (allocate and release) or (not allocate and not release):
-            raise InvalidArgument('What do you want to do for edit ports')
         if not ports:
             raise InvalidArgument('Ports is None for edit ports')
         if not isinstance(ports, list):
@@ -528,19 +554,15 @@ class AgentReuest(contorller.BaseContorller):
             if not (0 <= port <= 65535):
                 raise InvalidArgument('Port in ports over range, can not edit ports')
         session = get_session()
-        with mlock(targetutils.AgentLock(agent_id)):
+        with mlock(goplockutils.AgentLock(agent_id)):
             with session.begin(subtransactions=True):
-                if allocate:
-                    for port in ports:
-                        session.add(AllocatedPort(agent_id=agent_id, port=port))
-                if release:
-                    port_filter = and_(AllocatedPort.agent_id == agent_id, AllocatedPort.port.in_(ports))
-                    query = model_query(session, AllocatedPort, filter=port_filter)
-                    delete_count = query.delete()
-                    need_to_delete = len(ports)
-                    if delete_count != len(ports):
-                        LOG.warning('Delete %d ports, but expect count is %d' % (delete_count, need_to_delete))
-                        if strict:
-                            raise InvalidArgument('Submit %d ports, but only %d ports found' %
-                                                  (len(ports), need_to_delete))
+                port_filter = and_(AllocatedPort.agent_id == agent_id, AllocatedPort.port.in_(ports))
+                query = model_query(session, AllocatedPort, filter=port_filter)
+                delete_count = query.delete()
+                need_to_delete = len(ports)
+                if delete_count != len(ports):
+                    LOG.warning('Delete %d ports, but expect count is %d' % (delete_count, need_to_delete))
+                    if strict:
+                        raise InvalidArgument('Submit %d ports, but only %d ports found' %
+                                              (len(ports), need_to_delete))
         return resultutils.results(result='edit ports success')
