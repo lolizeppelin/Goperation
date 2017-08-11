@@ -1,8 +1,4 @@
 from simpleutil.config import cfg
-from simpleutil.utils import singleton
-from simpleutil.common.exceptions import InvalidArgument
-
-from glockredis import LockServiceBase
 
 from simpleservice.rpc.target import Target
 
@@ -12,56 +8,23 @@ from goperation.plugin.manager.config import manager_group
 
 CONF = cfg.CONF
 
-
-@singleton
-class AgentLockAll(LockServiceBase):
-
-    def __init__(self):
-        self.prefix = CONF[manager_group.name].redis_key_prefix
-
-    def _key(self):
-        return '%s-lock-%s-all' % (AGENT, self.prefix)
-
-    def _parent(self):
-        return None
-
-    def _children(self):
-        return None
-
-
-lock_all_agent = AgentLockAll()
-
-
-class AgentLock(LockServiceBase):
-
-    def __init__(self, agent_id):
-        self.agent_id = agent_id
-        self.prefix = CONF[manager_group.name].redis_key_prefix
-
-    def _key(self):
-        return '%s-lock-%s-%d' % (self.prefix, AGENT, self.agent_id)
-
-    def _parent(self):
-        return lock_all_agent
-
-    def _children(self):
-        return None
+prefix = CONF[manager_group.name].redis_key_prefix
 
 
 def agent_all_id():
-    return '%s-%s-id-all' % (CONF[manager_group.name].redis_key_prefix, AGENT)
+    return '%s-%s-id-all' % (prefix, AGENT)
 
 
 def host_online_key(agent_id):
-    return '%s-online-%s-%d' % (CONF[manager_group.name].redis_key_prefix, AGENT, agent_id)
+    return '%s-online-%s-%d' % (prefix, AGENT, agent_id)
 
 
 def async_request_key(request_id, agent_id):
-    return '%s-async-%s-%d' % (CONF[manager_group.name].redis_key_prefix, request_id, agent_id)
+    return '%s-async-%s-%d' % (prefix, request_id, agent_id)
 
 
 def async_request_pattern(request_id):
-    return '%s-async-%s-*' % (CONF[manager_group.name].redis_key_prefix, request_id)
+    return '%s-async-%s-*' % (prefix, request_id)
 
 
 def target_all(fanout=False):
