@@ -1,23 +1,25 @@
 import eventlet
 
-from goperation.api.client.base import ManagerClient
-from goperation.plugin.manager import common as manager_common
-from goperation.plugin.manager import config as manager_config
-from goperation.plugin.manager.rpc.agent.config import agent_group
-from goperation.plugin.manager.rpc.agent.config import rpc_agent_opts
-from goperation.plugin.manager.targetutils import target_server
-from goperation.plugin.utils import suicide
-from simpleservice.common import RESULT_ERROR
-from simpleservice.common import RESULT_OVER_DEADLINE
-from simpleservice.common import RESULT_SUCCESS
-from simpleservice.loopingcall import IntervalLoopinTask
-from simpleservice.plugin.base import ManagerBase
-from simpleservice.rpc.result import BaseRpcResult
 from simpleutil.config import cfg
 from simpleutil.log import log as logging
 from simpleutil.utils.lockutils import PriorityLock
 from simpleutil.utils.sysemutils import get_partion_free_bytes
-from simpleutil.utils.timeutils import realnow
+
+from simpleservice.loopingcall import IntervalLoopinTask
+from simpleservice.plugin.base import ManagerBase
+from simpleservice.rpc.result import BaseRpcResult
+
+from goperation.api.client.base import ManagerClient
+from goperation.plugin.utils import suicide
+from goperation.plugin.manager import common as manager_common
+from goperation.plugin.manager import config as manager_config
+
+from goperation.plugin.manager.rpc.agent.config import agent_group
+from goperation.plugin.manager.rpc.agent.config import rpc_agent_opts
+from goperation.plugin.manager.targetutils import target_server
+from goperation.plugin.manager.ctxtutils import CheckEndpointRpcCtxt
+from goperation.plugin.manager.ctxtutils import CheckManagerRpcCtxt
+
 
 CONF = cfg.CONF
 
@@ -26,48 +28,11 @@ LOG = logging.getLogger(__name__)
 CONF.register_opts(rpc_agent_opts, agent_group)
 
 
-class CheckRpcCtxt(object):
-    """Rpc call need this to check ctxt
-    else you shoud check deadline on ctxt
-    and chekc status of Manager
-    """
+def ports_range_to_list(port_range):
+    pool = set()
+    up, down = port_range.split('-')
 
-    def __init__(self, func=None, manager=None):
-        self.func = func
-        self.manager = manager
-
-    def __get__(self, instance, owner):
-        self.func = self.func.__get__(instance, owner)
-        self.manager = instance
-        return self
-
-    def __call__(self, *args, **kwargs):
-        ctxt = dict()
-        if kwargs:
-            ctxt = kwargs.get('ctxt', None)
-            if ctxt is None:
-                ctxt = args[0]
-        deadline = ctxt.get('deadline', None)
-        if self.manager.status < manager_common.HARDBUSY:
-            msg = 'Rpc agent status is %d, can not do any work' % self.manager.status
-            LOG.warning(msg)
-            result = BaseRpcResult(ctxt, self.manager.agent_id, RESULT_ERROR, msg)
-        elif deadline and int(realnow()) >= deadline:
-            msg = 'Rpc receive time over deadline'
-            LOG.warning(msg)
-            result = BaseRpcResult(ctxt, self.manager.agent_id, RESULT_OVER_DEADLINE, msg)
-        else:
-            # check success
-            return self.func(*args, **kwargs)
-        # get reply true means a rpc call
-        if ctxt.get('reply', False):
-            return result
-        # get a request_id means the asyncrequest need to post data to gcenter
-        request_id = ctxt.get('request_id', None)
-        if request_id:
-            if isinstance(result, BaseRpcResult):
-                result = result.to_dict()
-            self.manager.client.agent_resopne(request_id, result)
+    return pool
 
 
 class OnlinTaskReporter(IntervalLoopinTask):
@@ -107,31 +72,47 @@ class RpcAgentManager(ManagerBase):
         self.work_path = conf.work_path
         self.local_ip = conf.local_ip
 
+        self.work_lock = PriorityLock()
+        self.work_lock.set_defalut_priority(priority=5)
+
         self.client = ManagerClient(host=CONF.host, local_ip=self.local_ip,
                                     agent_type=self.agent_type,
                                     wsgi_url=CONF[manager_common.AGENT].gcenter,
                                     token=CONF.trusted)
 
-        self.work_lock = PriorityLock()
-        self.work_lock.set_defalut_priority(priority=5)
-
+        self._periodic_tasks = []
         # key: port, value endpoint name
         self.allocked_ports = {}
-        # left disk size
-        self.partion_left_size = 0
-        self._periodic_tasks = []
+        # left ports
+        self.left_ports = set()
+        up, down = map(int, self.ports_range.split('-'))
+        for port in xrange(up, down):
+            self.left_ports.add(port)
+
+
+    def frozen_port(self, endpoint, port):
+        with self.work_lock.priority(2):
+            if endpoint not in self.allocked_ports:
+                self.allocked_ports[endpoint] = set()
+            if port in self.allocked_ports[endpoint]:
+                # TODO change Exception class
+                raise RuntimeError('')
+            self.left_ports.remove(port)
+            self.allocked_ports[endpoint].add(port)
+
+    @property
+    def partion_left_size(self):
+        return get_partion_free_bytes(self.work_path)/(1024*1024)
 
     def pre_start(self, external_objects):
         self.rpcservice = external_objects
         self.endpoints = external_objects.endpoints
-        self.partion_left_size = get_partion_free_bytes(self.work_path)/(1024*1024)
         # get agent id of this agent
         # if agent not exist,call create
         self.client.agent_init_self(self)
         # add online report periodic tasks
         self._periodic_tasks.insert(0, OnlinTaskReporter(self))
         for endpoint in self.endpoints:
-
             endpoint.pre_start(self)
 
     def post_start(self):
@@ -141,13 +122,16 @@ class RpcAgentManager(ManagerBase):
             raise RuntimeError('Agent can not start, receive status is %d' % status)
         # get port allocked
         for port_info in agent_info['ports']:
-            endpoint = port_info['endpoint']
-            if endpoint not in self.allocked_ports:
-                self.allocked_ports[endpoint] = set()
-            self.allocked_ports[endpoint].add(port_info['port'])
+            self.frozen_port(port_info['endpoint'], port_info['port'])
+        if agent_info['ports_range'] != self.ports_range:
+            LOG.warning('Agent ports range has been changed at remote database')
+            body = {'ports_range': self.ports_range}
+            # call agent change ports_range
+            self.client.agent_edit(agent_id=self.agent_id, body=body)
+        # agent set status at this moment
+        # before status set, all rpc will requeue by RPCDispatcher
+        # so function agent_show in wsgi server do not need agent lock
         self.force_status(status)
-        # if not self.set_status(status):
-        #     raise RuntimeError('Can not change manager status after start')
         for endpoint in self.endpoints:
             endpoint.post_start()
 
@@ -165,15 +149,16 @@ class RpcAgentManager(ManagerBase):
 
     def full(self):
         with self.work_lock.priority(0):
-            if self.status in (manager_common.HARDBUSY, manager_common.DELETED):
-                return True
+            if self.status == manager_common.PERDELETE:
+                return False
             if self.status > manager_common.SOFTBUSY:
                 return False
+            if manager_common < manager_common.SOFTBUSY:
+                return True
         eventlet.sleep(0.5)
+        # soft busy can wait 0.5 to check
         with self.work_lock.priority(0):
-            if self.status in (manager_common.SOFTBUSY,
-                               manager_common.HARDBUSY,
-                               manager_common.DELETED):
+            if self.status <= manager_common.SOFTBUSY:
                 return True
             return False
 
@@ -207,72 +192,85 @@ class RpcAgentManager(ManagerBase):
                     raise RuntimeError('Agent init find agent_id changed')
                 LOG.warning('Do not call agent_id setter more then once')
 
+    @CheckManagerRpcCtxt
+    @CheckEndpointRpcCtxt
     def call_endpoint(self, endpoint, method, ctxt, args):
-        super(RpcAgentManager, self).call_endpoint(endpoint, method, ctxt, args)
+        action = ctxt.get('action', None)
+        if action not in manager_common.CRUD:
+            pass
+        return ManagerBase.call_endpoint(self, endpoint, method, ctxt, args)
 
-    @CheckRpcCtxt
+    @CheckManagerRpcCtxt
     def rpc_active_agent(self, ctxt, args):
         if args.get('agent_id') != self.agent_id or args.get('agent_ipaddr') != self.local_ip:
-            return BaseRpcResult(resultcode=RESULT_ERROR, result='ACTIVE agent failure, agent id or ip not match')
+            return BaseRpcResult(self.agent_id, ctxt,
+                                 resultcode=manager_common.RESULT_ERROR,
+                                 result='ACTIVE agent failure, agent id or ip not match')
         status = args.get('status')
         if status not in (manager_common.ACTIVE, manager_common.UNACTIVE):
-            return BaseRpcResult(resultcode=RESULT_ERROR, result='Agent change status failure, status code value error')
+            return BaseRpcResult(self.agent_id, ctxt,
+                                 resultcode=manager_common.RESULT_ERROR,
+                                 result='Agent change status failure, status code value error')
         with self.work_lock.priority(1):
             if self.status == status:
-                return BaseRpcResult(agent_id=self.agent_id, result='Agent status not change')
+                return BaseRpcResult(self.agent_id, ctxt,
+                                     result='Agent status not change')
             if self.status in (manager_common.ACTIVE, manager_common.UNACTIVE):
-                return BaseRpcResult(agent_id=self.agent_id, result='ACTIVE or UNACTIVE agent success')
-        return BaseRpcResult(resultcode=RESULT_ERROR, result='ACTIVE agent failure')
+                return BaseRpcResult(self.agent_id, ctxt,
+                                     result='ACTIVE or UNACTIVE agent success')
+        return BaseRpcResult(self.agent_id, ctxt,
+                             resultcode=manager_common.RESULT_ERROR, result='ACTIVE agent failure')
 
-    @CheckRpcCtxt
+    @CheckManagerRpcCtxt
     def rpc_status_agent(self, ctxt, args):
         pass
 
-    @CheckRpcCtxt
+    @CheckManagerRpcCtxt
     def rpc_delete_agent_precommit(self, ctxt, args):
         with self.work_lock.priority(0):
             if args['agent_id'] != self.agent_id or \
                             args['agent_type'] != self.agent_type or \
                             args['host'] != CONF.host or \
                             args['ipaddr'] != self.local_ip:
-                return BaseRpcResult(resultcode=RESULT_ERROR,
+                return BaseRpcResult(self.agent_id, ctxt,
+                                     resultcode=manager_common.RESULT_ERROR,
                                      result='Not match this agent')
             locked_endpoints = []
             for endpont in self.endpoints:
                 if not endpont.empty(lock=True):
                     while locked_endpoints:
                         locked_endpoints.pop().work_lock.release()
-                    return BaseRpcResult(resultcode=RESULT_ERROR,
+                    return BaseRpcResult(self.agent_id, ctxt,
+                                         resultcode=manager_common.RESULT_ERROR,
                                          result='Endpoint %s is not empty' % endpont.name)
                 else:
                     locked_endpoints.append(endpont)
             self.status = manager_common.PERDELETE
             msg = 'Agent %s with id %d wait delete' % (CONF.host, self.agent_id)
             LOG.info(msg)
-            return BaseRpcResult(resultcode=RESULT_SUCCESS, result=msg)
+            return BaseRpcResult(self.agent_id, ctxt,
+                                 resultcode=manager_common.RESULT_SUCCESS, result=msg)
 
+    @CheckManagerRpcCtxt
     def rpc_delete_agent_postcommit(self, ctxt, args):
-        """postcommit without CheckRpcCtxt"""
-        deadline = ctxt.get('deadline', None)
-        if deadline and int(realnow()) >= deadline:
-            msg = 'Rpc receive time over deadline'
-            LOG.warning(msg)
-            return BaseRpcResult(RESULT_OVER_DEADLINE, msg)
         with self.work_lock.priority(0):
             if args['agent_id'] != self.agent_id or \
                             args['agent_type'] != self.agent_type or \
                             args['host'] != CONF.host or \
                             args['ipaddr'] != self.local_ip:
-                return BaseRpcResult(resultcode=RESULT_ERROR, result='Not match this agent')
+                return BaseRpcResult(self.agent_id, ctxt,
+                                     resultcode=manager_common.RESULT_ERROR, result='Not match this agent')
             if self.status == manager_common.PERDELETE:
                 self.status = manager_common.DELETED
                 msg = 'Agent %s with id %d set status to DELETED success' % (CONF.host, self.agent_id)
                 suicide(delay=3)
-                return BaseRpcResult(resultcode=RESULT_SUCCESS, result=msg)
+                return BaseRpcResult(self.agent_id, ctxt,
+                                     resultcode=manager_common.RESULT_SUCCESS, result=msg)
             else:
                 msg = 'Agent status is not PERDELETE, status is %d' % self.status
-                return BaseRpcResult(resultcode=RESULT_ERROR, result=msg)
+                return BaseRpcResult(self.agent_id, ctxt,
+                                     resultcode=manager_common.RESULT_ERROR, result=msg)
 
-    @CheckRpcCtxt
-    def upgrade_agent(self, ctxt, args):
+    @CheckManagerRpcCtxt
+    def rpc_upgrade_agent(self, ctxt, args):
         pass
