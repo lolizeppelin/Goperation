@@ -36,6 +36,8 @@ class Routers(router.RoutersBase):
         collection.member.link('file', name='send_file', action='send_file', method='PUT')
         # get alloced ports
         collection.member.link('ports', name='get_ports', action='get_ports', method='GET')
-        # alloced or release ports
-        collection.member.link('ports', name='edit_ports', action='edit_ports', method='PATCH')
+        # alloced  ports
+        collection.member.link('ports', name='add_ports', action='add_ports', method='POST')
+        # release ports
+        collection.member.link('ports', name='delete_ports', action='delete_ports', method='DELETE')
         return collection
