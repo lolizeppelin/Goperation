@@ -23,7 +23,7 @@ class ManagerClient(HttpClientBase):
     agents_file_path = "/agents/%s/file"
     agents_upgrade_path = "/agents/%s/upgrade"
     agents_status_path = "/agents/%s/status"
-
+    agents_posts_path = "/agents/%s/ports"
 
     asyncs_path = "/asyncrequests"
     async_path = "/asyncrequests/%s"
@@ -54,7 +54,7 @@ class ManagerClient(HttpClientBase):
             raise ServerExecuteRequestError(message='get agent info fail',
                                             code=results['resultcode'],
                                             resone=results['result'])
-        return results
+        return results['data'][0]
 
     def agent_edit(self, agent_id, body):
         resp, results = self.patch(action=self.agent_path % str(agent_id), body=body)
@@ -110,6 +110,31 @@ class ManagerClient(HttpClientBase):
         resp, results = self.retryable_post(action=self.agents_file_path % str(agent_id), body=body)
         if results['resultcode'] != manager_common.RESULT_SUCCESS:
             raise ServerExecuteRequestError(message='agent send file fail',
+                                            code=results['resultcode'],
+                                            resone=results['result'])
+        return results
+
+    def agents_get_ports(self, agent_id, body):
+        resp, results = self.get(action=self.agents_file_path % str(agent_id), body=body)
+        if results['resultcode'] != manager_common.RESULT_SUCCESS:
+            raise ServerExecuteRequestError(message='agent get posts fail',
+                                            code=results['resultcode'],
+                                            resone=results['result'])
+        return results
+
+
+    def agents_add_ports(self, agent_id, body):
+        resp, results = self.retryable_post(action=self.agents_file_path % str(agent_id), body=body)
+        if results['resultcode'] != manager_common.RESULT_SUCCESS:
+            raise ServerExecuteRequestError(message='agent add posts fail',
+                                            code=results['resultcode'],
+                                            resone=results['result'])
+        return results
+
+    def agents_delete_ports(self, agent_id, body):
+        resp, results = self.delete(action=self.agents_file_path % str(agent_id), body=body)
+        if results['resultcode'] != manager_common.RESULT_SUCCESS:
+            raise ServerExecuteRequestError(message='agent delete posts fail',
                                             code=results['resultcode'],
                                             resone=results['result'])
         return results
