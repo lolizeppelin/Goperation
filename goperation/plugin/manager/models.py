@@ -1,8 +1,6 @@
 import sqlalchemy as sa
 from sqlalchemy import orm
 
-from sqlalchemy.sql import and_
-
 from sqlalchemy.dialects.mysql import VARCHAR
 from sqlalchemy.dialects.mysql import SMALLINT
 from sqlalchemy.dialects.mysql import INTEGER
