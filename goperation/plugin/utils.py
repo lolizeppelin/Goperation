@@ -8,12 +8,9 @@ import greenlet
 from simpleutil import system
 from simpleutil.log import log as logging
 
-
 from simpleservice.base import SignalHandler
 
 from goperation.plugin import common as plugin_common
-
-
 
 
 def validate_endpoint(value):
@@ -37,7 +34,7 @@ def validate_endpoints(value):
     raise ValueError('Entpoint list type error')
 
 
-def suicide(delay=0):
+def suicide(delay=3):
     def _suicide():
         p = psutil.Process()
         p.terminal()
@@ -46,6 +43,11 @@ def suicide(delay=0):
     hub = hubs.get_hub()
     g = greenlet.greenlet(_suicide, parent=hub.greenlet)
     hub.schedule_call_global(delay, g.switch)
+
+
+def nirvana(delay=1):
+    """reboot self"""
+    pass
 
 
 if system.LINUX:
