@@ -131,7 +131,7 @@ class mlock(GlockContext):
         super(mlock, self).__init__(get_redis(), server_list, locktime, alloctime)
 
 
-@singleton
+@singleton.singleton
 class ManagerRpcClient(RPCClientBase):
     """singleton Rpc client"""
     def __init__(self):
