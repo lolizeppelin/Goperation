@@ -11,7 +11,7 @@ CONF = cfg.CONF
 prefix = CONF[manager_group.name].redis_key_prefix
 
 
-@singleton
+@singleton.singleton
 class AgentLockAll(LockServiceBase):
 
     def _key(self):
