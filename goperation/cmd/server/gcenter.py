@@ -6,13 +6,13 @@ from simpleservice.server import ServerWrapper
 from simpleservice.server import launch
 
 from simpleservice.wsgi.config import wsgi_options
+from simpleservice.wsgi.config import find_paste_abs
 from simpleservice.wsgi.service import load_paste_app
 from simpleservice.wsgi.service import LauncheWsgiServiceBase
 
 from goperation import plugin
 from goperation.plugin import config as plugin_config
 from goperation.plugin.manager.wsgi.config import route_opts
-from goperation.plugin.manager.wsgi.config import find_paste_abs
 
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
@@ -37,6 +37,7 @@ def configure(config_files=None):
     CONF.register_opts(route_opts, gcenter_group)
     for route in CONF[gcenter_group.name].routes:
         plugin.EXTEND_ROUTES.append(importutils.import_class(route))
+        LOG.info('Add core route %s success' % route)
 
     # set endpoint config
     if CONF.endpoints:
@@ -46,6 +47,7 @@ def configure(config_files=None):
             # add endpoint route
             for route in CONF[endpoint_group.name].routes:
                 plugin.EXTEND_ROUTES.append(importutils.import_class(route))
+                LOG.info('Add endpoint route %s success' % route)
 
     paste_file_path = find_paste_abs(CONF[gcenter_group.name])
     return gcenter_group.name, paste_file_path
@@ -53,6 +55,7 @@ def configure(config_files=None):
 
 def run(config_files):
     name, paste_config = configure(config_files=config_files)
+    LOG.info('Paste config file is %s' % paste_config)
     app = load_paste_app(name, paste_config)
     servers = []
     wsgi_server = LauncheWsgiServiceBase(name, app)
