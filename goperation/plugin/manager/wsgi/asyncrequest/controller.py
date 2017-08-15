@@ -1,31 +1,28 @@
-import eventlet
 import webob.exc
-
-from sqlalchemy.sql import or_
-from sqlalchemy.sql import and_
-
 from redis.exceptions import RedisError
 
+from sqlalchemy.sql import and_
+from sqlalchemy.sql import or_
+
+from simpleutil.log import log as logging
+from simpleutil.common.exceptions import InvalidArgument
 from simpleutil.utils import argutils
 from simpleutil.utils import jsonutils
-from simpleutil.log import log as logging
-
-from simpleutil.common.exceptions import InvalidArgument
 
 from simpleservice.ormdb.api import model_query
-
-from goperation.plugin.manager import targetutils
-from goperation.plugin.manager import common as manager_common
-from goperation.plugin.manager.api import get_session
-from goperation.plugin.manager.api import get_cache
-from goperation.plugin.manager.models import AsyncRequest
-from goperation.plugin.manager.models import AgentRespone
-from goperation.plugin.manager.models import ResponeDetail
-from goperation.plugin.manager.wsgi import resultutils
-from goperation.plugin.manager.wsgi import contorller
-
-from simpleservice.ormdb.exceptions import DBError
 from simpleservice.ormdb.exceptions import DBDuplicateEntry
+from simpleservice.ormdb.exceptions import DBError
+
+from goperation.plugin.manager import common as manager_common
+from goperation.plugin.manager.api import get_cache
+from goperation.plugin.manager.api import get_session
+from goperation.plugin.manager.models import AgentRespone
+from goperation.plugin.manager.models import AsyncRequest
+from goperation.plugin.manager.models import ResponeDetail
+from goperation.plugin.manager.wsgi import contorller
+from goperation.plugin.manager.wsgi import targetutils
+from goperation.plugin.manager.wsgi import resultutils
+
 
 LOG = logging.getLogger(__name__)
 
@@ -138,13 +135,13 @@ class AsyncWorkRequest(contorller.BaseContorller):
     def respone(self, req, request_id, body):
         """agent report respone api"""
         try:
-            agent_id = body.get('agent_id')
-            agent_time = body.get('agent_time')
-            resultcode = body.get('resultcode')
-            result = body.get('result')
-            details = body.get('details', [])
-            persist = body.get('persist', 1)
-            expire = body.get('expire', 30)
+            agent_id = body.pop('agent_id')
+            agent_time = body.pop('agent_time')
+            resultcode = body.pop('resultcode')
+            result = body.pop('result')
+            details = body.pop('details', [])
+            persist = body.pop('persist', 1)
+            expire = body.pop('expire', 30)
         except KeyError as e:
             raise InvalidArgument('Agent respone need key %s' % e.message)
         _cache_server = get_cache()
@@ -262,7 +259,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
 
     @staticmethod
     def bluk_insert(bulk_data, persist, expire):
-        # TODO shoud async stone write
+        # TODO shoud async write
         session = get_session()
         if not persist:
             _cache_server = get_cache()
