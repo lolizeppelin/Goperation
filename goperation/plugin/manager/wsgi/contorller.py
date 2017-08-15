@@ -37,21 +37,21 @@ class BaseContorller():
             raise InvalidArgument('Async request need argument request_time')
         except TypeError:
             raise InvalidArgument('request_time is not int of time or no request_time found')
-        diff_time = request_time - client_request_time
-        if abs(diff_time) > 5:
-            raise InvalidArgument('The diff time between send and receive is %d' % diff_time)
+        offset_time = request_time - client_request_time
+        if abs(offset_time) > 5:
+            raise InvalidArgument('The diff time between send and receive is %d' % offset_time)
         finishtime = body.get('finishtime', None)
         if finishtime:
-            finishtime = int(finishtime) + diff_time
+            finishtime = int(finishtime) + offset_time
         else:
             finishtime = request_time + 4
         if finishtime - request_time < 3:
             raise InvalidArgument('Job can not be finished in 3 second')
         deadline = body.get('deadline', None)
         if deadline:
-            deadline = int(deadline) + diff_time - 1
+            deadline = int(deadline) + offset_time - 1
         else:
-            deadline = rpcdeadline(deadline)
+            deadline = rpcdeadline(finishtime)
         if deadline - finishtime < 3:
             raise InvalidArgument('Job deadline must at least 3 second after finishtime')
         request_id = uuidutils.generate_uuid()
