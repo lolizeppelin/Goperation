@@ -121,7 +121,7 @@ def rpcdeadline(starttime=None):
     if not starttime:
         starttime = int(timeutils.realnow())
     offset_time = manager_common.RPC_CALL_TIMEOUT * (manager_common.RPC_SEND_RETRY + 1)
-    return (starttime + offset_time - 1)
+    return starttime + offset_time - 1
 
 
 class mlock(GlockContext):
