@@ -1,5 +1,4 @@
-from simpleservice.rpc.driver.exceptions import MessagingException
+class RpcCtxtException(Exception):
 
-
-class RPCResultError(MessagingException):
-    """rpc call error"""
+    def __init__(self, result=None):
+        self.result = result

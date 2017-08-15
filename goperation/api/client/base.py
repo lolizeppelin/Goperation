@@ -1,5 +1,6 @@
 import psutil
 
+from simpleutil.utils import jsonutils
 from simpleutil.log import log as logging
 
 from simpleservice.wsgi.client import HttpClientBase
@@ -16,11 +17,14 @@ class ManagerClient(HttpClientBase):
     USER_AGENT = 'goperation-httpclient'
 
     agent_path = "/agents/%s"
-    agent_active_path = "/agents/%s/active"
     agent_online_path = "/agents/online"
 
+
     agents_path = "/agents"
+    agents_flush_path = "/agents/flush"
+    agent_active_path = "/agents/%s/active"
     agents_file_path = "/agents/%s/file"
+    agents_edit_path = "/agents/%s/edit"
     agents_upgrade_path = "/agents/%s/upgrade"
     agents_status_path = "/agents/%s/status"
     agents_posts_path = "/agents/%s/ports"
@@ -57,15 +61,16 @@ class ManagerClient(HttpClientBase):
         return results['data'][0]
 
     def agent_edit(self, agent_id, body):
-        resp, results = self.patch(action=self.agent_path % str(agent_id), body=body)
+        resp, results = self.patch(action=self.agents_edit_path % str(agent_id), body=body)
         if results['resultcode'] != manager_common.RESULT_SUCCESS:
             raise ServerExecuteRequestError(message='edit agent fail',
                                             code=results['resultcode'],
                                             resone=results['result'])
         return results
 
-    def agent_active(self, agent_id):
-        resp, results = self.patch(action=self.agent_active_path % str(agent_id))
+    def agent_active(self, agent_id, status):
+        resp, results = self.patch(action=self.agent_active_path % str(agent_id),
+                                   body={'status': status})
         if results['resultcode'] != manager_common.RESULT_SUCCESS:
             raise ServerExecuteRequestError(message='agent active fail',
                                             code=results['resultcode'],
@@ -75,7 +80,7 @@ class ManagerClient(HttpClientBase):
     # bulk agent request
 
     def agents_index(self, body):
-        resp, results = self.get(action=self.agent_path, body=body)
+        resp, results = self.get(action=self.agents_path, body=body)
         if results['resultcode'] != manager_common.RESULT_SUCCESS:
             raise ServerExecuteRequestError(message='list agent fail',
                                             code=results['resultcode'],
@@ -178,10 +183,25 @@ class ManagerClient(HttpClientBase):
                     agent_ipaddr=self.local_ip)
         if performance_snapshot:
             body.setdefault('extdata', {'snapshot': performance_snapshot})
-        resp, data = self.put(self.agent_online_path, body)
-        if data.get('agent_id') != self.agent_id:
+        resp, results = self.put(self.agent_online_path, body)
+        if results['resultcode'] != manager_common.RESULT_SUCCESS:
+            raise ServerExecuteRequestError(message='agent report online fail',
+                                            code=results['resultcode'],
+                                            resone=results['result'])
+        agent_id = results['data'][0]['agent_id']
+        if agent_id != self.agent_id:
             raise RuntimeError('Agent id changed %d in here, '
-                               'but get %d from gcenter' % (self.agent_id, data.get('agent_id')))
+                               'but get %d from gcenter' % (self.agent_id, agent_id))
+
+    def agent_flush(self, clean_online_key=False):
+        body = dict(online=clean_online_key)
+
+        resp, results = self.post(self.agents_flush_path, body)
+        if results['resultcode'] != manager_common.RESULT_SUCCESS:
+            raise ServerExecuteRequestError(message='agent flush fail',
+                                            code=results['resultcode'],
+                                            resone=results['result'])
+        return results
 
     def scheduler_overtime_respone(self, request_id, body):
         resp, results = self.put(self.async_scheduler_report_overtime_path % request_id, body=body)
@@ -217,7 +237,7 @@ class ManagerClient(HttpClientBase):
                     raise RuntimeError('Agent init find agent_id changed!')
                 LOG.warning('Do not call agent_init_self more then once')
             self.agent_id = agent_id
-            manager.agent_id(agent_id)
+            manager.agent_id = agent_id
 
     def agent_create_self(self, manager):
         """agent notify gcenter add agent"""
@@ -227,10 +247,10 @@ class ManagerClient(HttpClientBase):
                     # memory available MB
                     memory=psutil.virtual_memory().available/(1024*1024),
                     disk=manager.partion_left_size,
-                    ports_range=manager.ports_range,
+                    ports_range=jsonutils.dump_as_bytes(manager.ports_range),
                     endpoints=[endpoint.__class__.__name__.lower() for endpoint in manager.endpoints],
                     )
         results = self.agent_create(body)
         agent_id = results['data'][0]['agent_id']
         self.agent_id = agent_id
-        manager.agent_id(agent_id)
+        manager.agent_id = agent_id

@@ -1,0 +1,7 @@
+RPC测试, RPC descriptor 测试
+wsgi中调度器RPC cast 修改为先call 再cast模式
+file manager类编写
+http 下载方式编写
+调度器中taskflow的实现
+websocket实现监控并读取文件末
+websocket实现文件发送

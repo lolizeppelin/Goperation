@@ -11,22 +11,11 @@ CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 
 
-@singleton
+@singleton.singleton
 class ApplicationManager(RpcAgentManager):
 
+    agent_type = manager_common.APPLICATION
+
     def __init__(self):
-        RpcAgentManager.__init__(self, manager_common.APPLICATION)
-        self.resource_lock = PriorityLock()
-        self.resource_lock.set_defalut_priority(priority=5)
+        RpcAgentManager.__init__(self)
 
-
-    def init_host(self, endpoints):
-        super(ApplicationManager, self).init_host(endpoints)
-
-    def alloc_ports(self, ports):
-        """endpoint alloc ports"""
-        pass
-
-    def alloc_disk(self, size):
-        """endpoint alloc disk"""
-        pass

@@ -1,59 +1,53 @@
 import webob.exc
 
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.sql import and_
-
-from simpleutil.utils import argutils
-from simpleutil.utils import timeutils
-from simpleutil.utils import jsonutils
-
-from simpleutil.log import log as logging
-
-from simpleutil.utils.attributes import validators
 
 from simpleutil.common.exceptions import InvalidArgument
 from simpleutil.common.exceptions import InvalidInput
 
+from simpleutil.log import log as logging
+from simpleutil.utils import argutils
+from simpleutil.utils import timeutils
+from simpleutil.utils.attributes import validators
 
-from simpleservice.ormdb.api import model_query
-from simpleservice.ormdb.api import model_count_with_key
 from simpleservice.ormdb.api import model_autoincrement_id
+from simpleservice.ormdb.api import model_count_with_key
+from simpleservice.ormdb.api import model_query
+from simpleservice.ormdb.exceptions import DBError
+
 from simpleservice.rpc.driver.exceptions import MessagingTimeout
+from simpleservice.rpc.driver.exceptions import NoSuchMethod
 from simpleservice.rpc.driver.exceptions import RpcClientSendError
 
-
 from goperation.plugin import utils
-
 from goperation.plugin.manager import common as manager_common
+from goperation.plugin.manager.wsgi import contorller
+from goperation.plugin.manager.wsgi import goplockutils
+from goperation.plugin.manager.wsgi import targetutils
+from goperation.plugin.manager.wsgi import resultutils
+from goperation.plugin.manager.wsgi.exceptions import RpcResultError
+from goperation.plugin.manager.wsgi.exceptions import CacheStoneError
+
+from goperation.plugin.manager.api import get_client
+from goperation.plugin.manager.api import get_redis
+from goperation.plugin.manager.api import get_session
+from goperation.plugin.manager.api import mlock
+from goperation.plugin.manager.api import rpcdeadline
 
 from goperation.plugin.manager.models import Agent
 from goperation.plugin.manager.models import AgentEndpoint
 from goperation.plugin.manager.models import AllocatedPort
 
-from goperation.plugin.manager import targetutils
-from goperation.plugin.manager import goplockutils
-from goperation.plugin.manager.wsgi import contorller
-from goperation.plugin.manager.wsgi import resultutils
-from goperation.plugin.manager.api import mlock
-from goperation.plugin.manager.api import get_cache
-from goperation.plugin.manager.api import get_redis
-from goperation.plugin.manager.api import get_client
-from goperation.plugin.manager.api import get_session
-from goperation.plugin.manager.api import rpcdeadline
-
-from goperation.plugin.manager.rpc.exceptions import RPCResultError
-
-
-from sqlalchemy.exc import OperationalError
-from simpleservice.ormdb.exceptions import DBError
-from simpleservice.rpc.driver.exceptions import NoSuchMethod
 
 LOG = logging.getLogger(__name__)
 
 FAULT_MAP = {InvalidArgument: webob.exc.HTTPClientError,
              NoSuchMethod: webob.exc.HTTPNotImplemented,
              MessagingTimeout: webob.exc.HTTPServiceUnavailable,
-             RPCResultError: webob.exc.HTTPInternalServerError,
+             RpcResultError: webob.exc.HTTPInternalServerError,
              RpcClientSendError: webob.exc.HTTPInternalServerError,
+             CacheStoneError: webob.exc.HTTPInternalServerError,
              }
 
 Idformater = argutils.Idformater(key='agent_id', formatfunc='agents_id_check')
@@ -74,8 +68,7 @@ class AgentReuest(contorller.BaseContorller):
                 for result in query:
                     ADDED = True
                     if not _cache_server.sadd(key, str(result[0])):
-                        # TODO error type should be replace
-                        raise RuntimeError('Cant not add agent_id to redis, key %s' % key)
+                        raise CacheStoneError('Cant not add agent_id to redis, key %s' % key)
                 if not ADDED:
                     return set()
             all_ids = _cache_server.smembers(key)
@@ -139,7 +132,7 @@ class AgentReuest(contorller.BaseContorller):
         return ret_dict
 
     @argutils.Idformater(key='agent_id', formatfunc='agent_id_check')
-    def show(self, req, agent_id, body):
+    def show(self, req, agent_id):
         """call buy client"""
         session = get_session(readonly=True)
         query = model_query(session, Agent)
@@ -165,7 +158,7 @@ class AgentReuest(contorller.BaseContorller):
             new_agent.agent_type = body.pop('agent_type', None)
             if new_agent.agent_type is None or len(new_agent.agent_type) > 64:
                 raise ValueError('Agent type info over size')
-            new_agent.ports_range = jsonutils.dump_as_bytes(validators['type:ports_range'](body.pop('ports_range')))
+            new_agent.ports_range = body.pop('ports_range')
             new_agent.memory = int(body.pop('memory'))
             new_agent.cpu = int(body.pop('cpu'))
             new_agent.disk = int(body.pop('disk'))
@@ -181,7 +174,7 @@ class AgentReuest(contorller.BaseContorller):
                 endpoints_entitys.append(AgentEndpoint(endpoint=endpoint))
             new_agent.endpoints = endpoints_entitys
         session = get_session()
-        _cache_server = get_cache()
+        _cache_server = get_redis()
         with mlock(goplockutils.lock_all_agent):
             host_filter = and_(Agent.host == new_agent.host, Agent.status > manager_common.DELETED)
             if model_count_with_key(session, Agent.host, filter=host_filter) > 0:
@@ -202,8 +195,7 @@ class AgentReuest(contorller.BaseContorller):
                 key = targetutils.agent_all_id()
                 # add new agent_id to cache all agent_id
                 if not _cache_server.sadd(key, str(new_agent.agent_id)):
-                    # TODO error type shoud be replace
-                    raise RuntimeError('Cant not add agent_id to redis, key %s' % key)
+                    raise CacheStoneError('Cant not add agent_id to redis, key %s' % key)
                 return result
 
     @argutils.Idformater(key='agent_id', formatfunc='agent_id_check')
@@ -213,7 +205,7 @@ class AgentReuest(contorller.BaseContorller):
         # will not notify agent, just delete agent from database
         force = body.get('force', False)
         if not force:
-            _cache_server = get_cache()
+            _cache_server = get_redis()
             rpc = get_client()
         session = get_session()
         query = model_query(session, Agent,
@@ -242,7 +234,7 @@ class AgentReuest(contorller.BaseContorller):
                                                                     'ipaddr': agent_ipaddr}
                                                            })
                     if not delete_agent_precommit:
-                        raise RPCResultError('delete_agent_precommit result is None')
+                        raise RpcResultError('delete_agent_precommit result is None')
                     if delete_agent_precommit.get('resultcode') != manager_common.RESULT_SUCCESS:
                         return resultutils.results(total=1, pagenum=0,
                                                    result=delete_agent_precommit.get('result'),
@@ -272,9 +264,9 @@ class AgentReuest(contorller.BaseContorller):
                                                                      'ipaddr': agent_ipaddr}
                                                             })
                     if not delete_agent_postcommit:
-                        raise RPCResultError('delete_agent_postcommit result is None')
+                        raise RpcResultError('delete_agent_postcommit result is None')
                     if delete_agent_postcommit.get('resultcode') != manager_common.RESULT_SUCCESS:
-                        raise RPCResultError('Call agent delete fail: ' + delete_agent_postcommit.get('result'))
+                        raise RpcResultError('Call agent delete fail: ' + delete_agent_postcommit.get('result'))
                 result = resultutils.results(total=1, pagenum=0, result='Delete agent success',
                                              data=[dict(agent_id=agent.agent_id,
                                                         host=agent.host,
@@ -332,6 +324,7 @@ class AgentReuest(contorller.BaseContorller):
         """call by agent"""
         # TODO  check data in body
         session = get_session()
+
         with mlock(goplockutils.AgentLock(agent_id)):
             query = model_query(session, Agent, filter=(and_(Agent.agent_id == agent_id,
                                                              Agent.status > manager_common.DELETED)))
@@ -340,7 +333,7 @@ class AgentReuest(contorller.BaseContorller):
                 raise InvalidInput('Not data exist')
             with session.begin(subtransactions=True):
                 query.update(data)
-            result = resultutils.results(total=len(agent_id), pagenum=0,
+            result = resultutils.results(pagenum=0,
                                          result='Update agent success',
                                          data=[body, ])
             return result
@@ -351,7 +344,7 @@ class AgentReuest(contorller.BaseContorller):
         status = body.get('status', manager_common.ACTIVE)
         if status not in (manager_common.ACTIVE, manager_common.UNACTIVE):
             raise InvalidArgument('Argument status not right')
-        _cache_server = get_cache()
+        _cache_server = get_redis()
         rpc = get_client()
         session = get_session()
         query = model_query(session, Agent,
@@ -374,9 +367,9 @@ class AgentReuest(contorller.BaseContorller):
                                                   'agent_ipaddr': agent_ipaddr}
                                          })
             if not active_agent:
-                raise RPCResultError('active_agent result is None')
+                raise RpcResultError('Active agent rpc result is None')
             if active_agent.pop('resultcode') != manager_common.RESULT_SUCCESS:
-                raise RPCResultError('Call agent active or unactive fail: ' + active_agent.get('result'))
+                raise RpcResultError('Call agent active or unactive fail: ' + active_agent.get('result'))
             result = resultutils.results(result=active_agent.pop('result'),
                                          data=[dict(agent_id=agent.agent_id,
                                                     host=agent.host,
@@ -398,8 +391,8 @@ class AgentReuest(contorller.BaseContorller):
         force = body.pop('force', False)
         session = get_session()
         rpc = get_client()
+        agent_id = list(agent_id)
         with mlock(goplockutils.lock_all_agent):
-            agent_id = list(agent_id)
             asyncrequest = self.create_asyncrequest(req, body)
             asyncrequest.result = \
                 'upgrade agent method has send, wait %d agent respone' % len(agent_id)
@@ -407,10 +400,10 @@ class AgentReuest(contorller.BaseContorller):
                 session.add(asyncrequest)
                 rpc.cast(targetutils.target_all(fanout=True),
                          ctxt={'deadline': asyncrequest.deadline,
-                               'request_id': asyncrequest.request_id},
+                               'request_id': asyncrequest.request_id,
+                               'agents': agent_id},
                          msg={'method': 'upgrade_agent',
-                              'args': {'agent_id': agent_id,
-                                       'md5': md5,
+                              'args': {'md5': md5,
                                        'crc32': crc32,
                                        'url': url,
                                        'force': force}
@@ -419,7 +412,7 @@ class AgentReuest(contorller.BaseContorller):
             rpc.cast(targetutils.target_anyone(manager_common.SCHEDULER),
                      ctxt={'deadline': asyncrequest.deadline},
                      msg={'method': 'async_request_check',
-                          'args': {'agent_id': list(agent_id), 'request_id': asyncrequest.request_id,
+                          'args': {'agents': list(agent_id), 'request_id': asyncrequest.request_id,
                                    'deadline': asyncrequest.deadline,
                                    'finishtime': asyncrequest.finishtime,
                                    }
@@ -448,7 +441,7 @@ class AgentReuest(contorller.BaseContorller):
         except InvalidInput as e:
             raise InvalidArgument(e.message)
         session = get_session(readonly=True)
-        _cache_server = get_cache()
+        _cache_server = get_redis()
         query = model_query(session, Agent,
                             filter=(and_(Agent.status > manager_common.DELETED,
                                          Agent.agent_type == agent_type, Agent.host == host)))
@@ -487,6 +480,23 @@ class AgentReuest(contorller.BaseContorller):
         result = resultutils.results(result='Online agent function run success')
         result['data'].append(ret)
         return result
+
+    def flush(self, req, body=None):
+        """flush redis key storage"""
+        _cache_server = get_redis()
+        key = targetutils.agent_all_id()
+        with mlock(goplockutils.lock_all_agent):
+            # clean all id key
+            _cache_server.delete(key)
+            if body.get('online', False):
+                # clean host online key
+                keys = _cache_server.keys(targetutils.host_online_key('*'))
+                if keys:
+                    for key in keys:
+                        _cache_server.delete(key)
+        all_ids = _cache_server.smembers(key)
+        return resultutils.results(result='Flush cache key success',
+                                   data=list(all_ids))
 
     @Idformater
     def send_file(self, req, agent_id, body):

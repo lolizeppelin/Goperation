@@ -11,6 +11,9 @@ rpc_agent_opts = [
     cfg.HostnameOrIPOpt('gcenter',
                         help='Hostname or IP address of gcenter wsgi service'
                         ),
+    cfg.PortOpt('gcenter_port',
+                default=7999,
+                help='Http port of gcenter wsgi service'),
     cfg.IPOpt('local_ip',
               version=4,
               help='Rpc agent local ip address'),
@@ -18,9 +21,9 @@ rpc_agent_opts = [
                 default=[],
                 item_type=cfg.types.IPAddress(version=4),
                 help='External network IP addresses of this Rpc Agent'),
-    cfg.PortRangeOpt('ports_range',
-                     default=[],
-                     help='Rpc agent can alloc port from this range'),
+    cfg.MultiOpt('ports_range',
+                 item_type=cfg.types.PortRange(),
+                 help='Rpc agent can alloc port from this range'),
     cfg.FolderPathOpt('work_path',
                       help='Rpc agent work in this path, '
                            'And All Endpoint app install in this path'),

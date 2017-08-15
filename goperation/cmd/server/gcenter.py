@@ -21,13 +21,8 @@ LOG = logging.getLogger(__name__)
 def configure(config_files=None):
     # create a new project and group named gcenter
     gcenter_group = cfg.OptGroup(name='gcenter', title='group of goperation center')
-    CONF(project=gcenter_group.name,
-         default_config_files=config_files)
-    CONF.register_group(gcenter_group)
-
-    # init some plugin config
-    plugin_config.configure(gcenter_group.name)
-
+    # init plugin config
+    plugin_config.configure(gcenter_group, config_files)
     # set wsgi config
     CONF.register_opts(wsgi_options, group=gcenter_group)
     # set default of paste config
@@ -42,7 +37,9 @@ def configure(config_files=None):
     # set endpoint config
     if CONF.endpoints:
         for endpoint in CONF.endpoints:
-            endpoint_group = importutils.import_class(endpoint)
+            endpoint_class = importutils.import_class(endpoint)
+            endpoint_name = endpoint_class.__name__.lower()
+            endpoint_group = CONF.register_group(endpoint_name)
             CONF.register_opts(route_opts, endpoint_group)
             # add endpoint route
             for route in CONF[endpoint_group.name].routes:

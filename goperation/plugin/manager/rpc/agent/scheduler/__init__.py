@@ -1,4 +1,4 @@
-from goperation.plugin.manager import common
+from goperation.plugin.manager import common as manager_common
 from goperation.plugin.manager.rpc.agent.base import RpcAgentManager
 from simpleutil.config import cfg
 from simpleutil.log import log as logging
@@ -9,17 +9,17 @@ CONF = cfg.CONF
 
 LOG = logging.getLogger(__name__)
 
-@singleton
+@singleton.singleton
 class SchedulerManager(RpcAgentManager):
 
+    agent_type = manager_common.SCHEDULER
+
     def __init__(self):
-        RpcAgentManager.__init__(self, common.SCHEDULER)
+        RpcAgentManager.__init__(selfs)
         # child process list
         self.childs = set()
         self.lock = PriorityLock()
 
-    def init_host(self, endpoints):
-        super(SchedulerManager, self).init_host(endpoints)
 
     def full(self):
         return False
@@ -30,8 +30,8 @@ class SchedulerManager(RpcAgentManager):
     def after_stop(self):
         pass
 
-    def initialize_service_hook(self, rpcservice):
-         self.endpoints = rpcservice.endpoints
+    def initialize_service_hook(self):
+         pass
 
 
     def call_endpoint(self, endpoint, method, ctxt, args):

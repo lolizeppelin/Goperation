@@ -14,11 +14,11 @@ SCHEDULER = 'scheduler'
 # -----------status of agent--------------
 ACTIVE = 1
 UNACTIVE = 0
-INITIALIZING = -1
-SOFTBUSY = -9
-HARDBUSY = -10
+SOFTBUSY = -10
+INITIALIZING = -20
+HARDBUSY = -30
 DELETED = -127
-# per delete status can not be recode into database
+# pre delete status can not be recode into database
 # agent set status as PERDELETE when get a rpc cast of delete_agent_precommit
 PERDELETE = -128
 # -----------status of agent--------------
@@ -43,3 +43,4 @@ ROW_PER_PAGE = MAX_ROW_PER_REQUEST/10
 
 
 RESULT_NOT_ALL_SUCCESS = RESULT_SUCCESS + 1
+EXEC_RPC_FUNCTION_ERROR = RESULT_NOT_ALL_SUCCESS + 1
