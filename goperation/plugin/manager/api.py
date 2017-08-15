@@ -117,8 +117,11 @@ def get_client():
     return RPCClient
 
 
-def rpcdeadline(starttime=int(timeutils.realnow())):
-    return starttime + manager_common.RPC_CALL_TIMEOUT * (manager_common.RPC_SEND_RETRY + 1) - 1
+def rpcdeadline(starttime=None):
+    if not starttime:
+        starttime = int(timeutils.realnow())
+    offset_time = manager_common.RPC_CALL_TIMEOUT * (manager_common.RPC_SEND_RETRY + 1)
+    return (starttime + offset_time - 1)
 
 
 class mlock(GlockContext):
