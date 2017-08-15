@@ -18,7 +18,11 @@ plugin_opts = [
                )
 ]
 
-def configure(name, default_log_levels=None):
+
+def configure(group, config_files, default_log_levels=None):
+    CONF(project=group.name,
+         default_config_files=config_files)
+    CONF.register_group(group)
     # set base config
     base_config.configure()
     # over write state path default value
@@ -26,7 +30,7 @@ def configure(name, default_log_levels=None):
     # reg plugin opts
     CONF.register_opts(plugin_opts)
     # set log config
-    logging.setup(CONF, name)
+    logging.setup(CONF,group.name)
     defalut_logging.captureWarnings(True)
     if default_log_levels:
         base_config.set_default_for_default_log_levels(default_log_levels)
