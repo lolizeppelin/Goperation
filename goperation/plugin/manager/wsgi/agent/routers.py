@@ -16,14 +16,19 @@ class Routers(router.RoutersBase):
     def append_routers(self, mapper, routers=None):
         controller_intance = controller_return_response(controller.AgentReuest(),
                                                         controller.FAULT_MAP)
+        # agent report online
+        self._add_resource(mapper, controller_intance,
+                           path='/%s/online' % self.collection_name,
+                           put_action='online')
+        self._add_resource(mapper, controller_intance,
+                           path='/%s/flush' % self.collection_name,
+                           post_action='flush')
         collection = mapper.collection(collection_name=self.collection_name,
                                        resource_name=self.resource_name,
                                        controller=controller_intance,
                                        member_prefix='/{agent_id}',
                                        collection_actions=COLLECTION_ACTIONS,
                                        member_actions=MEMBER_ACTIONS)
-        # agent report online
-        collection.link('online', method='PUT')
         # upgrade agent code (upgrade rpm package)
         collection.member.link('upgrade', method='POST')
         # change agent status
