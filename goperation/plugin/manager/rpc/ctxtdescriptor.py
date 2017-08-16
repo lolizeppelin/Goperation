@@ -73,14 +73,14 @@ class CheckManagerRpcCtxt(CheckRpcCtxt):
                 # exc_info = sys.exc_info()
                 # del exc_info
                 http_result = BaseRpcResult(self.manager.agent_id, ctxt,
-                                       resultcode=manager_common.RESULT_ERROR,
-                                       result=msg)
+                                            resultcode=manager_common.RESULT_ERROR,
+                                            result=msg)
             elif isinstance(result, dict):
                 http_result = result
             else:
                 http_result = BaseRpcResult(self.manager.agent_id, ctxt,
-                                       resultcode=manager_common.RESULT_ERROR,
-                                       result='Rpc result value type error: %s' % str(result))
+                                            resultcode=manager_common.RESULT_ERROR,
+                                            result='Rpc result value type error: %s' % str(result))
             self.manager.client.async_resopne(request_id, http_result)
         # raise Exception to dispatch
         if isinstance(result, Exception):
