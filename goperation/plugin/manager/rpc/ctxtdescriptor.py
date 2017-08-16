@@ -24,7 +24,7 @@ class CheckRpcCtxt(object):
 
 class CheckManagerRpcCtxt(CheckRpcCtxt):
     """Rpc call need this to check ctxt
-    else you shoud check deadline on ctxt
+    else you shoud check finishtime on ctxt
     and chekc status of Manager
     """
 
@@ -32,16 +32,16 @@ class CheckManagerRpcCtxt(CheckRpcCtxt):
         # see simpleservice.rpc.driver.dispatcher.py
         # for dispatch call_endpoint endpoint, method, ctxt, **args
         ctxt = args[0] if len(args) == 1 else args[2]
-        deadline = ctxt.get('deadline', None)
+        finishtime = ctxt.get('finishtime', None)
         agents = ctxt.get('agents', None)
         try:
             if agents and self.manager.agent_id not in agents:
                 # rpc not for this agent
                 raise MessageNotForMe
-            if deadline and int(realnow()) >= deadline:
-                msg = 'Rpc receive time over deadline'
+            if finishtime and int(realnow()) >= finishtime:
+                msg = 'Rpc receive time over finishtime'
                 result = BaseRpcResult(self.manager.agent_id, ctxt,
-                                       resultcode=manager_common.RESULT_OVER_DEADLINE, result=msg)
+                                       resultcode=manager_common.RESULT_OVER_FINISHTIME, result=msg)
                 raise exceptions.RpcCtxtException(result)
             file_info = ctxt.pop('file', None)
             if file_info:
