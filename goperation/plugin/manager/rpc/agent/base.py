@@ -242,19 +242,16 @@ class RpcAgentManager(ManagerBase):
 
     @CheckManagerRpcCtxt
     @CheckEndpointRpcCtxt
-    def call_endpoint(self, endpoint, method, ctxt, args):
-        action = ctxt.get('action', None)
-        if action not in manager_common.CRUD:
-            pass
-        return ManagerBase.call_endpoint(self, endpoint, method, ctxt, args)
+    def call_endpoint(self, endpoint, method, ctxt, **kwargs):
+        return ManagerBase.call_endpoint(self, endpoint, method, ctxt, **kwargs)
 
     @CheckManagerRpcCtxt
-    def rpc_active_agent(self, ctxt, args):
-        if args.get('agent_id') != self.agent_id or args.get('agent_ipaddr') != self.local_ip:
+    def rpc_active_agent(self, ctxt, **kwargs):
+        if kwargs.get('agent_id') != self.agent_id or kwargs.get('agent_ipaddr') != self.local_ip:
             return BaseRpcResult(self.agent_id, ctxt,
                                  resultcode=manager_common.RESULT_ERROR,
                                  result='ACTIVE agent failure, agent id or ip not match')
-        status = args.get('status')
+        status = kwargs.get('status')
         if not isinstance(status, (int, long)) or status <= manager_common.SOFTBUSY:
             return BaseRpcResult(self.agent_id, ctxt,
                                  resultcode=manager_common.RESULT_ERROR,
@@ -267,7 +264,7 @@ class RpcAgentManager(ManagerBase):
                              resultcode=manager_common.RESULT_SUCCESS, result='ACTIVE agent success')
 
     @CheckManagerRpcCtxt
-    def rpc_status_agent(self, ctxt, args):
+    def rpc_status_agent(self, ctxt, **kwargs):
         return BaseRpcResult(self.agent_id, ctxt,
                              resultcode=manager_common.RESULT_SUCCESS,
                              result='Get status from %s success' % self.local_ip,
@@ -276,16 +273,16 @@ class RpcAgentManager(ManagerBase):
                                       for endpoint in self.endpoints])
 
     @CheckManagerRpcCtxt
-    def rpc_delete_agent_precommit(self, ctxt, args):
+    def rpc_delete_agent_precommit(self, ctxt, **kwargs):
         with self.work_lock.priority(0):
             if self.status <= manager_common.SOFTBUSY:
                 return BaseRpcResult(self.agent_id, ctxt,
                                      resultcode=manager_common.RESULT_ERROR,
                                      result='Can not change status now')
-            if args['agent_id'] != self.agent_id \
-                    or args['agent_type'] != self.agent_type \
-                    or args['host'] != CONF.host \
-                    or args['ipaddr'] != self.local_ip:
+            if kwargs['agent_id'] != self.agent_id \
+                    or kwargs['agent_type'] != self.agent_type \
+                    or kwargs['host'] != CONF.host \
+                    or kwargs['ipaddr'] != self.local_ip:
                 return BaseRpcResult(self.agent_id, ctxt,
                                      resultcode=manager_common.RESULT_ERROR,
                                      result='Not match this agent')
@@ -301,12 +298,12 @@ class RpcAgentManager(ManagerBase):
                                  resultcode=manager_common.RESULT_SUCCESS, result=msg)
 
     @CheckManagerRpcCtxt
-    def rpc_delete_agent_postcommit(self, ctxt, args):
+    def rpc_delete_agent_postcommit(self, ctxt, **kwargs):
         with self.work_lock.priority(0):
-            if args['agent_id'] != self.agent_id or \
-                            args['agent_type'] != self.agent_type or \
-                            args['host'] != CONF.host or \
-                            args['ipaddr'] != self.local_ip:
+            if kwargs['agent_id'] != self.agent_id or \
+                            kwargs['agent_type'] != self.agent_type or \
+                            kwargs['host'] != CONF.host or \
+                            kwargs['ipaddr'] != self.local_ip:
                 return BaseRpcResult(self.agent_id, ctxt,
                                      resultcode=manager_common.RESULT_ERROR, result='Not match this agent')
             if self.status == manager_common.PERDELETE:
@@ -321,7 +318,7 @@ class RpcAgentManager(ManagerBase):
                                      resultcode=manager_common.RESULT_ERROR, result=msg)
 
     @CheckManagerRpcCtxt
-    def rpc_upgrade_agent(self, ctxt, args):
+    def rpc_upgrade_agent(self, ctxt, **kwargs):
         last_status = self.status
         if not self.set_status(manager_common.HARDBUSY):
             return BaseRpcResult(self.agent_id, ctxt,
