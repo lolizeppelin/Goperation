@@ -5,7 +5,7 @@ from simpleutil.common.exceptions import InvalidArgument
 
 from goperation.plugin.manager.models import AsyncRequest
 from goperation.plugin.manager import common as manager_common
-from goperation.plugin.manager.api import rpcdeadline
+from goperation.plugin.manager.api import rpcfinishtime
 
 
 MAX_ROW_PER_REQUEST = 100
@@ -44,14 +44,16 @@ class BaseContorller():
         if finishtime:
             finishtime = int(finishtime) + offset_time
         else:
-            finishtime = request_time + 4
+            # finishtime = request_time + 4
+            finishtime = rpcfinishtime(request_time)
         if finishtime - request_time < 3:
             raise InvalidArgument('Job can not be finished in 3 second')
         deadline = body.get('deadline', None)
         if deadline:
             deadline = int(deadline) + offset_time - 1
         else:
-            deadline = rpcdeadline(finishtime)
+            # deadline = rpcdeadline(finishtime)
+            deadline = finishtime + 5
         if deadline - finishtime < 3:
             raise InvalidArgument('Job deadline must at least 3 second after finishtime')
         request_id = uuidutils.generate_uuid()
