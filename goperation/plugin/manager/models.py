@@ -63,9 +63,9 @@ class AsyncRequest(PluginTableBase):
     request_time = sa.Column(INTEGER(unsigned=True),
                              default=int(timeutils.realnow()), nullable=False)
     # request should finish at finish time
-    # when agent get a rpc call, find cur time > finishtime
+    # when agent get a rpc came, if cur time > finishtime
     # agent will drop the package
-    finishtime = sa.Column(INTEGER(unsigned=True), default=int(timeutils.realnow()) + 3, nullable=False)
+    finishtime = sa.Column(INTEGER(unsigned=True), default=int(timeutils.realnow()) + 5, nullable=False)
     # request should finish before deadline time
     # if task scheduler find cur time > deadline, it will not check return any more
     deadline = sa.Column(INTEGER(unsigned=True), default=int(timeutils.realnow())+10, nullable=False)
