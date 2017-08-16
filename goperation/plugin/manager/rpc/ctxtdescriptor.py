@@ -1,5 +1,6 @@
 from simpleutil.utils.timeutils import realnow
 
+from simpleservice.rpc.exceptions import MessageNotForMe
 from simpleservice.rpc.result import BaseRpcResult
 
 from goperation.plugin.manager import common as manager_common
@@ -36,7 +37,7 @@ class CheckManagerRpcCtxt(CheckRpcCtxt):
         try:
             if agents and self.manager.agent_id not in agents:
                 # rpc not for this agent
-                return None
+                raise MessageNotForMe
             if deadline and int(realnow()) >= deadline:
                 msg = 'Rpc receive time over deadline'
                 result = BaseRpcResult(self.manager.agent_id, ctxt,
@@ -54,6 +55,8 @@ class CheckManagerRpcCtxt(CheckRpcCtxt):
                 ctxt.setdefault('file', target_file)
             # check success run rpc function
             result = self.func(*args, **kwargs)
+        except MessageNotForMe:
+            raise
         except exceptions.RpcCtxtException as e:
             result = e.result
         except Exception as e:
@@ -62,6 +65,7 @@ class CheckManagerRpcCtxt(CheckRpcCtxt):
             # witch ctxt include key request_id
             result = e
         # get a request_id means the asyncrequest need to post data to gcenter
+        # TODO this part should in AMQPIncomingMessage.relay
         request_id = ctxt.get('request_id', None)
         if request_id:
             if isinstance(result, BaseRpcResult):
