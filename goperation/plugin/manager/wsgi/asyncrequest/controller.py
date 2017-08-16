@@ -170,7 +170,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
                                                 AgentRespone.agent_id == agent_id))
                 with session.begin(subtransactions=True):
                     respone = query.one()
-                    if respone.resultcode != manager_common.RESULT_OVER_DEADLINE:
+                    if respone.resultcode != manager_common.RESULT_OVER_FINISHTIME:
                         result = 'Agent %d respone %s fail,another agent with same agent_id in database' % \
                                  (agent_id, request_id)
                         LOG.error(result)
@@ -183,7 +183,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
                 if not _cache_server.set(respone_key, jsonutils.dump_as_bytes(data), ex=expire, nx=True):
                     LOG.warning('Scheduler set agent overtime to redis get a Duplicate Entry, Agent responed?')
                     respone = jsonutils.loads(_cache_server.get(respone_key))
-                    if respone.get('resultcode') != manager_common.RESULT_OVER_DEADLINE:
+                    if respone.get('resultcode') != manager_common.RESULT_OVER_FINISHTIME:
                         result = 'Agent %d respone %s fail,another agent ' \
                                  'with same agent_id in redis' % (agent_id, request_id)
                         LOG.error(result)
@@ -250,7 +250,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
             data = dict(request_id=request_id,
                         agent_id=agent_id,
                         agent_time=agent_time,
-                        resultcode=manager_common.RESULT_OVER_DEADLINE,
+                        resultcode=manager_common.RESULT_OVER_FINISHTIME,
                         result='Agent respone overtime, report by Scheduler:%d' % scheduler)
             bulk_data.append(data)
         # TODO bluk_insert should run background
