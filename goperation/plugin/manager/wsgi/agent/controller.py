@@ -364,7 +364,8 @@ class AgentReuest(contorller.BaseContorller):
                                     ctxt={'deadline': rpcdeadline()},
                                     msg={'method': 'active_agent',
                                          'args': {'agent_id': agent_id,
-                                                  'agent_ipaddr': agent_ipaddr}
+                                                  'agent_ipaddr': agent_ipaddr,
+                                                  'status': status}
                                          })
             if not active_agent:
                 raise RpcResultError('Active agent rpc result is None')
