@@ -121,7 +121,7 @@ def rpcfinishtime(starttime=None):
     rpc_conf = CONF[manager_rabbit_group.name]
     if not starttime:
         starttime = int(timeutils.realnow())
-    offset_time = rpc_conf.rpc_send_timeout * (rpc_conf.rpc_send_retry + 1)
+    offset_time = rpc_conf.send_timeout * (rpc_conf.rpc_send_retry + 1)
     return starttime + offset_time - 1
 
 
@@ -140,7 +140,5 @@ class ManagerRpcClient(RPCClientBase):
     """singleton Rpc client"""
     def __init__(self):
         CONF.register_opts(rpc_client_opts, manager_rabbit_group)
-        super(ManagerRpcClient, self).__init__(CONF[manager_rabbit_group.name],
-                                               timeout=manager_common.RPC_CALL_TIMEOUT,
-                                               retry=manager_common.RPC_SEND_RETRY)
+        super(ManagerRpcClient, self).__init__(CONF[manager_rabbit_group.name])
         self.rpcdriver.init_timeout_record(session=get_session())
