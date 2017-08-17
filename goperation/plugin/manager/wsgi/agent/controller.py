@@ -1,3 +1,4 @@
+import eventlet
 import webob.exc
 
 from sqlalchemy.exc import OperationalError
@@ -26,6 +27,7 @@ from goperation.plugin.manager.wsgi import contorller
 from goperation.plugin.manager.wsgi import goplockutils
 from goperation.plugin.manager.wsgi import targetutils
 from goperation.plugin.manager.wsgi import resultutils
+from goperation.plugin.manager.wsgi.exceptions import AsyncRpcSendError
 from goperation.plugin.manager.wsgi.exceptions import RpcResultError
 from goperation.plugin.manager.wsgi.exceptions import CacheStoneError
 
@@ -33,7 +35,7 @@ from goperation.plugin.manager.api import get_client
 from goperation.plugin.manager.api import get_redis
 from goperation.plugin.manager.api import get_session
 from goperation.plugin.manager.api import mlock
-from goperation.plugin.manager.api import rpcdeadline
+from goperation.plugin.manager.api import rpcfinishtime
 
 from goperation.plugin.manager.models import Agent
 from goperation.plugin.manager.models import AgentEndpoint
@@ -64,12 +66,12 @@ class AgentReuest(contorller.BaseContorller):
             session = get_session(readonly=True)
             with mlock(goplockutils.lock_all_agent):
                 query = session.query(Agent.agent_id).filter(Agent.status > manager_common.DELETED)
-                ADDED = False
+                added = False
                 for result in query:
-                    ADDED = True
+                    added = True
                     if not _cache_server.sadd(key, str(result[0])):
                         raise CacheStoneError('Cant not add agent_id to redis, key %s' % key)
-                if not ADDED:
+                if not added:
                     return set()
             all_ids = _cache_server.smembers(key)
             if not all_ids:
@@ -87,7 +89,7 @@ class AgentReuest(contorller.BaseContorller):
         if agents_set != all_id:
             for _id in agents_set:
                 if _id not in all_id:
-                    raise InvalidArgument('agent id %d can not be found'  % _id)
+                    raise InvalidArgument('agent id %d can not be found' % _id)
         return agents_set
 
     def agent_id_check(self, agent_id):
@@ -124,8 +126,7 @@ class AgentReuest(contorller.BaseContorller):
                                                      Agent.disk,
                                                      Agent.entiy,
                                                      Agent.endpoints,
-                                                     Agent.create_time,
-                                                     ],
+                                                     Agent.create_time],
                                             counter=Agent.agent_id,
                                             order=order, desc=desc,
                                             filter=agent_filter, page_num=page_num)
@@ -226,7 +227,7 @@ class AgentReuest(contorller.BaseContorller):
                         raise RpcClientSendError(str(agent_id), 'Can not delete offline agent, try force')
                     # tell agent wait delete
                     delete_agent_precommit = rpc.call(targetutils.target_agent(agent),
-                                                      ctxt={'deadline': rpcdeadline()},
+                                                      ctxt={'finishtime': rpcfinishtime()},
                                                       msg={'method': 'delete_agent_precommit',
                                                            'args': {'agent_id': agent.agent_id,
                                                                     'agent_type': agent.agent_type,
@@ -256,7 +257,7 @@ class AgentReuest(contorller.BaseContorller):
                 if not force:
                     # tell agent delete itself
                     delete_agent_postcommit = rpc.call(targetutils.target_agent(agent),
-                                                       ctxt={'deadline': rpcdeadline()},
+                                                       ctxt={'finishtime': rpcfinishtime()},
                                                        msg={'method': 'delete_agent_postcommit',
                                                             'args': {'agent_id': agent.agent_id,
                                                                      'agent_type': agent.agent_type,
@@ -279,64 +280,8 @@ class AgentReuest(contorller.BaseContorller):
                 return result
 
     @Idformater
-    def status(self, req, agent_id, body):
-        """get status from agent, not from database"""
-        rpc = get_client()
-        session = get_session()
-        asyncrequest = self.create_asyncrequest(req, body)
-        asyncrequest.result = \
-            'status agent method has send, wait %d agent respone' % len(agent_id)
-        agent_id = list(agent_id)
-        with session.begin(subtransactions=True):
-            session.add(asyncrequest)
-            send_args = {'agent_id': agent_id}
-            send_args.update(body)
-            rpc.cast(targetutils.target_all(fanout=True),
-                     ctxt={'deadline': asyncrequest.deadline,
-                           'persist': asyncrequest.persist,
-                           'request_id': asyncrequest.request_id},
-                     msg={'method': 'status_agent',
-                          'args': send_args
-                          })
-        try:
-            rpc.cast(targetutils.target_anyone(manager_common.SCHEDULER),
-                     ctxt={'deadline': asyncrequest.deadline},
-                     msg={'method': 'async_request_check',
-                          'args': {'agent_id': agent_id, 'request_id': asyncrequest.request_id,
-                                   'deadline': asyncrequest.deadline,
-                                   'finishtime': asyncrequest.finishtime,
-                                   }
-                          })
-        except RpcClientSendError:
-            LOG.warning('Send to scheduler check agent status fail')
-        return resultutils.results(result=asyncrequest.result, data=[dict(request_id=asyncrequest.request_id,
-                                                                          request_time=asyncrequest.request_time,
-                                                                          finishtime=asyncrequest.finishtime,
-                                                                          deadline=asyncrequest.deadline,
-                                                                          )])
-
-    @Idformater
     def update(self, req, agent_id, body):
         raise NotImplementedError
-
-    @argutils.Idformater(key='agent_id', formatfunc='agent_id_check')
-    def edit(self, req, agent_id, body):
-        """call by agent"""
-        # TODO  check data in body
-        session = get_session()
-
-        with mlock(goplockutils.AgentLock(agent_id)):
-            query = model_query(session, Agent, filter=(and_(Agent.agent_id == agent_id,
-                                                             Agent.status > manager_common.DELETED)))
-            data = body
-            if not data:
-                raise InvalidInput('Not data exist')
-            with session.begin(subtransactions=True):
-                query.update(data)
-            result = resultutils.results(pagenum=0,
-                                         result='Update agent success',
-                                         data=[body, ])
-            return result
 
     @argutils.Idformater(key='agent_id', formatfunc='agent_id_check')
     def active(self, req, agent_id, body):
@@ -360,8 +305,8 @@ class AgentReuest(contorller.BaseContorller):
             raise RpcClientSendError(str(agent_id), 'Can not active or unactive a offline agent')
         with session.begin(subtransactions=True):
             agent.update({'status': status})
-            active_agent = rpc.call(targetutils.target_server(agent.agent_type, agent.host),
-                                    ctxt={'deadline': rpcdeadline()},
+            active_agent = rpc.call(targetutils.target_agent(agent),
+                                    ctxt={'finishtime': rpcfinishtime()},
                                     msg={'method': 'active_agent',
                                          'args': {'agent_id': agent_id,
                                                   'agent_ipaddr': agent_ipaddr,
@@ -379,52 +324,41 @@ class AgentReuest(contorller.BaseContorller):
                                                ])
             return result
 
-    @Idformater
-    def upgrade(self, req, agent_id, body):
-        """call by client, and asyncrequest
-        send rpm file to upgrade code of agent
-        """
-        md5 = body.pop('md5', None)
-        crc32 = body.pop('crc32', None)
-        url = body.pop('url', None)
-        if not crc32 and not md5 and not url:
-            raise InvalidArgument('update file must be set, need md5 or crc32 or url')
-        force = body.pop('force', False)
-        session = get_session()
-        rpc = get_client()
-        agent_id = list(agent_id)
+    def flush(self, req, body=None):
+        """flush redis key storage"""
+        _cache_server = get_redis()
+        key = targetutils.agent_all_id()
         with mlock(goplockutils.lock_all_agent):
-            asyncrequest = self.create_asyncrequest(req, body)
-            asyncrequest.result = \
-                'upgrade agent method has send, wait %d agent respone' % len(agent_id)
+            # clean all id key
+            _cache_server.delete(key)
+            if body.get('online', False):
+                # clean host online key
+                keys = _cache_server.keys(targetutils.host_online_key('*'))
+                if keys:
+                    for key in keys:
+                        _cache_server.delete(key)
+        all_ids = _cache_server.smembers(key)
+        return resultutils.results(result='Flush cache key success',
+                                   data=list(all_ids))
+
+    @argutils.Idformater(key='agent_id', formatfunc='agent_id_check')
+    def edit(self, req, agent_id, body):
+        """call by agent"""
+        # TODO  check data in body
+        session = get_session()
+
+        with mlock(goplockutils.AgentLock(agent_id)):
+            query = model_query(session, Agent, filter=(and_(Agent.agent_id == agent_id,
+                                                             Agent.status > manager_common.DELETED)))
+            data = body
+            if not data:
+                raise InvalidInput('Not data exist')
             with session.begin(subtransactions=True):
-                session.add(asyncrequest)
-                rpc.cast(targetutils.target_all(fanout=True),
-                         ctxt={'deadline': asyncrequest.deadline,
-                               'request_id': asyncrequest.request_id,
-                               'agents': agent_id},
-                         msg={'method': 'upgrade_agent',
-                              'args': {'md5': md5,
-                                       'crc32': crc32,
-                                       'url': url,
-                                       'force': force}
-                              })
-        try:
-            rpc.cast(targetutils.target_anyone(manager_common.SCHEDULER),
-                     ctxt={'deadline': asyncrequest.deadline},
-                     msg={'method': 'async_request_check',
-                          'args': {'agents': list(agent_id), 'request_id': asyncrequest.request_id,
-                                   'deadline': asyncrequest.deadline,
-                                   'finishtime': asyncrequest.finishtime,
-                                   }
-                          })
-        except RpcClientSendError:
-            LOG.warning('Send to SCHEDULER check agent upgrade fail')
-        return resultutils.results(result=asyncrequest.result, data=[dict(request_id=asyncrequest.request_id,
-                                                                          request_time=asyncrequest.request_time,
-                                                                          finishtime=asyncrequest.finishtime,
-                                                                          deadline=asyncrequest.deadline,
-                                                                          )])
+                query.update(data)
+            result = resultutils.results(pagenum=0,
+                                         result='Update agent success',
+                                         data=[body, ])
+            return result
 
     def online(self, req, body):
         """call buy agent
@@ -481,40 +415,6 @@ class AgentReuest(contorller.BaseContorller):
         result = resultutils.results(result='Online agent function run success')
         result['data'].append(ret)
         return result
-
-    def flush(self, req, body=None):
-        """flush redis key storage"""
-        _cache_server = get_redis()
-        key = targetutils.agent_all_id()
-        with mlock(goplockutils.lock_all_agent):
-            # clean all id key
-            _cache_server.delete(key)
-            if body.get('online', False):
-                # clean host online key
-                keys = _cache_server.keys(targetutils.host_online_key('*'))
-                if keys:
-                    for key in keys:
-                        _cache_server.delete(key)
-        all_ids = _cache_server.smembers(key)
-        return resultutils.results(result='Flush cache key success',
-                                   data=list(all_ids))
-
-    @Idformater
-    def send_file(self, req, agent_id, body):
-        """call by client, and asyncrequest
-        send file to agents
-        """
-        # self.create_asyncrequest(req, body)
-        # agent_type = body.get('agent_type', None)
-        # method = body.get('method')
-        # host = body.get('host')
-        # path = body.get('path')
-        # rpc = get_client()
-        # if agent_type:
-        #     cast_ret = rpc.cast(target=targetutils.target_alltype(agent_type))
-        # else:
-        #     cast_ret = rpc.cast(target=targetutils.target_all())
-        # call_ret = rpc.call(target='')
 
     @argutils.Idformater(key='agent_id', formatfunc='agent_id_check')
     def get_ports(self, req, agent_id, body):
@@ -577,3 +477,86 @@ class AgentReuest(contorller.BaseContorller):
                         raise InvalidArgument('Submit %d ports, but only %d ports found' %
                                               (len(ports), need_to_delete))
         return resultutils.results(result='edit ports success')
+
+    @Idformater
+    def send_file(self, req, agent_id, body):
+        """call by client, and asyncrequest
+        send file to agents
+        """
+        # self.create_asyncrequest(req, body)
+        # agent_type = body.get('agent_type', None)
+        # method = body.get('method')
+        # host = body.get('host')
+        # path = body.get('path')
+        # rpc = get_client()
+        # if agent_type:
+        #     cast_ret = rpc.cast(target=targetutils.target_alltype(agent_type))
+        # else:
+        #     cast_ret = rpc.cast(target=targetutils.target_all())
+        # call_ret = rpc.call(target='')
+
+    @Idformater
+    def status(self, req, agent_id, body):
+        """get status from agent, not from database"""
+        rpc = get_client()
+        session = get_session(readonly=True)
+        asyncrequest = self.create_asyncrequest(req, body)
+        asyncrequest.result = \
+            'status agent method has send, wait %d agent respone' % len(agent_id)
+        agent_id = list(agent_id)
+        rpc.cast(targetutils.target_anyone(manager_common.SCHEDULER),
+                 ctxt={'finishtime': asyncrequest.finishtime},
+                 msg={'method': 'async', 'args':{'asyncrequest': asyncrequest.to_dict(),
+                                                 'rpc_target': targetutils.target_all(fanout=True).to_dict(),
+                                                 'rpc_type': 'cast',
+                                                 'rpc_method': 'status_agent',
+                                                 'rpc_ctxt': {'finishtime': asyncrequest.finishtime,
+                                                              'agents': agent_id}
+                                                 }})
+
+        query = model_query(session, Agent).filter_by(request_id=asyncrequest.request_id)
+        while True:
+            eventlet.sleep(0.5)
+            result = query.one_or_none()
+            if result:
+                return resultutils.results(result=result.result, data=[result.to_dict()])
+            if int(timeutils.realnow()) > asyncrequest.deadline:
+                    break
+        raise AsyncRpcSendError('Upgrade async request rpc send fail')
+
+    @Idformater
+    def upgrade(self, req, agent_id, body):
+        """call by client, and asyncrequest
+        send rpm file to upgrade code of agent
+        """
+        md5 = body.pop('md5', None)
+        crc32 = body.pop('crc32', None)
+        url = body.pop('url', None)
+        if not crc32 and not md5 and not url:
+            raise InvalidArgument('update file must be set, need md5 or crc32 or url')
+        agent_id = list(agent_id)
+        force = body.pop('force', False)
+        session = get_session(readonly=True)
+        rpc = get_client()
+        with mlock(goplockutils.lock_all_agent):
+            asyncrequest = self.create_asyncrequest(req, body)
+            rpc.cast(targetutils.target_anyone(manager_common.SCHEDULER),
+                     ctxt={'finishtime': asyncrequest.finishtime},
+                     msg={'method': 'async', 'args':{'asyncrequest': asyncrequest.to_dict(),
+                                                     'rpc_target': targetutils.target_all(fanout=True).to_dict(),
+                                                     'rpc_type': 'fanout',
+                                                     'rpc_method': 'upgrade_agent',
+                                                     'rpc_ctxt': {'finishtime': asyncrequest.finishtime,
+                                                                  'agents': agent_id},
+                                                     'rpc_args': {'md5': md5, 'crc32': crc32, 'url': url,
+                                                                  'force': force}
+                                                     }})
+            query = model_query(session, Agent).filter_by(request_id=asyncrequest.request_id)
+            while True:
+                eventlet.sleep(0.5)
+                result = query.one_or_none()
+                if result:
+                    return resultutils.results(result=result.result, data=[result.to_dict()])
+                if int(timeutils.realnow()) > asyncrequest.deadline:
+                    break
+        raise AsyncRpcSendError('Upgrade async request rpc send fail')
