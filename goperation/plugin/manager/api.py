@@ -121,8 +121,8 @@ def rpcfinishtime(starttime=None):
     rpc_conf = CONF[manager_rabbit_group.name]
     if not starttime:
         starttime = int(timeutils.realnow())
-    offset_time = rpc_conf.send_timeout * (rpc_conf.rpc_send_retry + 1)
-    return starttime + offset_time - 1
+    offset_time = rpc_conf.rpc_send_timeout * (rpc_conf.rpc_send_retry + 1)
+    return starttime + offset_time + 4
 
 
 class mlock(GlockContext):
