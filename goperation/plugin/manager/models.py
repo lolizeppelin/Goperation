@@ -1,6 +1,6 @@
 import sqlalchemy as sa
 from sqlalchemy import orm
-
+from sqlalchemy.sql import and_
 from sqlalchemy.dialects.mysql import VARCHAR
 from sqlalchemy.dialects.mysql import SMALLINT
 from sqlalchemy.dialects.mysql import INTEGER
@@ -46,10 +46,10 @@ class AgentRespone(PluginTableBase):
     result = sa.Column(VARCHAR(manager_common.MAX_AGENT_RESULT),
                        nullable=False, default='agent respone rpc request')
     details = orm.relationship(ResponeDetail, backref='agentrespone', lazy='select',
-                               primaryjoin="and_(AgentRespone.agent_id==ResponeDetail.agent_id, "
-                                           "AgentRespone.request_id==ResponeDetail.request_id)",
-                               # primaryjoin=and_(agent_id == ResponeDetail.agent_id,
-                               #                  request_id == ResponeDetail.request_id),
+                               # primaryjoin="and_(AgentRespone.agent_id==ResponeDetail.agent_id, "
+                               #             "AgentRespone.request_id==ResponeDetail.request_id)",
+                               primaryjoin=and_(agent_id == ResponeDetail.agent_id,
+                                                request_id == ResponeDetail.request_id),
                                cascade='delete')
     __table_args__ = (
             sa.Index('request_id_index', 'request_id'),
