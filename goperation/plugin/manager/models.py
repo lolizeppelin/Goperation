@@ -31,7 +31,7 @@ class ResponeDetail(PluginTableBase):
     result = sa.Column(VARCHAR(manager_common.MAX_DETAIL_RESULT), nullable=False, default='{}')
     __table_args__ = (
             sa.Index('request_id_index', 'request_id'),
-            MyISAMTableBase.__table_args__
+            InnoDBTableBase.__table_args__
     )
 
 
@@ -53,7 +53,7 @@ class AgentRespone(PluginTableBase):
                                cascade='delete')
     __table_args__ = (
             sa.Index('request_id_index', 'request_id'),
-            MyISAMTableBase.__table_args__
+            InnoDBTableBase.__table_args__
     )
 
 
@@ -121,7 +121,7 @@ class AgentEndpoint(PluginTableBase):
     entiy = sa.Column(INTEGER(unsigned=True), default=0, server_default='0', nullable=False)
     __table_args__ = (
             sa.Index('endpoint_index', 'endpoint'),
-            MyISAMTableBase.__table_args__
+            InnoDBTableBase.__table_args__
     )
 
 
@@ -180,7 +180,7 @@ class AgentReportLog(PluginTableBase):
     """Table for recode agent status"""
     # build by Gprimarykey
     report_time = sa.Column(BIGINT(unsigned=True), nullable=False, default=0, primary_key=True)
-    agent_id = sa.Column(sa.ForeignKey('agents.agent_id', ondelete="CASCADE", onupdate='CASCADE'),
+    agent_id = sa.Column(sa.ForeignKey('agents.agent_id'),
                          nullable=False)
     # psutil.process_iter()
     # status()
@@ -214,7 +214,6 @@ class AgentReportLog(PluginTableBase):
     syn = sa.Column(INTEGER(unsigned=True), nullable=False)
     enable = sa.Column(INTEGER(unsigned=True), nullable=False)
     closeing = sa.Column(INTEGER(unsigned=True), nullable=False)
-
     __table_args__ = (
             sa.Index('agent_id_index', 'agent_id'),
             MyISAMTableBase.__table_args__
