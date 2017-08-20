@@ -1,141 +1,180 @@
+import sys
+import os
+import random
 from goperation.plugin.manager.models import *
-
+from sqlalchemy import MetaData
 from simpleutil.utils import uuidutils
 from simpleservice.ormdb.argformater import connformater
 from simpleservice.ormdb import orm
 from simpleservice.ormdb.api import model_query
-
-
+from simpleservice.ormdb.api import model_count_with_key
+from simpleservice.ormdb.api import model_max_with_key
+from simpleservice.ormdb.api import model_autoincrement_id
 from simpleservice.ormdb.engines import create_engine
-
 from goperation.plugin.manager import common
 
-dst = {'host':'172.20.0.3',
-       'port':3304,
-       'schema':'manager',
-       'user':'root',
-       'passwd':'111111'}
+dst = {'host': '172.20.0.3',
+       'port': 3304,
+       'schema': 'manager',
+       'user': 'root',
+       'passwd': '111111'}
+
+agent_id = random.randint(1, 100)
 
 sql_connection = connformater % dst
 
 engine = create_engine(sql_connection)
 
-session_maker = orm.get_maker(engine=engine)
-session = session_maker()
 
-request_row =  AsyncRequest()
-with session.begin():
-    session.add(request_row)
-
-print request_row
-print request_row.request_id
-
-agent_row =  Agent()
-agent_row.host = uuidutils.generate_uuid()[:5]
-agent_row.agent_type = common.APPLICATION
-agent_row.agent_id = 22
-with session.begin(subtransactions=True):
-    session.add(agent_row)
-
-print agent_row
-print agent_row.agent_id
-
-
-print '~~~~~test filter_by~~~~~~~'
-
-with session.begin():
-    query = model_query(session, AsyncRequest)
-    rets = query.filter_by(request_id=request_row.request_id).all()
-    print rets
-    ret = query.filter_by(request_id=request_row.request_id).first()
-    print ret
-    print ret.to_dict()
-
-print '~~~~~test filter~~~~~~~'
-
-with session.begin():
-    query = model_query(session, AsyncRequest, filter={'request_id':request_row.request_id})
-    rets = query.all()
-    print rets
-    ret = query.first()
-    print ret
-    print ret.to_dict()
-
-
-print '~~~~~test CASCADE~~~~~~~'
-
-report_row = AgentReportLog()
-report_row.agent_id = agent_row.agent_id
-
-
-report_row.report_time = 0
-report_row.running = 1
-report_row.sleeping  = 0
-report_row.num_fds = 1
-report_row.num_threads = 1
-
-report_row.context = 1111
-report_row.interrupts = 2222
-report_row.sinterrupts = 111
-
-
-report_row.irq = 222
-report_row.sirq = 313
-report_row.user = 1
-report_row.system = 2
-report_row.nice = 3
-report_row.iowait = 4
-
-report_row.used = 23424
-report_row.cached = 1231231
-report_row.buffers = 43242
-report_row.free = 4243
-
-report_row.syn = 12312
-report_row.enable = 34242
-report_row.closeing = 342
-
-with session.begin():
-    session.add(report_row)
-
-with session.begin():
-    session.delete(report_row)
-
-with session.begin():
-    session.delete(agent_row)
-
-with session.begin():
-    print 'find agent with id %d' % agent_row.agent_id
-    print agent_row
-    query = model_query(session, Agent, filter={'agent_id':agent_row.agent_id})
-    ret = query.first()
-    print ret
-    query = model_query(session, AgentReportLog, filter={'agent_id':agent_row.agent_id})
-    ret = query.first()
-    print ret
-    print dir(query)
-
-
-from sqlalchemy import MetaData
 metadata = MetaData()
 metadata.reflect(bind=engine)
 
 for tab in metadata.tables.keys():
     print tab
 
-# print 'try get data from metada'
+session_maker = orm.get_maker(engine=engine)
+session = session_maker()
 
-# with session.begin():
-#     for tab in metadata.tables.keys():
-#         print tab, type(tab), type(metadata.tables[tab])
-#         if tab is not None:
-#             y = metadata.tables[tab]
-#             dirs =  dir(y)
-#             for x in dirs:
-#                 print x
-#             query = model_query(session, metadata.tables[tab])
-#             rets = query.all()
-#             if rets:
-#                 print tab
-#                 print rets
+print 'init session finish'
+print '~~~~~~~~~~~~~~~~~~~~~~~~~~'
 
+
+print 'test add request_row'
+request_row = AsyncRequest()
+with session.begin():
+    session.add(request_row)
+print request_row
+print request_row.request_id
+print 'test add request_row finish'
+print '~~~~~~~~~~~~~~~~~~~~~~~~~~'
+
+print 'test add agent_row'
+agent_row = Agent()
+agent_row.host = uuidutils.generate_uuid()[:5]
+agent_row.agent_type = common.APPLICATION
+agent_row.agent_id = agent_id
+with session.begin(subtransactions=True):
+    session.add(agent_row)
+print agent_row
+print agent_row.agent_id
+print 'test add agent_row finish'
+print '~~~~~~~~~~~~~~~~~~~~~~~~~~'
+
+
+print '~~~~~test filter_by~~~~~~~'
+with session.begin():
+    query = model_query(session, AsyncRequest)
+    rets = query.filter_by(request_id=request_row.request_id).all()
+    print rets
+    ret = query.filter_by(request_id=request_row.request_id).first()
+    print ret, ret.to_dict()
+    print 'scalar:',
+    print query.filter_by(request_id=request_row.request_id).scalar()
+print '~~~~~test filter~~~~~~~'
+
+with session.begin():
+    query = model_query(session, AsyncRequest, filter={'request_id': request_row.request_id})
+    rets = query.all()
+    print rets
+    ret = query.first()
+    print ret, ret.to_dict()
+    print 'scalar:',
+    print query.scalar()
+print '~~~~~~~~~~~~~~~~~~~~~~~~~~'
+
+print '~~~~~test function~~~~~~~'
+
+print 'count agent', model_count_with_key(session, Agent)
+print 'count agent.agent_id', model_count_with_key(session, Agent.agent_id)
+print 'max agent.agent_id', model_max_with_key(session, Agent.agent_id)
+print 'max + 1 agent.agent_id', model_autoincrement_id(session, Agent.agent_id)
+print '~~~~~test function finish~~~~~~~'
+print '~~~~~test CASCADE~~~~~~~'
+
+print '~~~~~~~~~~CASCADE of endpoint~~~~~~~~~~~~~~~~'
+endpont = AgentEndpoint()
+endpont.endpoint = 'test'
+agent_row.endpoints = [endpont, ]
+with session.begin():
+    session.add(agent_row)
+
+print agent_row
+print agent_row.endpoints
+
+with session.begin():
+    print 'CASCADE of update test'
+    agent_row.update({'agent_id': agent_id + 1})
+
+if model_count_with_key(session, AgentEndpoint, filter={'agent_id': agent_id, 'endpoint': 'test'}) > 0:
+    print agent_id, agent_row.agent_id
+    print 'CASCADE of endpoint fail, find old'
+    sys.exit(0)
+
+if not model_count_with_key(session, AgentEndpoint,
+                            filter={'agent_id': agent_id + 1, 'endpoint': 'test'}) > 0:
+    print 'CASCADE of endpoint fail, not find new'
+    sys.exit(0)
+
+print 'CASCADE of update success'
+
+with session.begin():
+    print 'CASCADE of delete test'
+    session.delete(agent_row)
+
+endpont = AgentEndpoint()
+endpont.endpoint = 'test'
+endpont.agent_id = agent_id
+
+if model_count_with_key(session, AgentEndpoint,
+                        filter={'agent_id': agent_id + 1, 'endpoint': 'test'}) > 0:
+    print 'CASCADE of endpoint fail'
+    sys.exit(0)
+
+print 'endpoint delete success'
+
+success = False
+
+try:
+    with session.begin():
+        session.add(endpont)
+except Exception:
+    import eventlet
+    eventlet.sleep(0.01)
+    print 'Traceback writed by LOG.exception'
+    print '~~~~~~~~~~no error, it ok~~~~~~~~~~~~~~'
+    success = True
+
+if not success:
+    print 'CASCADE of endpoint fail'
+    sys.exit(0)
+
+
+print '~~~~~~~~~~CASCADE of AgentRespone~~~~~~~~~~~~~~~~'
+
+agent_row = Agent()
+agent_row.host = uuidutils.generate_uuid()[:5]
+agent_row.agent_type = common.APPLICATION
+agent_row.agent_id = agent_id
+with session.begin(subtransactions=True):
+    session.add(agent_row)
+
+respone = AgentRespone()
+respone.agent_id = agent_id
+respone.request_id = request_row.request_id
+respone.agent_time = int(timeutils.realnow())
+
+detile0 = ResponeDetail()
+detile0.detail_id = 0
+detile1 = ResponeDetail()
+detile0.detail_id = 1
+
+respone.details = [detile0, detile1]
+with session.begin():
+    session.add(respone)
+# sys.exit(0)
+
+
+with session.begin():
+    session.delete(request_row)
+
+print '~~~~~test CASCADE finish~~~~~~~'
