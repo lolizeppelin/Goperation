@@ -113,6 +113,22 @@ class AgentResponeBackLog(PluginTableBase):
     )
 
 
+class AllocatedPort(PluginTableBase):
+    agent_id = sa.Column(sa.ForeignKey('agentendpoints.agent_id', ondelete="CASCADE", onupdate='CASCADE'),
+                         nullable=False,
+                         primary_key=True)
+    port = sa.Column(SMALLINT(unsigned=True), nullable=False,
+                     default=0,
+                     primary_key=True)
+    endpoint = sa.Column(sa.ForeignKey('agentendpoints.endpoint', ondelete="CASCADE", onupdate='CASCADE'),
+                         nullable=False,
+                         primary_key=True)
+    port_desc = sa.Column(VARCHAR(256), nullable=True, default=None)
+    __table_args__ = (
+            InnoDBTableBase.__table_args__
+    )
+
+
 class AgentEndpoint(PluginTableBase):
     agent_id = sa.Column(sa.ForeignKey('agents.agent_id', ondelete="CASCADE", onupdate='CASCADE'),
                          nullable=False,
@@ -121,23 +137,12 @@ class AgentEndpoint(PluginTableBase):
                          default=None,
                          nullable=False, primary_key=True)
     entiy = sa.Column(INTEGER(unsigned=True), default=0, server_default='0', nullable=False)
+    ports = orm.relationship(AllocatedPort, backref='agent', lazy='joined',
+                             primaryjoin=and_(agent_id == AllocatedPort.agent_id,
+                                              endpoint == AllocatedPort.endpoint),
+                             cascade='delete,delete-orphan,save-update')
     __table_args__ = (
             sa.Index('endpoint_index', 'endpoint'),
-            InnoDBTableBase.__table_args__
-    )
-
-
-class AllocatedPort(PluginTableBase):
-    agent_id = sa.Column(sa.ForeignKey('agents.agent_id', ondelete="CASCADE", onupdate='CASCADE'),
-                         nullable=False,
-                         primary_key=True)
-    port = sa.Column(SMALLINT(unsigned=True), nullable=False,
-                     default=0,
-                     primary_key=True)
-    endpoint = sa.Column(VARCHAR(plugin_common.MAX_ENDPOINT_NAME_SIZE),
-                         nullable=False)
-    port_desc = sa.Column(VARCHAR(256), nullable=True, default=None)
-    __table_args__ = (
             InnoDBTableBase.__table_args__
     )
 
@@ -162,8 +167,6 @@ class Agent(PluginTableBase):
                             nullable=False)
     endpoints = orm.relationship(AgentEndpoint, backref='agent', lazy='joined',
                                  cascade='delete,delete-orphan,save-update')
-    ports = orm.relationship(AllocatedPort, backref='agent', lazy='select',
-                             cascade='delete,delete-orphan,save-update')
 
     __table_args__ = (
             sa.Index('host_index', 'host'),
@@ -176,6 +179,14 @@ class Agent(PluginTableBase):
         for endpoint in self.endpoints:
             entiy += endpoint.entiy
         return entiy
+
+    @property
+    def ports(self):
+        ports = []
+        for endpoint in self.endpoints:
+            for port in endpoint.ports:
+                ports.append({endpoint.endpoint: port.port})
+        return ports
 
 
 class AgentReportLog(PluginTableBase):
