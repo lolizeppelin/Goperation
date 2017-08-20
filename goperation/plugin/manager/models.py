@@ -22,9 +22,9 @@ from goperation.plugin.manager import common as manager_common
 
 class ResponeDetail(PluginTableBase):
     detail_id = sa.Column(INTEGER(unsigned=True), nullable=False, primary_key=True)
-    agent_id = sa.Column(sa.ForeignKey('agentrespones.agent_id', ondelete="CASCADE", onupdate='RESTRICT'),
+    agent_id = sa.Column(sa.ForeignKey('agentrespones.agent_id', ondelete="CASCADE", onupdate='CASCADE'),
                          default=0, nullable=False, primary_key=True)
-    request_id = sa.Column(sa.ForeignKey('agentrespones.request_id', ondelete="CASCADE", onupdate='RESTRICT'),
+    request_id = sa.Column(sa.ForeignKey('agentrespones.request_id', ondelete="CASCADE", onupdate='CASCADE'),
                            nullable=False,
                            primary_key=True)
     resultcode = sa.Column(TINYINT, nullable=False, default=manager_common.RESULT_UNKNOWN)
@@ -36,7 +36,9 @@ class ResponeDetail(PluginTableBase):
 
 
 class AgentRespone(PluginTableBase):
-    agent_id = sa.Column(INTEGER(unsigned=True), nullable=False, default=0, primary_key=True)
+    agent_id = sa.Column(sa.ForeignKey('agents.agent_id', ondelete="CASCADE", onupdate='CASCADE'),
+                         nullable=False,
+                         primary_key=True)
     request_id = sa.Column(sa.ForeignKey('asyncrequests.request_id', ondelete="RESTRICT", onupdate='RESTRICT'),
                            nullable=False, primary_key=True)
     server_time = sa.Column(INTEGER(unsigned=True), default=int(timeutils.realnow()), nullable=False)
@@ -50,7 +52,7 @@ class AgentRespone(PluginTableBase):
                                #             "AgentRespone.request_id==ResponeDetail.request_id)",
                                primaryjoin=and_(agent_id == ResponeDetail.agent_id,
                                                 request_id == ResponeDetail.request_id),
-                               cascade='delete')
+                               cascade='delete,delete-orphan,save-update')
     __table_args__ = (
             sa.Index('request_id_index', 'request_id'),
             InnoDBTableBase.__table_args__
