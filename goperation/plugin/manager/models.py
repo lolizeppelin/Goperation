@@ -22,9 +22,9 @@ from goperation.plugin.manager import common as manager_common
 
 class ResponeDetail(PluginTableBase):
     detail_id = sa.Column(INTEGER(unsigned=True), nullable=False, primary_key=True)
-    agent_id = sa.Column(sa.ForeignKey('agentrespones.agent_id', ondelete="CASCADE", onupdate='CASCADE'),
+    agent_id = sa.Column(sa.ForeignKey('agentrespones.agent_id', ondelete="CASCADE", onupdate='RESTRICT'),
                          default=0, nullable=False, primary_key=True)
-    request_id = sa.Column(sa.ForeignKey('agentrespones.request_id', ondelete="CASCADE", onupdate='CASCADE'),
+    request_id = sa.Column(sa.ForeignKey('agentrespones.request_id', ondelete="RESTRICT", onupdate='RESTRICT'),
                            nullable=False,
                            primary_key=True)
     resultcode = sa.Column(TINYINT, nullable=False, default=manager_common.RESULT_UNKNOWN)
@@ -36,7 +36,7 @@ class ResponeDetail(PluginTableBase):
 
 
 class AgentRespone(PluginTableBase):
-    agent_id = sa.Column(sa.ForeignKey('agents.agent_id', ondelete="CASCADE", onupdate='CASCADE'),
+    agent_id = sa.Column(sa.ForeignKey('agents.agent_id', ondelete="CASCADE", onupdate='RESTRICT'),
                          nullable=False,
                          primary_key=True)
     request_id = sa.Column(sa.ForeignKey('asyncrequests.request_id', ondelete="RESTRICT", onupdate='RESTRICT'),
@@ -114,13 +114,13 @@ class AgentResponeBackLog(PluginTableBase):
 
 
 class AllocatedPort(PluginTableBase):
-    agent_id = sa.Column(sa.ForeignKey('agentendpoints.agent_id', ondelete="CASCADE", onupdate='CASCADE'),
+    agent_id = sa.Column(sa.ForeignKey('agentendpoints.agent_id', ondelete="CASCADE", onupdate='RESTRICT'),
                          nullable=False,
                          primary_key=True)
     port = sa.Column(SMALLINT(unsigned=True), nullable=False,
                      default=0,
                      primary_key=True)
-    endpoint = sa.Column(sa.ForeignKey('agentendpoints.endpoint', ondelete="CASCADE", onupdate='CASCADE'),
+    endpoint = sa.Column(sa.ForeignKey('agentendpoints.endpoint', ondelete="RESTRICT", onupdate='CASCADE'),
                          nullable=False,
                          primary_key=True)
     port_desc = sa.Column(VARCHAR(256), nullable=True, default=None)
@@ -130,7 +130,7 @@ class AllocatedPort(PluginTableBase):
 
 
 class AgentEndpoint(PluginTableBase):
-    agent_id = sa.Column(sa.ForeignKey('agents.agent_id', ondelete="CASCADE", onupdate='CASCADE'),
+    agent_id = sa.Column(sa.ForeignKey('agents.agent_id', ondelete="CASCADE", onupdate='RESTRICT'),
                          nullable=False,
                          primary_key=True)
     endpoint = sa.Column(VARCHAR(plugin_common.MAX_ENDPOINT_NAME_SIZE),
