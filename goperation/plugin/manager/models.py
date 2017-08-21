@@ -136,7 +136,7 @@ class AgentEndpoint(PluginTableBase):
                          default=None,
                          nullable=False, primary_key=True)
     entiy = sa.Column(INTEGER(unsigned=True), default=0, server_default='0', nullable=False)
-    ports = orm.relationship(AllocatedPort, backref='agent', lazy='joined',
+    ports = orm.relationship(AllocatedPort, backref='agent', lazy='select',
                              primaryjoin=and_(agent_id == AllocatedPort.agent_id,
                                               endpoint == AllocatedPort.endpoint),
                              cascade='delete,delete-orphan,save-update')
