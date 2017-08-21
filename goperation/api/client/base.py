@@ -17,17 +17,17 @@ class ManagerClient(HttpClientBase):
     USER_AGENT = 'goperation-httpclient'
 
     agent_path = "/agents/%s"
+    agent_active_path = "/agents/%s/active"
+    agent_edit_path = "/agents/%s/edit"
+    agent_posts_path = "/agents/%s/ports"
+    agent_endpoints_path = "/agents/%s/endpoints"
     agent_online_path = "/agents/online"
-
 
     agents_path = "/agents"
     agents_flush_path = "/agents/flush"
-    agent_active_path = "/agents/%s/active"
     agents_file_path = "/agents/%s/file"
-    agents_edit_path = "/agents/%s/edit"
     agents_upgrade_path = "/agents/%s/upgrade"
     agents_status_path = "/agents/%s/status"
-    agents_posts_path = "/agents/%s/ports"
 
     asyncs_path = "/asyncrequests"
     async_path = "/asyncrequests/%s"
@@ -39,13 +39,14 @@ class ManagerClient(HttpClientBase):
     def agent_create(self, body):
         resp, results = self.retryable_post(self.agents_path, body=body)
         if results['resultcode'] != manager_common.RESULT_SUCCESS:
+            LOG.error('Agent create self fail: %s' % results['result'])
             raise ServerExecuteRequestError(message='agent create self fail',
                                             code=results['resultcode'],
                                             resone=results['result'])
         return results
 
     def agent_delete(self, agent_id, body):
-        resp, results = self.delete(action=self.agent_path % str(agent_id))
+        resp, results = self.delete(action=self.agent_path % str(agent_id), body=body)
         if results['resultcode'] != manager_common.RESULT_SUCCESS:
             raise ServerExecuteRequestError(message='delete agent fail',
                                             code=results['resultcode'],
@@ -61,7 +62,7 @@ class ManagerClient(HttpClientBase):
         return results['data'][0]
 
     def agent_edit(self, agent_id, body):
-        resp, results = self.patch(action=self.agents_edit_path % str(agent_id), body=body)
+        resp, results = self.patch(action=self.agent_edit_path % str(agent_id), body=body)
         if results['resultcode'] != manager_common.RESULT_SUCCESS:
             raise ServerExecuteRequestError(message='edit agent fail',
                                             code=results['resultcode'],
@@ -77,6 +78,46 @@ class ManagerClient(HttpClientBase):
                                             resone=results['result'])
         return results
 
+    def agent_get_ports(self, agent_id, body):
+        resp, results = self.get(action=self.agents_file_path % str(agent_id), body=body)
+        if results['resultcode'] != manager_common.RESULT_SUCCESS:
+            raise ServerExecuteRequestError(message='agent get posts fail',
+                                            code=results['resultcode'],
+                                            resone=results['result'])
+        return results
+
+    def agent_add_ports(self, agent_id, body):
+        resp, results = self.retryable_post(action=self.agent_posts_path % str(agent_id), body=body)
+        if results['resultcode'] != manager_common.RESULT_SUCCESS:
+            raise ServerExecuteRequestError(message='agent add posts fail',
+                                            code=results['resultcode'],
+                                            resone=results['result'])
+        return results
+
+    def agent_delete_ports(self, agent_id, body):
+        resp, results = self.delete(action=self.agent_posts_path % str(agent_id), body=body)
+        if results['resultcode'] != manager_common.RESULT_SUCCESS:
+            raise ServerExecuteRequestError(message='agent delete posts fail',
+                                            code=results['resultcode'],
+                                            resone=results['result'])
+        return results
+
+    def agent_add_endpoints(self, agent_id, body):
+        resp, results = self.retryable_post(action=self.agent_endpoints_path % str(agent_id), body=body)
+        if results['resultcode'] != manager_common.RESULT_SUCCESS:
+            raise ServerExecuteRequestError(message='agent add posts fail',
+                                            code=results['resultcode'],
+                                            resone=results['result'])
+        return results
+
+    def agents_delete_endpoints(self, agent_id, body):
+        resp, results = self.delete(action=self.agent_endpoints_path % str(agent_id), body=body)
+        if results['resultcode'] != manager_common.RESULT_SUCCESS:
+            raise ServerExecuteRequestError(message='agent delete posts fail',
+                                            code=results['resultcode'],
+                                            resone=results['result'])
+        return results
+
     # bulk agent request
 
     def agents_index(self, body):
@@ -88,7 +129,7 @@ class ManagerClient(HttpClientBase):
         return results
 
     def agents_update(self, agent_id, body):
-        resp, results = self.put(action=self.agents_path, body=body)
+        resp, results = self.put(action=self.agent_path % str(agent_id), body=body)
         if results['resultcode'] != manager_common.RESULT_SUCCESS:
             raise ServerExecuteRequestError(message='update agent fail',
                                             code=results['resultcode'],
@@ -119,35 +160,10 @@ class ManagerClient(HttpClientBase):
                                             resone=results['result'])
         return results
 
-    def agents_get_ports(self, agent_id, body):
-        resp, results = self.get(action=self.agents_file_path % str(agent_id), body=body)
-        if results['resultcode'] != manager_common.RESULT_SUCCESS:
-            raise ServerExecuteRequestError(message='agent get posts fail',
-                                            code=results['resultcode'],
-                                            resone=results['result'])
-        return results
-
-
-    def agents_add_ports(self, agent_id, body):
-        resp, results = self.retryable_post(action=self.agents_file_path % str(agent_id), body=body)
-        if results['resultcode'] != manager_common.RESULT_SUCCESS:
-            raise ServerExecuteRequestError(message='agent add posts fail',
-                                            code=results['resultcode'],
-                                            resone=results['result'])
-        return results
-
-    def agents_delete_ports(self, agent_id, body):
-        resp, results = self.delete(action=self.agents_file_path % str(agent_id), body=body)
-        if results['resultcode'] != manager_common.RESULT_SUCCESS:
-            raise ServerExecuteRequestError(message='agent delete posts fail',
-                                            code=results['resultcode'],
-                                            resone=results['result'])
-        return results
-
     # async request
 
     def async_index(self, body):
-        resp, results = self.get(action=self.asyncs_path)
+        resp, results = self.get(action=self.asyncs_path, body=body)
         if results['resultcode'] != manager_common.RESULT_SUCCESS:
             raise ServerExecuteRequestError(message='get asyncrequest list fail',
                                             code=results['resultcode'],
@@ -155,7 +171,7 @@ class ManagerClient(HttpClientBase):
         return results
 
     def async_show(self, request_id, body):
-        resp, results = self.get(action=self.async_path % request_id)
+        resp, results = self.get(action=self.async_path % request_id, body=body)
         if results['resultcode'] != manager_common.RESULT_SUCCESS:
             raise ServerExecuteRequestError(message='show asyncrequest info fail',
                                             code=results['resultcode'],
@@ -163,7 +179,7 @@ class ManagerClient(HttpClientBase):
         return results
 
     def async_details(self, request_id, body):
-        resp, results = self.get(action=self.async_respone_details_path % request_id)
+        resp, results = self.get(action=self.async_respone_details_path % request_id, body=body)
         if results['resultcode'] != manager_common.RESULT_SUCCESS:
             raise ServerExecuteRequestError(message='show asyncrequest details fail',
                                             code=results['resultcode'],
