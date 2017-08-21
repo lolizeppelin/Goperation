@@ -14,7 +14,8 @@ from simpleservice.plugin.base import ManagerBase
 from simpleservice.rpc.result import BaseRpcResult
 from simpleservice.rpc.config import rpc_server_opts
 
-from goperation.api.client.base import ManagerClient
+from goperation import plugin
+from goperation.plugin.utils import suicide
 from goperation.plugin.manager import common as manager_common
 from goperation.plugin.manager import config as manager_config
 from goperation.plugin.manager.rpc.agent.config import agent_group
@@ -22,7 +23,8 @@ from goperation.plugin.manager.rpc.agent.config import rpc_agent_opts
 from goperation.plugin.manager.rpc.ctxtdescriptor import CheckEndpointRpcCtxt
 from goperation.plugin.manager.rpc.ctxtdescriptor import CheckManagerRpcCtxt
 from goperation.plugin.manager.wsgi.targetutils import target_server
-from goperation.plugin.utils import suicide
+from goperation.api.client.base import ManagerClient
+
 
 
 CONF = cfg.CONF
@@ -30,6 +32,14 @@ CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 
 CONF.register_opts(rpc_agent_opts, agent_group)
+
+from requests import adapters
+from requests import Session
+
+
+_Session = Session()
+_Session.mount('http://', adapters.HTTPAdapter(pool_connections=1,
+                                               pool_maxsize=CONF[manager_common.AGENT].http_pconn_count))
 
 
 class OnlinTaskReporter(IntervalLoopinTask):
@@ -70,7 +80,8 @@ class RpcAgentManager(ManagerBase):
         if CONF.endpoints:
             # endpoint class must be singleton
             for endpoint in CONF.endpoints:
-                endpoint_class = importutils.import_class(endpoint)
+                endpoint_class = '%s.%s' % (endpoint, self.agent_type.capitalize())
+                endpoint_class = importutils.import_class(endpoint_class)
                 endpoint_kwargs = kwargs.get(endpoint_class.__name__.lower(), {})
                 endpoint_kwargs.update({'agent_type': self.agent_type})
                 self.endpoints.add(endpoint_class(**endpoint_kwargs))
@@ -87,7 +98,7 @@ class RpcAgentManager(ManagerBase):
                                     agent_type=self.agent_type,
                                     wsgi_url=CONF[manager_common.AGENT].gcenter,
                                     wsgi_port=CONF[manager_common.AGENT].gcenter_port,
-                                    token=CONF.trusted)
+                                    token=CONF.trusted, session=_Session)
 
         self._periodic_tasks = []
         # key: port, value endpoint name
@@ -118,12 +129,25 @@ class RpcAgentManager(ManagerBase):
         if status <= manager_common.SOFTBUSY:
             raise RuntimeError('Agent can not start, receive status is %d' % status)
         # get port allocked
-        for port_info in agent_info['ports']:
-            self.frozen_port(port_info['endpoint'], port_info['port'])
-        remote_ports_range = jsonutils.loads(agent_info['ports_range'])
+        remote_endpoints = []
+        for endpoint in agent_info['endpoints']:
+            endpoint_name = endpoint['endpoint']
+            remote_endpoints.append(endpoint_name)
+        add_endpoints, delete_endpoints = self.validate_endpoint(agent_info['endpoints'])
+        for endpoint in agent_info['endpoints']:
+            if endpoint['endpoint'] in delete_endpoints:
+                if endpoint['entiy'] > 0:
+                    raise RuntimeError('Agent endpoint entiy not zero, '
+                                       'but not endpoint %s in this agent' % endpoint['endpoint'])
+            for port in endpoint['ports']:
+                self.frozen_port(endpoint['endpoint'], port)
+        if delete_endpoints:
+            self.client.agents_delete_endpoints(agent_id=self.agent_id, body={'endpoints': add_endpoints})
+
+        remote_ports_range = jsonutils.loads_as_bytes(agent_info['ports_range'])
         if  remote_ports_range != self.ports_range:
             LOG.warning('Agent ports range has been changed at remote database')
-            body = {'ports_range': jsonutils.dump_as_bytes(self.ports_range)}
+            body = {'ports_range': jsonutils.dumps_as_bytes(self.ports_range)}
             # call agent change ports_range
             self.client.agent_edit(agent_id=self.agent_id, body=body)
         # agent set status at this moment
@@ -162,6 +186,20 @@ class RpcAgentManager(ManagerBase):
 
     def periodic_tasks(self):
         return self._periodic_tasks
+
+    def validate_endpoint(self, endpoints):
+        remote_endpoints = set()
+        for endpoint in endpoints:
+            if isinstance(endpoint, dict) and endpoint.get('endpoint'):
+                remote_endpoints.add(endpoint.get('endpoint'))
+            elif isinstance(endpoint, basestring):
+                remote_endpoints.add(endpoint)
+            else:
+                raise RuntimeError('Validate endpoint fail, value type error')
+        local_endpoints = set([ endpoint.__class__.__name__.lower() for endpoint in self.endpoints])
+        add_endpoints = local_endpoints - remote_endpoints
+        delete_endpoints = remote_endpoints - local_endpoints
+        return add_endpoints, delete_endpoints
 
     def frozen_port(self, endpoint, ports=None):
         with self.work_lock.priority(3):
@@ -319,12 +357,14 @@ class RpcAgentManager(ManagerBase):
 
     @CheckManagerRpcCtxt
     def rpc_upgrade_agent(self, ctxt, **kwargs):
-        last_status = self.status
-        if not self.set_status(manager_common.HARDBUSY):
-            return BaseRpcResult(self.agent_id, ctxt,
-                                 resultcode=manager_common.RESULT_SUCCESS,
-                                 result='upgrade faile because can not set status now')
-        # TODO call rpm Uvh then restart self
-        self.force_status(last_status)
-        return BaseRpcResult(self.agent_id, ctxt, resultcode=manager_common.RESULT_SUCCESS,
-                             result='upgrade call rpm Uvh success')
+        with self.work_lock.priority(0):
+            if plugin.threadpool.threads or self.status < manager_common.SOFTBUSY:
+                return BaseRpcResult(self.agent_id, ctxt,
+                                     resultcode=manager_common.RESULT_ERROR,
+                                     result='upgrade fail plugin thread pool not empty or status error')
+            last_status = self.status
+            self.status = manager_common.HARDBUSY
+            # TODO call rpm Uvh then restart self
+            self.force_status(last_status)
+            return BaseRpcResult(self.agent_id, ctxt, resultcode=manager_common.RESULT_SUCCESS,
+                                 result='upgrade call rpm Uvh success')
