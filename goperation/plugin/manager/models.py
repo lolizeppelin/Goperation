@@ -120,7 +120,7 @@ class AllocatedPort(PluginTableBase):
     port = sa.Column(SMALLINT(unsigned=True), nullable=False,
                      default=0,
                      primary_key=True)
-    endpoint = sa.Column(sa.ForeignKey('agentendpoints.endpoint', ondelete="RESTRICT", onupdate='CASCADE'),
+    endpoint = sa.Column(sa.ForeignKey('agentendpoints.endpoint', ondelete="CASCADE", onupdate='CASCADE'),
                          nullable=False)
     port_desc = sa.Column(VARCHAR(256), nullable=True, default=None)
     __table_args__ = (
