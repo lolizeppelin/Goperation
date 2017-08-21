@@ -118,14 +118,11 @@ def agent(_agent, details=False):
                 'details': []}
     if details:
         for detail_data in _agent.details:
-            ret_dict['details'].append(dict(detail_id=detail_data.detail_id,
-                                            result=jsonutils.loads(detail_data.result)
-                                            )
-                                       )
+            ret_dict['details'].append(detail(detail_data))
     return ret_dict
 
 
-def details(_detail):
+def detail(_detail):
     ret_dict = {'detail_id': _detail.detail_id,
                 'resultcode': _detail.resultcode,
                 'result': jsonutils.loads(_detail.result)
