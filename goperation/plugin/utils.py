@@ -16,7 +16,7 @@ from goperation.plugin import common as plugin_common
 def validate_endpoint(value):
     if not isinstance(value, basestring):
         raise ValueError('Entpoint name is not basestring')
-    if len(value) > plugin_common.MAX_HOST_NAME_SIZE:
+    if len(value) > plugin_common.MAX_ENDPOINT_NAME_SIZE:
         raise ValueError('Entpoint name over size')
     if not re.match(plugin_common.regx_endpoint, value):
         raise ValueError('Entpoint name %s not match regx' % value)
@@ -32,6 +32,15 @@ def validate_endpoints(value):
             endpoints.add(validate_endpoint(endpoint))
         return list(endpoints)
     raise ValueError('Entpoint list type error')
+
+
+def safe_fun_wrapper(f, logger=None):
+    try:
+        f()
+    except Exception as e:
+        if logger:
+            logger.error('Safe wrapper cache error: %s' % e.__class__.__name__)
+            logger.debug(str(e))
 
 
 def suicide(delay=3):
