@@ -121,8 +121,7 @@ class AllocatedPort(PluginTableBase):
                      default=0,
                      primary_key=True)
     endpoint = sa.Column(sa.ForeignKey('agentendpoints.endpoint', ondelete="RESTRICT", onupdate='CASCADE'),
-                         nullable=False,
-                         primary_key=True)
+                         nullable=False)
     port_desc = sa.Column(VARCHAR(256), nullable=True, default=None)
     __table_args__ = (
             InnoDBTableBase.__table_args__
