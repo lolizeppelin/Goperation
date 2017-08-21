@@ -1,10 +1,11 @@
 from simpleutil.config import cfg
 from simpleutil.log import log as logging
 
-from simpleservice.server import ServerWrapper
+from simpleservice.server import LaunchWrapper
 from simpleservice.server import launch
 from simpleservice.rpc.service import LauncheRpcServiceBase
 
+from goperation import plugin
 from goperation.plugin import config as plugin_config
 
 
@@ -22,8 +23,8 @@ def configure(agent_type, config_files=None):
 
 def run(manager, config_files):
     configure(manager.agent_type, config_files=config_files)
-    servers = []
-    rpc_server = LauncheRpcServiceBase(manager())
-    rpc_wrapper = ServerWrapper(rpc_server, 1)
-    servers.append(rpc_wrapper)
-    launch(servers)
+    wrappers = []
+    rpc_service = LauncheRpcServiceBase(manager(), plugin_threadpool=plugin.threadpool)
+    rpc_wrapper = LaunchWrapper(service=rpc_service, workers=1)
+    wrappers.append(rpc_wrapper)
+    launch(wrappers)
