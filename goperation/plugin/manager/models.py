@@ -2,6 +2,7 @@ import sqlalchemy as sa
 from sqlalchemy import orm
 from sqlalchemy.sql import and_
 from sqlalchemy.dialects.mysql import VARCHAR
+from sqlalchemy.dialects.mysql import CHAR
 from sqlalchemy.dialects.mysql import SMALLINT
 from sqlalchemy.dialects.mysql import INTEGER
 from sqlalchemy.dialects.mysql import BIGINT
@@ -60,7 +61,7 @@ class AgentRespone(PluginTableBase):
 
 
 class AsyncRequest(PluginTableBase):
-    request_id = sa.Column(VARCHAR(36), default=uuidutils.generate_uuid,
+    request_id = sa.Column(CHAR(36), default=uuidutils.generate_uuid,
                            nullable=False, primary_key=True)
     request_time = sa.Column(INTEGER(unsigned=True),
                              default=int(timeutils.realnow()), nullable=False)
