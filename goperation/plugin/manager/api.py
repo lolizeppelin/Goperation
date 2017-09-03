@@ -1,5 +1,4 @@
 from simpleutil.config import cfg
-from simpleutil.utils import singleton
 from simpleutil.utils import timeutils
 from simpleutil.utils import lockutils
 from simpleutil.log import log as logging
@@ -99,7 +98,10 @@ def get_cache():
 def init_rpc_client():
     global RPCClient
     if RPCClient is None:
-        RPCClient = ManagerRpcClient()
+        with lock.get('rpc'):
+            if RPCClient is None:
+                LOG.info("Try init rpc client for manager")
+                RPCClient = ManagerRpcClient()
     else:
         LOG.warning("Do not call init_rpc_client more then once")
 
@@ -128,7 +130,6 @@ class mlock(GlockContext):
         super(mlock, self).__init__(get_redis(), server_list, locktime, alloctime)
 
 
-@singleton.singleton
 class ManagerRpcClient(RPCClientBase):
     """singleton Rpc client"""
     def __init__(self):
