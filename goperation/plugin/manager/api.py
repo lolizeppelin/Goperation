@@ -1,25 +1,20 @@
-from eventlet import patcher
-
-from glockredis.context import GlockContext
-
 from simpleutil.config import cfg
 from simpleutil.utils import singleton
 from simpleutil.utils import timeutils
-
+from simpleutil.utils import lockutils
 from simpleutil.log import log as logging
 
-
-from goperation.plugin.manager import common as manager_common
-from goperation.plugin.manager.config import manager_group
-from goperation.plugin.manager.config import manager_rabbit_group
+from glockredis.client import ApiRedis
+from glockredis.context import GlockContext
 
 from simpleservice.plugin.models import GkeyMap
 from simpleservice.ormdb.api import model_query
 from simpleservice.ormdb.api import MysqlDriver
-from simpleservice.rpc.client import RPCClientBase
+from simpleservice.plugin.rpcclient import RPCClientBase
 from simpleservice.rpc.config import rpc_client_opts
 
-from glockredis.client import ApiRedis
+from goperation.plugin.manager.config import manager_group
+from goperation.plugin.manager.config import manager_rabbit_group
 
 LOG = logging.getLogger(__name__)
 
@@ -31,15 +26,13 @@ SERVER_ID = None
 RPCClient = None
 
 # double lock for init mysql server_id and redis
-_mysql_lock = patcher.original('threading').Lock()
-_redis_lock = patcher.original('threading').Lock()
-_server_id_lock = patcher.original('threading').Lock()
+lock = lockutils.Semaphores()
 
 
 def init_mysql_session():
     global DbDriver
     if DbDriver is None:
-        with _mysql_lock:
+        with lock.get('mysql'):
             if DbDriver is None:
                 LOG.info("Try connect database for manager")
                 mysql_driver = MysqlDriver(manager_group.name,
@@ -62,7 +55,7 @@ def get_session(readonly=False):
 def init_server_id():
     global SERVER_ID
     if SERVER_ID is None:
-        with _server_id_lock:
+        with lock.get('sid'):
             if SERVER_ID is None:
                 session = get_session()
                 with session.begin():
@@ -83,7 +76,7 @@ def init_redis():
     if GLockRedis is not None:
         LOG.warning("Do not call init_redis more then once")
         return
-    with _redis_lock:
+    with lock.get('redis'):
         if GLockRedis is None:
             if SERVER_ID is None:
                 init_server_id()
