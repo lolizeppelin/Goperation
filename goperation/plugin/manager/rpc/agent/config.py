@@ -14,6 +14,11 @@ rpc_agent_opts = [
     cfg.PortOpt('gcenter_port',
                 default=7999,
                 help='Http port of gcenter wsgi service'),
+    cfg.IntOpt('http_pconn_count',
+               min=5,
+               max=50,
+               default=30,
+               help='HTTP persistent connection number for gcenter'),
     cfg.IPOpt('local_ip',
               version=4,
               help='Rpc agent local ip address'),
@@ -35,4 +40,11 @@ rpc_agent_opts = [
     cfg.BoolOpt('report_performance',
                 default=False,
                 help='Rpc agent online report with system performance'),
+]
+
+rpc_endpoint_opts = [
+    cfg.MultiOpt('module',
+                 item_type=cfg.types.MultiImportString(),
+                 default=[],
+                 help='Manager extend rpc module string'),
 ]

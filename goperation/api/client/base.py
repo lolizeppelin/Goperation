@@ -3,8 +3,8 @@ import psutil
 from simpleutil.utils import jsonutils
 from simpleutil.log import log as logging
 
-from simpleservice.wsgi.client import HttpClientBase
-from simpleservice.wsgi.exceptions import ServerExecuteRequestError
+from simpleservice.plugin.httpclient import HttpClientBase
+from simpleservice.plugin.exceptions import ServerExecuteRequestError
 
 from goperation.plugin.manager import common as manager_common
 
@@ -263,7 +263,7 @@ class ManagerClient(HttpClientBase):
                     # memory available MB
                     memory=psutil.virtual_memory().available/(1024*1024),
                     disk=manager.partion_left_size,
-                    ports_range=jsonutils.dump_as_bytes(manager.ports_range),
+                    ports_range=jsonutils.dumps_as_bytes(manager.ports_range),
                     endpoints=[endpoint.__class__.__name__.lower() for endpoint in manager.endpoints],
                     )
         results = self.agent_create(body)

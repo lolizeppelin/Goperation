@@ -2,9 +2,6 @@ from simpleservice.common import *
 
 ENV_REQUEST_ID = 'goperation.request_id'
 
-RPC_CALL_TIMEOUT = 3
-RPC_SEND_RETRY = 1
-
 # agent tpye
 AGENT = 'agent'
 APPLICATION = 'application'

@@ -3,6 +3,7 @@ from simpleutil.utils.timeutils import realnow
 from simpleservice.rpc.exceptions import MessageNotForMe
 from simpleservice.rpc.result import BaseRpcResult
 
+from goperation import plugin
 from goperation.plugin.manager import common as manager_common
 from goperation.plugin.manager.rpc import exceptions
 
@@ -20,6 +21,20 @@ class CheckRpcCtxt(object):
 
     def __call__(self, *args, **kwargs):
         raise NotImplementedError
+
+    def check_status(self, ctxt):
+        if not self.manager.is_active:
+            result = BaseRpcResult(self.manager.agent_id, ctxt,
+                                   resultcode=manager_common.RESULT_ERROR,
+                                   result='Agent status is not active')
+            raise exceptions.RpcCtxtException(result=result)
+
+    def check_pool(self, ctxt):
+        if plugin.threadpool.pool.free() < (plugin.threadpool.pool.size/10) + 2:
+            result = BaseRpcResult(self.manager.agent_id, ctxt,
+                                   resultcode=manager_common.RESULT_ERROR,
+                                   result='Agent plugin thread pool is busy')
+            raise exceptions.RpcCtxtException(result=result)
 
 
 class CheckManagerRpcCtxt(CheckRpcCtxt):
@@ -97,10 +112,10 @@ class CheckEndpointRpcCtxt(CheckRpcCtxt):
     def __call__(self, *args, **kwargs):
         ctxt = args[2]
         endpoint = args[0]
-        if not self.manager.is_active:
-            result = BaseRpcResult(self.manager.agent_id, ctxt,
-                                   resultcode=manager_common.RESULT_ERROR, result='Agent status is not active')
-            raise exceptions.RpcCtxtException(result=result)
+        self.check_status(ctxt)
+        self.check_pool(ctxt)
+        # destination entiys count
+        # if not set, means all entiys of endpoint in this agent
         entiys = ctxt.get('entiys', len(endpoint.entiys))
         if not isinstance(entiys, (int, long)):
             result = BaseRpcResult(self.manager.agent_id, ctxt,
@@ -117,3 +132,14 @@ class CheckEndpointRpcCtxt(CheckRpcCtxt):
                                            result='Not enough space for %d entiys' % entiys)
                     raise exceptions.RpcCtxtException(result=result)
         return self.func(*args, **kwargs)
+
+
+
+class CheckThreadPoolRpcCtxt(CheckRpcCtxt):
+
+    def __call__(self, *args, **kwargs):
+        ctxt = args[0]
+        self.check_status(ctxt)
+        self.check_pool(ctxt)
+        return self.func(*args, **kwargs)
+

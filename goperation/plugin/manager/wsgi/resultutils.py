@@ -6,7 +6,7 @@ from simpleutil.common.exceptions import InvalidArgument
 
 from simpleservice.ormdb.api import model_query
 from simpleservice.ormdb.api import model_count_with_key
-from simpleservice.wsgi.client import results
+from simpleservice.plugin.httpclient import results
 
 from goperation.plugin.manager import common as manager_common
 

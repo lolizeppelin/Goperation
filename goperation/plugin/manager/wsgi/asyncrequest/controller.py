@@ -28,8 +28,6 @@ LOG = logging.getLogger(__name__)
 
 FAULT_MAP = {InvalidArgument: webob.exc.HTTPClientError}
 
-MAX_ROW_PER_REQUEST = 100
-
 
 Idformater = argutils.Idformater(key='request_id', formatfunc='request_id_check')
 
@@ -102,7 +100,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
                 for agent_respone in agent_respones:
                     if agent_respone:
                         try:
-                            agent_respone_data = jsonutils.loads(agent_respone)
+                            agent_respone_data = jsonutils.loads_as_bytes(agent_respone)
                             if isinstance(agent_respone_data, (int, long)):
                                 raise ValueError
                         except (TypeError, ValueError):
@@ -129,7 +127,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
 
     @Idformater
     def update(self, req, request_id, body):
-      raise NotImplementedError
+        raise NotImplementedError
 
     @Idformater
     def respone(self, req, request_id, body):
@@ -156,13 +154,14 @@ class AsyncWorkRequest(contorller.BaseContorller):
                                   detail_id=detail['detail'],
                                   resultcode=detail['resultcode'],
                                   result=detail['result'] if isinstance(detail['result'], basestring)
-                                  else jsonutils.dump_as_bytes(detail['result']))
+                                  else jsonutils.dumps_as_bytes(detail['result']))
                              for detail in details])
         if persist and details:
             data['details'] = [ResponeDetail(**detail) for detail in data.pop(details)]
             try:
                 respone = AgentRespone(**data)
                 session.add(respone)
+                session.commit()
             except DBDuplicateEntry:
                 LOG.warning('Agent %d respone %s get DBDuplicateEntry error' % (agent_id, request_id))
                 query = model_query(session, AgentRespone,
@@ -180,16 +179,16 @@ class AsyncWorkRequest(contorller.BaseContorller):
         else:
             respone_key = targetutils.async_request_key(request_id, agent_id)
             try:
-                if not _cache_server.set(respone_key, jsonutils.dump_as_bytes(data), ex=expire, nx=True):
+                if not _cache_server.set(respone_key, jsonutils.dumps_as_bytes(data), ex=expire, nx=True):
                     LOG.warning('Scheduler set agent overtime to redis get a Duplicate Entry, Agent responed?')
-                    respone = jsonutils.loads(_cache_server.get(respone_key))
+                    respone = jsonutils.loads_as_bytes(_cache_server.get(respone_key))
                     if respone.get('resultcode') != manager_common.RESULT_OVER_FINISHTIME:
                         result = 'Agent %d respone %s fail,another agent ' \
                                  'with same agent_id in redis' % (agent_id, request_id)
                         LOG.error(result)
                         return resultutils.results(result=result, resultcode=manager_common.RESULT_ERROR)
                     # overwirte respone_key
-                    _cache_server.set(respone_key, jsonutils.dump_as_bytes(data), ex=expire, nx=False)
+                    _cache_server.set(respone_key, jsonutils.dumps_as_bytes(data), ex=expire, nx=False)
             except RedisError as e:
                 LOG.error('Scheduler set agent overtime to redis get RedisError %s: %s' % (e.__class__.__name__,
                                                                                            e.message))
@@ -280,7 +279,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
             else:
                 respone_key = targetutils.async_request_key(request_id, agent_id)
                 try:
-                    if not _cache_server.set(respone_key, jsonutils.dump_as_bytes(data), ex=expire, nx=True):
+                    if not _cache_server.set(respone_key, jsonutils.dumps_as_bytes(data), ex=expire, nx=True):
                         count_finish += 1
                         LOG.warning('Scheduler set agent overtime to redis get a Duplicate Entry, Agent responed?')
                 except RedisError as e:

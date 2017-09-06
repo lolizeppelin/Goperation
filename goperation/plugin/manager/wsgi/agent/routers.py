@@ -45,4 +45,8 @@ class Routers(router.RoutersBase):
         collection.member.link('ports', name='add_ports', action='add_ports', method='POST')
         # release ports
         collection.member.link('ports', name='delete_ports', action='delete_ports', method='DELETE')
+        # add endpoint
+        collection.member.link('endpoints', name='add_endpoints', action='add_endpoints', method='POST')
+        # delete endpoint
+        collection.member.link('endpoints', name='delete_endpoints', action='delete_endpoints', method='DELETE')
         return collection

@@ -38,7 +38,9 @@ def configure(config_files=None):
     # set endpoint config
     if CONF.endpoints:
         for endpoint in CONF.endpoints:
-            endpoint_group = CONF.register_group(endpoint.lower())
+            endpoint_group = cfg.OptGroup(endpoint.lower(),
+                                          title='endpopint of %s' % endpoint)
+            CONF.register_group(endpoint_group)
             CONF.register_opts(route_opts, endpoint_group)
             # add endpoint route
             for route in CONF[endpoint_group.name].routes:

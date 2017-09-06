@@ -19,12 +19,12 @@ from goperation.plugin.utils import suicide
 from goperation.plugin.manager import common as manager_common
 from goperation.plugin.manager import config as manager_config
 from goperation.plugin.manager.rpc.agent.config import agent_group
+from goperation.plugin.manager.rpc.agent.config import rpc_endpoint_opts
 from goperation.plugin.manager.rpc.agent.config import rpc_agent_opts
 from goperation.plugin.manager.rpc.ctxtdescriptor import CheckEndpointRpcCtxt
 from goperation.plugin.manager.rpc.ctxtdescriptor import CheckManagerRpcCtxt
 from goperation.plugin.manager.wsgi.targetutils import target_server
 from goperation.api.client.base import ManagerClient
-
 
 
 CONF = cfg.CONF
@@ -80,10 +80,17 @@ class RpcAgentManager(ManagerBase):
         if CONF.endpoints:
             # endpoint class must be singleton
             for endpoint in CONF.endpoints:
-                endpoint_class = '%s.%s' % (endpoint, self.agent_type.capitalize())
+                endpoint_group = cfg.OptGroup(endpoint.lower(),
+                                              title='endpopint of %s' % endpoint)
+                CONF.register_group(endpoint_group)
+                CONF.register_opts(rpc_endpoint_opts, endpoint_group)
+                endpoint_class = '%s.%s' % (CONF[endpoint_group].module,
+                                            self.agent_type.capitalize())
+                LOG.debug('Import endpoint for %s, module from %s' % (endpoint, endpoint_class))
                 endpoint_class = importutils.import_class(endpoint_class)
-                endpoint_kwargs = kwargs.get(endpoint_class.__name__.lower(), {})
-                endpoint_kwargs.update({'agent_type': self.agent_type})
+                endpoint_kwargs = kwargs.get(endpoint_group.name, {})
+                endpoint_kwargs.update({'agent_type': self.agent_type,
+                                        'group': endpoint_group})
                 self.endpoints.add(endpoint_class(**endpoint_kwargs))
         # port and port and disk space info
         conf = CONF[manager_common.AGENT]
