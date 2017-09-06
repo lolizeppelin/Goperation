@@ -65,8 +65,8 @@ RPC调用规范
 
 Manager work_lock调用
 优先级  方法                         说明
-0       rpc_delete_agent_precommit   锁定后检查状态必须大于SOFTBUSY
-                                     调用endpoint.empty(),确保endpoint.empty()无阻塞无IO且能
+0       rpc_delete_agent_precommit   锁定后检查状态必须大于SOFTBUSY,之后设置状态PERDELETE
+                                     调用endpoint.entiys判断entiys数量,确保endpoint.entiys无阻塞无IO且能
 0       rpc_delete_agent_postcommit  无IO,无阻塞  锁定后检查状态必须等于PERDELETE
                                      会调用suicide, suicide中有schedule_call_global调用,执行时间短
 
@@ -80,7 +80,9 @@ Manager work_lock调用
 1       set_status                   无IO,无阻塞  修改状态,当前状态必须大于等于SOFTBUSY
 
 1       rpc_active_agent             无IO,无阻塞  服务端rpc设置状态,  调用set_status
-1       rpc_upgrade_agent            无IO,无阻塞  转换为HARDBUSY状态, 调用set_status
+
+1       rpc_upgrade_agent            有IO,有阻塞  转换为HARDBUSY状态, rabbit message会被直接退回
+                                     阻塞时间取决于rpm -Uvh用时
 
 
 Manager 状态说明
