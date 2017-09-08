@@ -161,7 +161,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
             try:
                 respone = AgentRespone(**data)
                 session.add(respone)
-                session.commit()
+                session.flush()
             except DBDuplicateEntry:
                 LOG.warning('Agent %d respone %s get DBDuplicateEntry error' % (agent_id, request_id))
                 query = model_query(session, AgentRespone,
@@ -270,7 +270,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
                 try:
                     resp = AgentRespone(**data)
                     session.add(resp)
-                    session.commit()
+                    session.flush()
                 except DBDuplicateEntry:
                     count_finish += 1
                     LOG.warning('Scheduler set agent overtime get a DBDuplicateEntry, Agent responed?')

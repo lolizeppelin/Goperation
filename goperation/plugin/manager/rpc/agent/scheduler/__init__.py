@@ -61,12 +61,12 @@ class SchedulerManager(RpcAgentManager):
                 asyncrequest.result = 'Async %s request send fail, AMQPDestinationNotFound' % rpc_method
                 asyncrequest.status = manager_common.FINISH
                 session.add(asyncrequest)
-                session.commit()
+                session.flush()
                 return BaseRpcResult(self.agent_id, resultcode=manager_common.RESULT_ERROR,
                                      result=asyncrequest.result)
             asyncrequest.result = 'Async request %s cast success' % rpc_method
             session.add(asyncrequest)
-            session.commit()
+            session.flush()
 
             def check_respone():
                 now = int(time.time())

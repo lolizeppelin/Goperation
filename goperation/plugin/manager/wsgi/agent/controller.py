@@ -190,6 +190,7 @@ class AgentReuest(contorller.BaseContorller):
                 new_agent_id = model_autoincrement_id(session, Agent.agent_id)
                 new_agent.agent_id = new_agent_id
                 session.add(new_agent)
+                session.flush()
                 result = resultutils.results(total=1, pagenum=0, result='Create agent success',
                                              data=[dict(agent_id=new_agent.agent_id,
                                                         host=new_agent.host,
@@ -453,6 +454,7 @@ class AgentReuest(contorller.BaseContorller):
             with session.begin(subtransactions=True):
                 for port in ports:
                     session.add(AllocatedPort(agent_id=agent_id, port=port, endpoint=endpoint))
+                    session.flush()
         return resultutils.results(result='edit ports success')
 
     @Idformater
@@ -493,6 +495,7 @@ class AgentReuest(contorller.BaseContorller):
             with session.begin(subtransactions=True):
                 for endpoint in endpoints:
                     session.add(AgentEndpoint(agent_id=agent_id, endpoint=endpoint))
+                    session.flush()
         return resultutils.results(result='add endpoints success')
 
     @Idformater

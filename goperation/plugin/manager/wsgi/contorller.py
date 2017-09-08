@@ -133,7 +133,7 @@ class BaseContorller():
                         asyncrequest.result = 'Async request %s call scheduler faile, over finishtime' % rpc_method
                         try:
                             session.add(asyncrequest)
-                            session.commit()
+                            session.flush()
                         except DBDuplicateEntry:
                             LOG.warning('Async request rpc call result over finishtime, but recode found')
                 except (RpcResultError, MessagingTimeout, AMQPDestinationNotFound) as e:
@@ -142,7 +142,7 @@ class BaseContorller():
                     asyncrequest.resultcode = manager_common.RESULT_IS_NONE
                     try:
                         session.add(asyncrequest)
-                        session.commit()
+                        session.flush()
                     except DBDuplicateEntry:
                         LOG.warning('Async request rpc call result is None, but recode found')
 
