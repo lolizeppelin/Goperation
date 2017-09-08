@@ -114,22 +114,22 @@ class CheckEndpointRpcCtxt(CheckRpcCtxt):
         endpoint = args[0]
         self.check_status(ctxt)
         self.check_pool(ctxt)
-        # destination entiys count
-        # if not set, means all entiys of endpoint in this agent
-        entiys = ctxt.get('entiys', len(endpoint.entiys))
-        if not isinstance(entiys, (int, long)):
+        # destination entitys count
+        # if not set, means all entitys of endpoint in this agent
+        entitys = ctxt.get('entitys', len(endpoint.entitys))
+        if not isinstance(entitys, (int, long)):
             result = BaseRpcResult(self.manager.agent_id, ctxt,
                                    resultcode=manager_common.RESULT_ERROR,
-                                   result='Entiys value type error')
+                                   result='entitys value type error')
             raise exceptions.RpcCtxtException(result=result)
-        if entiys:
-            # check space for entiys
+        if entitys:
+            # check space for entitys
             target_file = ctxt.pop('file', None)
             if target_file:
-                if target_file.size * entiys > self.manager.partion_left_size - 100:
+                if target_file.size * entitys > self.manager.partion_left_size - 100:
                     result = BaseRpcResult(self.manager.agent_id, ctxt,
                                            resultcode=manager_common.RESULT_ERROR,
-                                           result='Not enough space for %d entiys' % entiys)
+                                           result='Not enough space for %d entitys' % entitys)
                     raise exceptions.RpcCtxtException(result=result)
         return self.func(*args, **kwargs)
 

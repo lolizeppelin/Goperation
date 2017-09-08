@@ -143,8 +143,8 @@ class RpcAgentManager(ManagerBase):
         add_endpoints, delete_endpoints = self.validate_endpoint(agent_info['endpoints'])
         for endpoint in agent_info['endpoints']:
             if endpoint['endpoint'] in delete_endpoints:
-                if endpoint['entiy'] > 0:
-                    raise RuntimeError('Agent endpoint entiy not zero, '
+                if endpoint['entity'] > 0:
+                    raise RuntimeError('Agent endpoint entity not zero, '
                                        'but not endpoint %s in this agent' % endpoint['endpoint'])
             for port in endpoint['ports']:
                 self.frozen_port(endpoint['endpoint'], port)
@@ -314,7 +314,7 @@ class RpcAgentManager(ManagerBase):
                              resultcode=manager_common.RESULT_SUCCESS,
                              result='Get status from %s success' % self.local_ip,
                              # TODO more info of endpoint
-                             details=[dict(name=endpoint.name, entiys=endpoint.entiys)
+                             details=[dict(name=endpoint.name, entitys=endpoint.entitys)
                                       for endpoint in self.endpoints])
 
     @CheckManagerRpcCtxt
@@ -332,7 +332,7 @@ class RpcAgentManager(ManagerBase):
                                      resultcode=manager_common.RESULT_ERROR,
                                      result='Not match this agent')
             for endpont in self.endpoints:
-                if endpont.entiys:
+                if endpont.entitys:
                     return BaseRpcResult(self.agent_id, ctxt,
                                          resultcode=manager_common.RESULT_ERROR,
                                          result='Endpoint %s is not empty' % endpont.name)

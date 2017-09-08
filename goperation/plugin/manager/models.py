@@ -136,7 +136,7 @@ class AgentEndpoint(PluginTableBase):
     endpoint = sa.Column(VARCHAR(plugin_common.MAX_ENDPOINT_NAME_SIZE),
                          default=None,
                          nullable=False, primary_key=True)
-    entiy = sa.Column(INTEGER(unsigned=True), default=0, server_default='0', nullable=False)
+    entity = sa.Column(INTEGER(unsigned=True), default=0, server_default='0', nullable=False)
     ports = orm.relationship(AllocatedPort, backref='agent', lazy='select',
                              primaryjoin=and_(agent_id == AllocatedPort.agent_id,
                                               endpoint == AllocatedPort.endpoint),
@@ -174,11 +174,11 @@ class Agent(PluginTableBase):
     )
 
     @property
-    def entiy(self):
-        entiy = 0
+    def entity(self):
+        entity = 0
         for endpoint in self.endpoints:
-            entiy += endpoint.entiy
-        return entiy
+            entity += endpoint.entity
+        return entity
 
     @property
     def ports(self):

@@ -66,7 +66,7 @@ RPC调用规范
 Manager work_lock调用
 优先级  方法                         说明
 0       rpc_delete_agent_precommit   锁定后检查状态必须大于SOFTBUSY,之后设置状态PERDELETE
-                                     调用endpoint.entiys判断entiys数量,确保endpoint.entiys无阻塞无IO且能
+                                     调用endpoint.entitys判断entitys数量,确保endpoint.entitys无阻塞无IO且能
 0       rpc_delete_agent_postcommit  无IO,无阻塞  锁定后检查状态必须等于PERDELETE
                                      会调用suicide, suicide中有schedule_call_global调用,执行时间短
 

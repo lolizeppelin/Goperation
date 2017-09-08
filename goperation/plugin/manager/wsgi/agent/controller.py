@@ -126,7 +126,7 @@ class AgentReuest(contorller.BaseContorller):
                                                      Agent.cpu,
                                                      Agent.memory,
                                                      Agent.disk,
-                                                     Agent.entiy,
+                                                     Agent.entity,
                                                      Agent.endpoints,
                                                      Agent.create_time],
                                             counter=Agent.agent_id,
@@ -149,7 +149,7 @@ class AgentReuest(contorller.BaseContorller):
                                    status=agent.status,
                                    ports_range=agent.ports_range,
                                    endpoints=[dict(endpoint=v.endpoint,
-                                                   entiy=v.entiy,
+                                                   entity=v.entity,
                                                    ports=[vv.port for vv in v.ports]
                                                    ) for v in agent.endpoints],
                                    ))
@@ -222,8 +222,8 @@ class AgentReuest(contorller.BaseContorller):
                 agent = query.one_or_none()
                 if not agent:
                     raise InvalidArgument('Can not find agent with %d, not exist or alreay deleted' % agent_id)
-                if agent.entiy > 0:
-                    raise InvalidArgument('Can not delete agent, entiy not 0')
+                if agent.entity > 0:
+                    raise InvalidArgument('Can not delete agent, entity not 0')
                 if not force:
                     host_online_key = targetutils.host_online_key(agent.agent_id)
                     # make sure agent is online
