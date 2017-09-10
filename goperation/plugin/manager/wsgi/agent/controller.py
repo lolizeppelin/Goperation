@@ -67,14 +67,15 @@ class AgentReuest(contorller.BaseContorller):
             # lazy init all agent id cache
             session = get_session(readonly=True)
             with mlock(goplockutils.lock_all_agent):
-                query = session.query(Agent.agent_id).filter(Agent.status > manager_common.DELETED)
-                added = False
-                for result in query:
-                    added = True
-                    if not _cache_server.sadd(key, str(result[0])):
-                        raise CacheStoneError('Cant not add agent_id to redis, key %s' % key)
-                if not added:
-                    return set()
+                if not _cache_server.smembers(key):
+                    query = session.query(Agent.agent_id).filter(Agent.status > manager_common.DELETED)
+                    added = False
+                    for result in query:
+                        added = True
+                        if not _cache_server.sadd(key, str(result[0])):
+                            raise CacheStoneError('Cant not add agent_id to redis, key %s' % key)
+                    if not added:
+                        return set()
             all_ids = _cache_server.smembers(key)
             if not all_ids:
                 raise RuntimeError('Add agent_id to redis success, but get from redis is empyt')
