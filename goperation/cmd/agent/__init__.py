@@ -21,10 +21,10 @@ def configure(agent_type, config_files=None):
     return agent_group.name
 
 
-def run(manager, config_files):
-    configure(manager.agent_type, config_files=config_files)
+def run(manager_cls, config_files):
+    configure(manager_cls.agent_type, config_files=config_files)
     wrappers = []
-    rpc_service = LauncheRpcServiceBase(manager(), plugin_threadpool=plugin.threadpool)
+    rpc_service = LauncheRpcServiceBase(manager_cls(), plugin_threadpool=plugin.threadpool)
     rpc_wrapper = LaunchWrapper(service=rpc_service, workers=1)
     wrappers.append(rpc_wrapper)
     launch(wrappers)
