@@ -75,10 +75,6 @@ rpc framework for simpleservice plugin
 
 
 
-
-
-
-
 %prep
 %setup -q -n %{proj_name}-%{version}
 rm -rf %{proj_name}.egg-info

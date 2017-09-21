@@ -1,12 +1,19 @@
-RPC测试, RPC descriptor 测试  -- 基本完成,剩余部分需要endpoint调试                          压后
 wsgi中调度器RPC cast 修改为先call 再cast模式  -- 实现方式大改                               完成
 sqlalchemy models 单元测试                                                                  完成
+调度器中taskflow的实现  taskflow转为simpleflow, 替换futurist相关代码                        完成
+还原orm框架中对sqlite3的支持                                                                完成
+simpleflow中的orm框架支持sqlite3                                                            完成
+实现tail -f文件,                                                                            完成
+协程解压文件                                                                                完成
+
+sql执行超时方式确认                                                                         压后
 file manager类编写                                                                          压后
 http 下载方式编写                                                                           压后
-编写调度器                                                                                  进行中                                                                                  进行中
-调度器中taskflow的实现  taskflow转为simpleflow, 替换futurist相关代码                        完成
-mysql升级的workflow编写                                                                     完成
-通用服务停止的workflow编写                                                                  进行中
-实现tail -f文件,                                                                            进行中
+编写调度器                                                                                  压后
+RPC测试, RPC descriptor 测试  -- 基本完成,剩余部分需要endpoint调试                          压后
 websocket实现文件发送与tail文件                                                             压后
 spec文件编写,linux安装测试                                                                  spec完成,安装测试压后
+
+mysql升级的taskflow编写                                                                     进行中
+通用服务taskflow编写                                                                        进行中
+全局锁更新锁定和使用方式                                                                    准备进行

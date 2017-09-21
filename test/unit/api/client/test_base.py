@@ -1,7 +1,7 @@
-from goperation.api.client import base
+from goperation.api.client import AgentManagerClient
 
 
-from goperation.plugin.manager import common
+from goperation.manager import common
 
 host = 'surface'
 local_ip = '127.0.0.1'
@@ -10,8 +10,10 @@ wsgi_port = 7999
 
 
 
-client = base.ManagerClient(host, local_ip, common.APPLICATION,
-                            wsgi_url, wsgi_port)
+client = AgentManagerClient(wsgi_url, wsgi_port,
+                            host=host,
+                            local_ip=local_ip,
+                            agent_type=common.APPLICATION)
 
 def test_flush():
     print client.agent_flush()
