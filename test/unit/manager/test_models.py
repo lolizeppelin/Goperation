@@ -40,8 +40,9 @@ print '~~~~~~~~~~~~~~~~~~~~~~~~~~'
 
 print 'test add request_row'
 request_row = AsyncRequest()
-with session.begin():
-    session.add(request_row)
+# with session.begin():
+session.add(request_row)
+session.flush()
 print request_row
 print request_row.request_id
 print 'test add request_row finish'
