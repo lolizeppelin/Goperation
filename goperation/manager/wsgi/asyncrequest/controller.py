@@ -13,6 +13,7 @@ from simpleservice.ormdb.exceptions import DBDuplicateEntry
 from simpleservice.ormdb.exceptions import DBError
 from simpleutil.common.exceptions import InvalidArgument
 
+from goperation import threadpool
 from goperation.manager import resultutils
 from goperation.manager import targetutils
 from goperation.manager import common as manager_common
@@ -122,7 +123,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
             return resultutils.results(result='Details of agent %d can not be found' % agent_id,
                                        resultcode=manager_common.RESULT_IS_NONE)
         return resultutils.results(result='Get details success',
-                                   data=[resultutils.details(detail) for detail in details])
+                                   data=[resultutils.detail(detail) for detail in details])
 
     @Idformater
     def update(self, req, request_id, body):
@@ -160,7 +161,8 @@ class AsyncWorkRequest(contorller.BaseContorller):
             try:
                 respone = AgentRespone(**data)
                 session.add(respone)
-                session.flush()
+                # session.flush()
+                session.commit()
             except DBDuplicateEntry:
                 LOG.warning('Agent %d respone %s get DBDuplicateEntry error' % (agent_id, request_id))
                 query = model_query(session, AgentRespone,
@@ -251,31 +253,31 @@ class AsyncWorkRequest(contorller.BaseContorller):
                         resultcode=manager_common.RESULT_OVER_FINISHTIME,
                         result='Agent respone overtime, report by Scheduler:%d' % scheduler)
             bulk_data.append(data)
-        # TODO bluk_insert should run background
-        self.bluk_insert(bulk_data, persist, expire)
+        # self.bluk_insert(bulk_data, persist, expire)
+        threadpool.add_thread(self.bluk_insert, bulk_data, persist, expire)
         return resultutils.results(result='Scheduler post agent overtime success')
 
     @staticmethod
     def bluk_insert(bulk_data, persist, expire):
-        # TODO shoud async write
         session = get_session()
-        if not persist:
-            _cache_server = get_cache()
         request_id = bulk_data[0]['request_id']
         agent_id = bulk_data[0]['agent_id']
         count_finish = 0
-        for data in bulk_data:
-            if persist:
-                try:
-                    resp = AgentRespone(**data)
-                    session.add(resp)
-                    session.flush()
-                except DBDuplicateEntry:
-                    count_finish += 1
-                    LOG.warning('Scheduler set agent overtime get a DBDuplicateEntry, Agent responed?')
-                except DBError as e:
-                    LOG.error('Scheduler set agent overtime get DBError %s: %s' % (e.__class__.__name__, e.message))
-            else:
+        if persist:
+            with session.begin():
+                for data in bulk_data:
+                    try:
+                        resp = AgentRespone(**data)
+                        session.add(resp)
+                        session.flush()
+                    except DBDuplicateEntry:
+                        count_finish += 1
+                        LOG.warning('Scheduler set agent overtime get a DBDuplicateEntry, Agent responed?')
+                    except DBError as e:
+                        LOG.error('Scheduler set agent overtime get DBError %s: %s' % (e.__class__.__name__, e.message))
+        else:
+            _cache_server = get_cache()
+            for data in bulk_data:
                 respone_key = targetutils.async_request_key(request_id, agent_id)
                 try:
                     if not _cache_server.set(respone_key, jsonutils.dumps_as_bytes(data), ex=expire, nx=True):
