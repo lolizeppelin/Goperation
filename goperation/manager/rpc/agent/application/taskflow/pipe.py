@@ -61,6 +61,7 @@ def flow_factory(session, middlewares, store,
     """
     if not middlewares:
         raise RuntimeError('No middleware found')
+    store = store or {}
     main_flow = lf.Flow('%s_taskflow' % middlewares[0].endpoint)
 
     # choice one entity by randomizing the selection of middlewares
