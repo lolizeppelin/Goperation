@@ -8,6 +8,7 @@ from simpleutil.log import log as logging
 from sqlalchemy.pool import NullPool
 from simpleservice.ormdb.argformater import connformater
 from simpleservice.ormdb.engines import create_engine
+from simpleservice.ormdb.tools.utils import re_create_schema
 
 from simpleflow.types import failure
 from simpleflow.retry import Times
@@ -28,6 +29,7 @@ class DbUpdateFile(TargetFile):
 
     def __init__(self, source, rollback=False, formater=None):
         super(DbUpdateFile, self).__init__(source)
+        # update will rollback when task pipe fail
         self.rollback = rollback
         self._formater = formater
         self.sql = []
@@ -45,13 +47,16 @@ class DatabaseInfo(object):
 
     def __init__(self,
                  backup, update,
-                 **dbinfo):
-        self.user = dbinfo['user']
-        self.passwd = dbinfo['passwd']
-        self.host = dbinfo['host']
-        self.port = dbinfo['port']
-        self.schema = dbinfo['schema']
-        self.character = dbinfo.get('character')
+                 **kwargs):
+        self.user = kwargs['user']
+        self.passwd = kwargs['passwd']
+        self.host = kwargs['host']
+        self.port = kwargs['port']
+        self.schema = kwargs['schema']
+        self.character = kwargs.get('character', None)
+        # database can be revert
+
+        self.revertable = kwargs.get('revertable', True)
         self.retry = 0
         self.backup = backup
         self.update = update
@@ -184,27 +189,43 @@ class MysqlUpdate(StandardTask):
     def revert(self, result, *args, **kwargs):
         super(MysqlUpdate, self).revert(result, *args, **kwargs)
         database = self.middleware.databases[self.index]
-        # no sql execude
-        if isinstance(result, failure.Failure) or database.update.rollback:
-            LOG.info('Try revert %s %d database %s:%d/%s ' % (self.middleware.endpoint,
-                                                              self.middleware.entity,
-                                                              database.host,
-                                                              database.port,
-                                                              database.schema))
-            if database.update.sql and not self.executed:
-                LOG.info('Database %s:%d/%s no sql executed, '
-                         'nothing will be reverted' % (database.host,
-                                                       database.port,
-                                                       database.schema))
-            else:
-                if not database.backup or not os.path.exists(database.backup):
-                    msg = 'No backup database file found! can not revert'
-                    LOG.error(msg)
-                    raise exceptions.DatabaseRevertError(msg)
-                self.execute_sql_from_file(database.backup)
-                self.executed = 0
-                LOG.info('Revert database success')
-            self.middleware.set_return(self.__class__.__name__, common.REVERTED)
+        if database.revertable:
+            # no sql execude
+            if isinstance(result, failure.Failure) or database.update.rollback:
+                LOG.info('Try revert %s %d database %s:%d/%s ' % (self.middleware.endpoint,
+                                                                  self.middleware.entity,
+                                                                  database.host,
+                                                                  database.port,
+                                                                  database.schema))
+                if database.update.sql and not self.executed:
+                    LOG.info('Database %s:%d/%s no sql executed, '
+                             'nothing will be reverted' % (database.host,
+                                                           database.port,
+                                                           database.schema))
+                else:
+                    if not database.backup or not os.path.exists(database.backup):
+                        msg = 'No backup database file found! can not revert'
+                        LOG.error(msg)
+                        raise exceptions.DatabaseRevertError(msg)
+
+                    db_info = {'user': database.user,
+                               'passwd': database.passwd,
+                               'host': database.host,
+                               'port': database.port,
+                               'schema': database.schema,
+                               }
+                    database_connection = connformater % db_info
+                    engine = create_engine(database_connection, thread_checkin=False,
+                                           poolclass=NullPool,
+                                           charset=database.character)
+                    LOG.warning('Database %s will drop and re create in %s:%d' % (database.schema,
+                                                                                  database.host,
+                                                                                  database.port))
+                    re_create_schema(engine)
+                    self.execute_sql_from_file(database.backup)
+                    self.executed = 0
+                    LOG.info('Revert database success')
+                self.middleware.set_return(self.__class__.__name__, common.REVERTED)
 
 
 def mysql_flow_factory(middleware, store):
