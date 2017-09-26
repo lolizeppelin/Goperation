@@ -2,12 +2,14 @@ import six
 import collections
 
 from goperation.taskflow import common
-
+from goperation.manager.rpc.agent.application.base import AppEndpointBase
 
 class EntityMiddleware(object):
 
     def __init__(self, endpoint, entity,
                  application=None, databases=None):
+        if not isinstance(endpoint, AppEndpointBase):
+            raise RuntimeError('endpoint not AppEndpointBase')
         self.entity = entity
         self.entity_home = endpoint.entity_home(entity)
         self.entity_appname = endpoint.appname(entity)

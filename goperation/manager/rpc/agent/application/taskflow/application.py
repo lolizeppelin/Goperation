@@ -13,10 +13,11 @@ from simpleflow.types import failure
 from zlibstream.tobuffer import async_compress
 from zlibstream.tofile import async_extract
 
-from goperation.taskflow import base
+
 from goperation.utils import safe_fork
 from goperation.taskflow import common
 from goperation.filemanager.base import TargetFile
+from goperation.taskflow.base import StandardTask
 
 LOG = logging.getLogger(__name__)
 
@@ -53,9 +54,8 @@ class Application(object):
                  upgrade=None,
                  backup=None,
                  startfunc=None, start_kwargs=None,
-                 killfunc=None, kill_kwargs=None,
-                 configfunc=None, config_kwargs=None,
                  stopfunc=None, stop_kwargs=None,
+                 killfunc=None, kill_kwargs=None,
                  updatefunc=None, update_kwargs=None):
         """
         @param upgrade:             class: AppUpgradeFile 升级文件
@@ -67,14 +67,12 @@ class Application(object):
         self.backup = backup
         self.startfunc = startfunc
         self.start_kwargs = start_kwargs
-        self.configfunc = configfunc
-        self.config_kwargs = config_kwargs
         self.stopfunc = stopfunc
         self.stop_kwargs = stop_kwargs
         self.killfunc = killfunc
         self.kill_kwargs = kill_kwargs
         self.updatefunc = updatefunc
-        self.updatefunc = update_kwargs
+        self.update_kwargs = update_kwargs
         if self.upgrade and self.upgrade.rollback:
             if not self.upgrade.remote_backup and not self.backup:
                 raise RuntimeError('application can not rollback without backup')
@@ -99,7 +97,7 @@ class AppKill(Retry):
         return False
 
 
-class AppStop(base.StandardTask):
+class AppStop(StandardTask):
     """程序关闭"""
     def __init__(self, middleware):
         super(AppStop, self).__init__(middleware=middleware)
@@ -112,16 +110,16 @@ class AppStop(base.StandardTask):
                                                           self.middleware.entity))
             kwargs = self.middleware.application.kill_kwargs or {}
             self.middleware.application.killfunc(self.middleware.entity,
-                                               **kwargs)
+                                                 **kwargs)
         else:
             LOG.info('AppStop try stop endpoint %s %d' % (self.middleware.endpoint,
                                                           self.middleware.entity))
             kwargs = self.middleware.application.stop_kwargs or {}
             self.middleware.application.stopfunc(self.middleware.entity,
-                                               **kwargs)
+                                                 **kwargs)
 
 
-class AppUpdate(base.StandardTask):
+class AppUpdate(StandardTask):
     """升序更新,这里的更新一般是非app文件相关的更新
     app文件更新使用AppFileUpgrade
     这里一般用于热函数调用,配置刷新等
@@ -132,12 +130,12 @@ class AppUpdate(base.StandardTask):
     def execute(self):
         if self.middleware.is_success(self.__class__.__name__):
             return
-        kwargs = self.middleware.application.updatefunc or {}
+        kwargs = self.middleware.application.update_kwargs or {}
         self.middleware.application.updatefunc(self.middleware.entity,
-                                             **kwargs)
+                                               **kwargs)
 
 
-class AppStart(base.StandardTask):
+class AppStart(StandardTask):
     """程序启动"""
     def __init__(self, middleware):
         super(AppStart, self).__init__(middleware=middleware)
@@ -150,7 +148,7 @@ class AppStart(base.StandardTask):
             self.middleware.application.startfunc(self.middleware.entity, **kwargs)
 
 
-class AppUpgradeFileGet(base.StandardTask):
+class AppUpgradeFileGet(StandardTask):
     """app 程序升级文件获取"""
     def __init__(self, middleware, rebind=None):
         super(AppUpgradeFileGet, self).__init__(middleware, rebind=rebind)
@@ -167,11 +165,12 @@ class AppUpgradeFileGet(base.StandardTask):
             self.middleware.set_return(self.__class__.__name__, common.REVERTED)
 
 
-class AppBackUp(base.StandardTask):
+class AppBackUp(StandardTask):
     """app 程序文件备份"""
     def __init__(self, middleware, rebind=None):
         super(AppBackUp, self).__init__(middleware, rebind=rebind)
         self.pwd = os.getcwd()
+        self.exclude = lambda x: None
 
     def execute(self, timeout):
         if self.middleware.is_success(self.__class__.__name__):
@@ -180,7 +179,7 @@ class AppBackUp(base.StandardTask):
         if self.middleware.application.upgrade and self.middleware.application.upgrade.remote_backup:
             LOG.info('AppBackUp get remote backup file')
             self.middleware.filemanager.get(self.middleware.application.upgrade.remote_backup,
-                            download=True, timeout=timeout)
+                                            download=True, timeout=timeout)
             self.middleware.application.upgrade.remote_backup.post_check()
         # dump from local application path
         if self.middleware.application.backup:
@@ -189,7 +188,7 @@ class AppBackUp(base.StandardTask):
             src = os.path.join(self.middleware.entity_home, self.middleware.entity_appname)
             LOG.debug('AppBackUp dump local bakcup from path %s' % src)
             dst = self.middleware.application.backup
-            async_compress(src, dst, exclude=self.execute,
+            async_compress(src, dst, exclude=self.exclude,
                            fork=functools.partial(safe_fork,
                                                   user=self.middleware.entity_user,
                                                   group=self.middleware.entity_group) if system.LINUX else None,
@@ -212,7 +211,7 @@ class AppBackUp(base.StandardTask):
             self.middleware.set_return(self.__class__.__name__, common.REVERTED)
 
 
-class AppFileUpgrade(base.StandardTask):
+class AppFileUpgrade(StandardTask):
     """app 程序文件升级"""
     def __init__(self, middleware, rebind=None):
         super(AppFileUpgrade, self).__init__(middleware, rebind=rebind)
@@ -224,6 +223,7 @@ class AppFileUpgrade(base.StandardTask):
                                                             self.middleware.entity))
         src = self.middleware.application.upgrade.realpath
         dst = os.path.join(self.middleware.entity_home, self.middleware.entity_appname)
+        print src, 'async_extract to', dst
         async_extract(src, dst,
                       fork=functools.partial(safe_fork,
                                              user=self.middleware.entity_user,

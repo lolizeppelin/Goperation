@@ -1,18 +1,15 @@
-from goperation.manager.rpc.agent.application.taskflow import middleware
 from goperation.taskflow import base
+from goperation.manager.rpc.agent.application.taskflow import middleware
 
+from test.unit.taskflow import test_group
+from test.unit.taskflow import TestEndpoint
+from test.unit.taskflow import TestManager
 
+mananager = TestManager('/root')
 
-_middleware = middleware.EntityMiddleware(entity=1,
-                                          endpoint='mszl',
-                                          entity_home='/root',
-                                          entity_apppath='entity',
-                                          entity_logpath='entity',
-                                          entity_user=None,
-                                          entity_group=None,
-                                          appcation=None,
-                                          databases=None
-                                          )
+endpoint = TestEndpoint(manager=mananager, group=test_group)
+
+_middleware = middleware.EntityMiddleware(entity=1, endpoint=endpoint)
 
 try:
     cs = base.StandardTask(_middleware, rebind=['wtf'])

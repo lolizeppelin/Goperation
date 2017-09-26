@@ -1,18 +1,16 @@
-import time
-print time.time()
-from goperation.manager.rpc.agent.application.taskflow import middleware
 from goperation.taskflow import common
-print time.time()
+from goperation.manager.rpc.agent.application.taskflow import middleware
+from test.unit.taskflow import test_group
+from test.unit.taskflow import TestEndpoint
+from test.unit.taskflow import TestManager
 
 
-_middleware = middleware.EntityMiddleware(entity=1,
-                                          endpoint='mszl',
-                                          entity_home='/root',
-                                          entity_user=None,
-                                          entity_group=None,
-                                          appcation=None,
-                                          databases=None
-                                          )
+mananager = TestManager('/root')
+
+endpoint = TestEndpoint(manager=mananager, group=test_group)
+
+_middleware = middleware.EntityMiddleware(entity=1, endpoint=endpoint)
+
 
 # print _middleware
 _middleware.set_return('class_a')

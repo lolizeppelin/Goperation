@@ -15,9 +15,10 @@ from simpleflow.patterns import linear_flow as lf
 from simpleflow.patterns import unordered_flow as uf
 
 from goperation import utils
-from goperation.taskflow import base
 from goperation.taskflow import common
 from goperation.taskflow import exceptions
+from goperation.taskflow.base import StandardTask
+from goperation.taskflow.base import format_store_rebind
 from goperation.filemanager.base import TargetFile
 
 LOG = logging.getLogger(__name__)
@@ -56,7 +57,7 @@ class DatabaseInfo(object):
         self.update = update
 
 
-class DbUpdateSqlGet(base.StandardTask):
+class DbUpdateSqlGet(StandardTask):
     """Download  database  upload file"""
     def __init__(self, middleware, rebind=None):
         super(DbUpdateSqlGet, self).__init__(middleware, rebind=rebind)
@@ -76,7 +77,7 @@ class DbUpdateSqlGet(base.StandardTask):
                     database.update.clean()
 
 
-class MysqlDump(base.StandardTask):
+class MysqlDump(StandardTask):
 
     def __init__(self, middleware, index, rebind=None):
         """backup app database"""
@@ -113,7 +114,7 @@ class MysqlDump(base.StandardTask):
                 os.remove(database.backup)
 
 
-class MysqlUpdate(base.StandardTask):
+class MysqlUpdate(StandardTask):
 
     def __init__(self, middleware, index):
         super(MysqlUpdate, self).__init__(middleware)
@@ -196,7 +197,7 @@ class MysqlUpdate(base.StandardTask):
                                                        database.port,
                                                        database.schema))
             else:
-                if database.backup or not os.path.exists(database.backup):
+                if not database.backup or not os.path.exists(database.backup):
                     msg = 'No backup database file found! can not revert'
                     LOG.error(msg)
                     raise exceptions.DatabaseRevertError(msg)
@@ -206,7 +207,7 @@ class MysqlUpdate(base.StandardTask):
             self.middleware.set_return(self.__class__.__name__, common.REVERTED)
 
 
-def flow_factory(middleware, store):
+def mysql_flow_factory(middleware, store):
     if not middleware.databases:
         return None
     uflow = uf.Flow('dmp_and_up_%d' % middleware.entity)
@@ -218,11 +219,11 @@ def flow_factory(middleware, store):
         lfow = lf.Flow(name='db_%d_%d' % (middleware.entity, index), retry=retry)
         if database.backup:
             rebind = ['db_dump_timeout']
-            base.format_store_rebind(store, rebind)
+            format_store_rebind(store, rebind)
             lfow.add(MysqlDump(middleware, index, rebind=rebind))
         if database.update:
             rebind = ['db_update_timeout']
-            base.format_store_rebind(store, rebind)
+            format_store_rebind(store, rebind)
             lfow.add(MysqlUpdate(middleware, index))
         if len(lfow):
             uflow.add(lfow)

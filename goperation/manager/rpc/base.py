@@ -1,6 +1,7 @@
 import eventlet
 
 from simpleutil.config import cfg
+from simpleutil.utils.lockutils import Semaphores
 from simpleutil.utils.lockutils import PriorityLock
 from simpleutil.utils.sysemutils import get_partion_free_bytes
 
@@ -26,6 +27,7 @@ class RpcManagerBase(ManagerBase):
         self.filemanager = None
         self._periodic_tasks = []
         self.work_lock = PriorityLock()
+        self.endpoint_lock = Semaphores()
         self.work_lock.set_defalut_priority(priority=5)
 
     def pre_start(self, external_objects):
