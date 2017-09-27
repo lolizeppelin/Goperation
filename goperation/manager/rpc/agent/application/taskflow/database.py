@@ -3,7 +3,6 @@ import sys
 import subprocess
 
 from simpleutil import system
-from simpleutil.log import log as logging
 
 from sqlalchemy.pool import NullPool
 from simpleservice.ormdb.argformater import connformater
@@ -22,7 +21,9 @@ from goperation.taskflow.base import StandardTask
 from goperation.taskflow.base import format_store_rebind
 from goperation.filemanager.base import TargetFile
 
-LOG = logging.getLogger(__name__)
+from goperation.manager.rpc.agent.application import taskflow
+
+LOG = taskflow.LOG
 
 
 class DbUpdateFile(TargetFile):
@@ -43,23 +44,22 @@ class DbUpdateFile(TargetFile):
             self.sql = self._formater(self.realpath)
 
 
-class DatabaseInfo(object):
+class Database(object):
 
     def __init__(self,
                  backup, update,
                  **kwargs):
+        # backup database to
+        self.backup = backup
+        # database update info
+        self.update = update
         self.user = kwargs['user']
         self.passwd = kwargs['passwd']
         self.host = kwargs['host']
         self.port = kwargs['port']
         self.schema = kwargs['schema']
         self.character = kwargs.get('character', None)
-        # database can be revert
-
-        self.revertable = kwargs.get('revertable', True)
         self.retry = 0
-        self.backup = backup
-        self.update = update
 
 
 class DbUpdateSqlGet(StandardTask):
@@ -91,19 +91,21 @@ class MysqlDump(StandardTask):
 
     def execute(self, timeout):
         database = self.middleware.databases[self.index]
+        if not database.schema or database.schema.lower() == 'mysql':
+            raise RuntimeError('Schema value error')
         mysqldump = utils.find_executable('mysqldump')
         args = [mysqldump,
-                '--default-character-set=%s' % database.character or 'utf8'
+                '--default-character-set=%s' % (database.character or 'utf8'),
                 '-u%s' % database.user, '-p%s' % database.passwd,
                 '-h%s' % database.host, '-P%d' % database.port,
                 database.schema]
+        LOG.debug(' '.join(args))
         with open(database.backup, 'wb') as f:
             if system.LINUX:
                 pid = utils.safe_fork(user=self.middleware.entity_user,
                                       group=self.middleware.entity_group)
                 if pid == 0:
-                    sys.stdout.close()
-                    os.dup2(f.fileno(), 1)
+                    os.dup2(f.fileno(), sys.stdout.fileno())
                     os.execv(mysqldump, args)
                 else:
                     utils.wait(pid, timeout)
@@ -121,8 +123,8 @@ class MysqlDump(StandardTask):
 
 class MysqlUpdate(StandardTask):
 
-    def __init__(self, middleware, index):
-        super(MysqlUpdate, self).__init__(middleware)
+    def __init__(self, middleware, index, rebind=None):
+        super(MysqlUpdate, self).__init__(middleware, rebind=rebind)
         self.index = index
         self.executed = 0
 
@@ -130,7 +132,7 @@ class MysqlUpdate(StandardTask):
         database = self.middleware.databases[self.index]
         mysql = utils.find_executable('mysql')
         args = [mysql,
-                '--default-character-set=%s' % database.character or 'utf8'
+                '--default-character-set=%s' % (database.character or 'utf8'),
                 '-u%s' % database.user, '-p%s' % database.passwd,
                 '-h%s' % database.host, '-P%d' % database.port,
                 database.schema]
@@ -138,6 +140,7 @@ class MysqlUpdate(StandardTask):
                                                                      self.middleware.entity,
                                                                      database.schema))
         with open(sql_file, 'rb') as f:
+            self.executed = 1
             if system.LINUX:
                 pid = utils.safe_fork(user=self.middleware.entity_user,
                                       group=self.middleware.entity_group)
@@ -154,6 +157,8 @@ class MysqlUpdate(StandardTask):
         if self.middleware.is_success(self.__class__.__name__):
             return
         database = self.middleware.databases[self.index]
+        if not database.schema or database.schema.lower() == 'mysql':
+            raise RuntimeError('Schema value error')
         # update by formated sql
         if database.update.sql:
             db_info = {'user': database.user,
@@ -189,7 +194,8 @@ class MysqlUpdate(StandardTask):
     def revert(self, result, *args, **kwargs):
         super(MysqlUpdate, self).revert(result, *args, **kwargs)
         database = self.middleware.databases[self.index]
-        if database.revertable:
+        # revertable need backup
+        if database.backup:
             # no sql execude
             if isinstance(result, failure.Failure) or database.update.rollback:
                 LOG.info('Try revert %s %d database %s:%d/%s ' % (self.middleware.endpoint,
@@ -197,13 +203,13 @@ class MysqlUpdate(StandardTask):
                                                                   database.host,
                                                                   database.port,
                                                                   database.schema))
-                if database.update.sql and not self.executed:
+                if not self.executed:
                     LOG.info('Database %s:%d/%s no sql executed, '
                              'nothing will be reverted' % (database.host,
                                                            database.port,
                                                            database.schema))
                 else:
-                    if not database.backup or not os.path.exists(database.backup):
+                    if not os.path.exists(database.backup):
                         msg = 'No backup database file found! can not revert'
                         LOG.error(msg)
                         raise exceptions.DatabaseRevertError(msg)
@@ -245,7 +251,7 @@ def mysql_flow_factory(middleware, store):
         if database.update:
             rebind = ['db_update_timeout']
             format_store_rebind(store, rebind)
-            lfow.add(MysqlUpdate(middleware, index))
+            lfow.add(MysqlUpdate(middleware, index, rebind=rebind))
         if len(lfow):
             uflow.add(lfow)
         else:

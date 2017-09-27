@@ -3,7 +3,6 @@ import os
 import functools
 
 from simpleutil import system
-from simpleutil.log import log as logging
 
 from simpleflow.retry import Retry
 from simpleflow.retry import REVERT
@@ -18,8 +17,9 @@ from goperation.utils import safe_fork
 from goperation.taskflow import common
 from goperation.filemanager.base import TargetFile
 from goperation.taskflow.base import StandardTask
+from goperation.manager.rpc.agent.application import taskflow
 
-LOG = logging.getLogger(__name__)
+LOG = taskflow.LOG
 
 
 class AppRemoteBackupFile(TargetFile):
