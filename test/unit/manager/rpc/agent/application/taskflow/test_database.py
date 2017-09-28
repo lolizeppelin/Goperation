@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-import eventlet
-
-
+import os
 from goperation.manager.rpc.agent.application.taskflow import application
 from goperation.manager.rpc.agent.application.taskflow import middleware
 from goperation.manager.rpc.agent.application.taskflow import database
@@ -15,13 +13,11 @@ from simpleflow.storage import Connection
 from simpleflow.engines.engine import ParallelActionEngine
 
 
-import os
 from simpleutil.config import cfg
 from goperation.manager.rpc.agent.application.base import AppEndpointBase
 
 
 test_group = cfg.OptGroup('testopt')
-
 
 
 class TestFileManager():
@@ -70,7 +66,6 @@ class TestEndpoint(AppEndpointBase):
         return os.path.join(self._home_path, 'entity_%d' % entity)
 
 
-eventlet.monkey_patch()
 dst = {'host': '172.20.0.3',
        'port': 3304,
        'schema': 'simpleflow',
