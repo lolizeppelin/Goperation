@@ -1,8 +1,4 @@
 # -*- coding: utf-8 -*-
-import os
-import eventlet
-
-
 from goperation.manager.rpc.agent.application.taskflow import application
 from goperation.manager.rpc.agent.application.taskflow import middleware
 from goperation.manager.rpc.agent.application.taskflow import pipe
@@ -69,8 +65,6 @@ class TestEndpoint(AppEndpointBase):
     def entity_home(self, entity):
         return os.path.join(self._home_path, 'entity_%d' % entity)
 
-
-eventlet.monkey_patch()
 dst = {'host': '172.20.0.3',
        'port': 3304,
        'schema': 'simpleflow',

@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import os
-import eventlet
 
 from test.unit.taskflow import test_group
 from test.unit.taskflow import TestEndpoint
@@ -11,7 +10,6 @@ from goperation.manager.rpc.agent.application.taskflow import pipe
 from simpleflow.utils.storage_utils import build_session
 from simpleservice.ormdb.argformater import connformater
 
-eventlet.monkey_patch()
 dst = {'host': '172.20.0.3',
        'port': 3304,
        'schema': 'simpleflow',
