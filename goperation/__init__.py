@@ -2,6 +2,7 @@ __version__ = '1.0.0'
 VERSION = tuple(map(int, __version__.split('.')))
 
 try:
+    # call eventlet.monkey_patch first
     import simpleservice
 except ImportError:
     raise
