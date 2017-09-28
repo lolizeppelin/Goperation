@@ -223,7 +223,6 @@ class AppFileUpgrade(StandardTask):
                                                             self.middleware.entity))
         src = self.middleware.application.upgrade.realpath
         dst = os.path.join(self.middleware.entity_home, self.middleware.entity_appname)
-        print src, 'async_extract to', dst
         async_extract(src, dst,
                       fork=functools.partial(safe_fork,
                                              user=self.middleware.entity_user,
