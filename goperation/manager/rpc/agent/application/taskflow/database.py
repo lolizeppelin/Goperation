@@ -100,18 +100,20 @@ class MysqlDump(StandardTask):
                 '-h%s' % database.host, '-P%d' % database.port,
                 database.schema]
         LOG.debug(' '.join(args))
-        with open(database.backup, 'wb') as f:
-            if system.LINUX:
-                pid = utils.safe_fork(user=self.middleware.entity_user,
-                                      group=self.middleware.entity_group)
-                if pid == 0:
-                    os.dup2(f.fileno(), sys.stdout.fileno())
-                    os.execv(mysqldump, args)
+        with open(os.devnull, 'wb') as nul:
+            with open(database.backup, 'wb') as f:
+                if system.LINUX:
+                    pid = utils.safe_fork(user=self.middleware.entity_user,
+                                          group=self.middleware.entity_group)
+                    if pid == 0:
+                        os.dup2(f.fileno(), sys.stdout.fileno())
+                        os.dup2(nul.fileno(), sys.stderr.fileno())
+                        os.execv(mysqldump, args)
+                    else:
+                        utils.wait(pid, timeout)
                 else:
-                    utils.wait(pid, timeout)
-            else:
-                sub = subprocess.Popen(executable=mysqldump, args=args, stdout=f.fileno())
-                utils.wait(sub, timeout)
+                    sub = subprocess.Popen(executable=mysqldump, args=args, stdout=f.fileno(), stderr=nul.fileno())
+                    utils.wait(sub, timeout)
 
     def revert(self, result, *args, **kwargs):
         super(MysqlDump, self).revert(result, *args, **kwargs)
@@ -139,19 +141,21 @@ class MysqlUpdate(StandardTask):
         LOG.info('Endpoint %s, entity %d call MysqlUpdate for %s' % (self.middleware.endpoint,
                                                                      self.middleware.entity,
                                                                      database.schema))
-        with open(sql_file, 'rb') as f:
-            self.executed = 1
-            if system.LINUX:
-                pid = utils.safe_fork(user=self.middleware.entity_user,
-                                      group=self.middleware.entity_group)
-                if pid == 0:
-                    os.dup2(f.fileno(), 0)
-                    os.execv(mysql, args)
+        with open(os.devnull, 'wb') as nul:
+            with open(sql_file, 'rb') as f:
+                self.executed = 1
+                if system.LINUX:
+                    pid = utils.safe_fork(user=self.middleware.entity_user,
+                                          group=self.middleware.entity_group)
+                    if pid == 0:
+                        os.dup2(f.fileno(), sys.stdin.fileno())
+                        os.dup2(nul.fileno(), sys.stderr.fileno())
+                        os.execv(mysql, args)
+                    else:
+                        utils.wait(pid)
                 else:
-                    utils.wait(pid)
-            else:
-                sub = subprocess.Popen(executable=mysql, args=args, stdin=f.fileno())
-                utils.wait(sub)
+                    sub = subprocess.Popen(executable=mysql, args=args, stdin=f.fileno(), stderr=nul.fileno())
+                    utils.wait(sub)
 
     def execute(self, timeout):
         if self.middleware.is_success(self.__class__.__name__):
