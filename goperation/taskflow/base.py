@@ -21,6 +21,8 @@ class StandardTask(Task):
 
     def revert(self, result, *args, **kwargs):
         if isinstance(result, failure.Failure):
+            if LOG:
+                LOG.error(result.pformat())
             self.middleware.set_return(self.__class__.__name__, common.EXECUTE_FAIL)
 
     def post_execute(self):
@@ -42,8 +44,7 @@ class EntityTask(Task):
             self.engine.run()
         except Exception as e:
             if LOG:
-                msg = getattr(e, 'message') or getattr(e, 'msg') or 'unkonwn error msg'
-                LOG.error('Entity execute cache error %s %s' % (e.__class__.__name__, msg))
+                LOG.exception('Entity execute cache %s' % e.__class__.__name__)
         finally:
             # cleanup sub taskflow engine logbook
             self.connection.destroy_logbook(self.book_uuid)
