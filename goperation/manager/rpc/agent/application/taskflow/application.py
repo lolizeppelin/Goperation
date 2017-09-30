@@ -12,10 +12,9 @@ from simpleflow.types import failure
 from zlibstream.tobuffer import async_compress
 from zlibstream.tofile import async_extract
 
-
 from goperation.utils import safe_fork
+from goperation.filemanager import TargetFile
 from goperation.taskflow import common
-from goperation.filemanager.base import TargetFile
 from goperation.taskflow.base import StandardTask
 from goperation.manager.rpc.agent.application import taskflow
 
