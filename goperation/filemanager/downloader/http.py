@@ -8,8 +8,9 @@ from goperation.filemanager.downloader.base import DonwerAdapter
 
 class HttpAdapter(DonwerAdapter):
 
-    def __init__(self, timeout=5):
+    def __init__(self, headers=None, timeout=5):
         # socket timeout
+        self.headers = headers
         self.timeout = timeout
 
     def download(self, address, dst, timeout):
@@ -18,7 +19,7 @@ class HttpAdapter(DonwerAdapter):
         else:
             timeout = timeout.time() + 18000
         with closing(requests.get(address,
-                                  stream=True,
+                                  stream=True, headers=self.headers,
                                   timeout=self.timeout)) as response:
             chunk = 8192
             with open(dst, 'wb') as f:
