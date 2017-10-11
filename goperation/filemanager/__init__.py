@@ -69,29 +69,31 @@ class FileManager(object):
 
     def scanning(self, strict=False):
         if not self.session:
-            return
+            raise exceptions.FileManagerError('FileManager database session is None')
         not_match_files = []
         local_files = {}
-        # files in local disk
-        for filename in os.listdir(self.path):
-            full_path = os.path.join(self.path, filename)
-            if os.path.isfile(full_path):
-                size = os.path.getsize(full_path)
-                uuid, ext = os.path.splitext(filename)
-                if len(ext) < 1 or not ext.startswith(os.extsep):
-                    if strict:
-                        raise RuntimeError('File with name %s ext value error' % filename)
-                    continue
-                if uuidutils.is_uuid_like(uuid):
-                    if strict:
-                        raise RuntimeError('File with name %s is mot uuid' % filename)
-                    continue
-                if uuid in local_files:
-                    if strict:
-                        raise RuntimeError('File with uuid %s is duplication' % filename)
-                local_files[uuid] = dict(size=size, ext=ext[1:])
-        # files record in database
         with self.lock:
+            if self.downloading:
+                raise exceptions.DownLoading('Can not scan when downlonding')
+            # files in local disk
+            for filename in os.listdir(self.path):
+                full_path = os.path.join(self.path, filename)
+                if os.path.isfile(full_path):
+                    size = os.path.getsize(full_path)
+                    uuid, ext = os.path.splitext(filename)
+                    if len(ext) < 1 or not ext.startswith(os.extsep):
+                        if strict:
+                            raise RuntimeError('File with name %s ext value error' % filename)
+                        continue
+                    if uuidutils.is_uuid_like(uuid):
+                        if strict:
+                            raise RuntimeError('File with name %s is mot uuid' % filename)
+                        continue
+                    if uuid in local_files:
+                        if strict:
+                            raise RuntimeError('File with uuid %s is duplication' % filename)
+                    local_files[uuid] = dict(size=size, ext=ext[1:])
+            # files record in database
             self.localfiles.clear()
             query = model_query(self.session, models.FileDetail)
             files = query.all()

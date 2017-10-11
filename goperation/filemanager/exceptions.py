@@ -1,10 +1,18 @@
-class NoFileFound(Exception):
+class FileManagerError(Exception):
     """"""
 
 
-class FileNotMatch(Exception):
+class NoFileFound(FileManagerError):
     """"""
 
 
-class DownLoadTimeout(Exception):
+class FileNotMatch(FileManagerError):
+    """"""
+
+
+class DownLoadTimeout(FileManagerError):
+    """"""
+
+
+class DownLoading(FileManagerError):
     """"""
