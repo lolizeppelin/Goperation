@@ -54,7 +54,7 @@ class FileManager(object):
         self.path = os.path.join(rootpath, conf.folder)
         clinet = HttpClientBase(url=conf.files_url, version=None,
                                 retries=conf.retrys, timeout=conf.timeout)
-        self.httpdict = functools.partial(clinet.get, action=conf.files_path)
+        self.httpdict = functools.partial(clinet.get, action=conf.url_path)
         self.localfiles = {}
         self.downloading = {}
         self.lock = Semaphore()

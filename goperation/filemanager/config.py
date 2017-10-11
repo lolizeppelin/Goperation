@@ -12,7 +12,7 @@ filemanager_opts = [
                help='File Manager save file folder'),
     cfg.HostnameOrIPOpt('files_url',
                help='Get file info from this url'),
-    cfg.StrOpt('files_path',
+    cfg.StrOpt('url_path',
                default='/files',
                help='Get file info api url path'),
     cfg.IntOpt('retrys',
