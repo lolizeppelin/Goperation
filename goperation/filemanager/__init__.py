@@ -14,7 +14,6 @@ from simpleservice.ormdb.orm import get_maker
 from simpleservice.ormdb.api import model_query
 from simpleservice.plugin.httpclient import HttpClientBase
 
-import goperation
 from goperation.filemanager import common
 from goperation.filemanager import exceptions
 from goperation.filemanager import models
@@ -50,9 +49,11 @@ class FileManager(object):
             }
         }
 
-    def __init__(self, conf, rootpath):
+    def __init__(self, conf, rootpath, threadpool):
+        self.threadpool = threadpool
         self.path = os.path.join(rootpath, conf.folder)
-        clinet = HttpClientBase(url=conf.files_url, retries=conf.retrys, timeout=conf.timeout)
+        clinet = HttpClientBase(url=conf.files_url, version=None,
+                                retries=conf.retrys, timeout=conf.timeout)
         self.httpdict = functools.partial(clinet.get, action=conf.files_path)
         self.localfiles = {}
         self.downloading = {}
@@ -65,7 +66,6 @@ class FileManager(object):
             models.FileManagerTables.metadata.create_all(engine)
         session_maker = get_maker(engine)
         self.session = session_maker()
-        self.scanning(strict=True)
 
     def scanning(self, strict=False):
         if not self.session:
@@ -133,6 +133,7 @@ class FileManager(object):
             # delete check fail files
             for _file in not_match_files:
                 os.remove(_file)
+            del not_match_files[:]
 
     def clean_expired(self):
         pass
@@ -162,7 +163,7 @@ class FileManager(object):
                 if mark in self.downloading:
                     th = self.downloading[mark]
                 else:
-                    th = goperation.threadpool.add_thread(self._download, mark, timeout)
+                    th = self.threadpool.add_thread(self._download, mark, timeout)
             th.wait()
             return self.get(target=target, download=False)
         else:
@@ -186,7 +187,7 @@ class FileManager(object):
         ev = event.Event()
         self.downloading[mark] = ev
         # async downloading thread start
-        th = goperation.threadpool.add_thread(_downloader.download, address, local_path, timeout)
+        th = self.threadpool.add_thread(_downloader.download, address, local_path, timeout)
         try:
             crc32, md5, size = th.wait()
             if crc32 != file_info['marks']['crc32'] \
