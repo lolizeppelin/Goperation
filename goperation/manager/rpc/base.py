@@ -7,6 +7,9 @@ from simpleutil.utils.sysemutils import get_partion_free_bytes
 
 from simpleservice.plugin.base import ManagerBase
 from simpleservice.rpc.config import rpc_service_opts
+
+from goperation import threadpool
+from goperation.filemanager import FileManager
 from goperation.manager import common as manager_common
 from goperation.manager import config as manager_config
 
@@ -23,14 +26,15 @@ class RpcManagerBase(ManagerBase):
         self.work_path = CONF.work_path
         self.local_ip = CONF.local_ip
         self.external_ips = CONF.external_ips
-        # TODO file finder or manager
-        self.filemanager = None
-        self._periodic_tasks = []
+        self.filemanager = FileManager(conf=CONF[manager_config.filemanager_group.name],
+                                       rootpath=self.work_path,
+                                       threadpool=threadpool)
         self.work_lock = PriorityLock()
         self.endpoint_lock = Semaphores()
         self.work_lock.set_defalut_priority(priority=5)
 
     def pre_start(self, external_objects):
+        self.filemanager.scanning(strict=True)
         self.rpcservice = external_objects
 
     def post_start(self):
@@ -40,8 +44,8 @@ class RpcManagerBase(ManagerBase):
         pass
 
     def post_stop(self):
+        self.filemanager.stop()
         self.rpcservice = None
-
 
     def full(self):
         with self.work_lock.priority(0):
@@ -57,10 +61,6 @@ class RpcManagerBase(ManagerBase):
             if self.status <= manager_common.SOFTBUSY:
                 return True
             return False
-
-    def periodic_tasks(self):
-        return self._periodic_tasks
-
 
     def set_status(self, status):
         with self.work_lock.priority(1):
