@@ -15,6 +15,9 @@ class HttpAdapter(DonwerAdapter):
         self.timeout = timeout
 
     def download(self, address, dst, timeout):
+        self._download_200(address, dst, timeout)
+
+    def _download_200(self, address, dst, timeout):
         if timeout:
             timeout = time.time() + timeout
         else:
@@ -28,3 +31,6 @@ class HttpAdapter(DonwerAdapter):
                     if time.time() > timeout:
                         raise exceptions.DownLoadTimeout('Download http file overtime')
                     f.write(buf)
+
+    def _download_206(self):
+        raise NotImplementedError
