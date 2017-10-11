@@ -1,3 +1,4 @@
+import six
 import random
 from requests import Session
 from requests import adapters
@@ -176,7 +177,8 @@ class RpcAgentManager(RpcManagerBase):
                 _ports.add(ports)
             else:
                 _ports = set(ports)
-        for allocked_ports in self.allocked_ports.values():
+        # for allocked_ports in self.allocked_ports.values():
+        for allocked_ports in six.itervalues(self.allocked_ports):
             intersection_ports = allocked_ports & _ports
             for port in intersection_ports:
                 allocked_ports.remove(port)
