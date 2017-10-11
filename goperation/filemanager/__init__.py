@@ -70,7 +70,9 @@ class FileManager(object):
     def scanning(self, strict=False):
         if not self.session:
             return
+        not_match_files = []
         local_files = {}
+        # files in local disk
         for filename in os.listdir(self.path):
             full_path = os.path.join(self.path, filename)
             if os.path.isfile(full_path):
@@ -88,8 +90,7 @@ class FileManager(object):
                     if strict:
                         raise RuntimeError('File with uuid %s is duplication' % filename)
                 local_files[uuid] = dict(size=size, ext=ext[1:])
-
-        not_match_files = []
+        # files record in database
         with self.lock:
             self.localfiles.clear()
             query = model_query(self.session, models.FileDetail)
@@ -107,6 +108,7 @@ class FileManager(object):
                             _file_detail.delete()
                             continue
                     except KeyError:
+                        # delete no exist file from database
                         _file_detail.delete()
                         continue
                     self.localfiles[file_path] = dict(crc32=_file_detail.crc32,
@@ -123,10 +125,12 @@ class FileManager(object):
                     _file_detail = models.FileDetail(uuid=uuid, size=local_size,
                                                      crc32=crc32, md5=md5, ext=local_ext,
                                                      detail='add from scanning')
+                    # add file record into database
                     self.session.add(_file_detail)
                     self.localfiles[file_path] = dict(crc32=crc32,
                                                       md5=md5,
                                                       uuid=uuid)
+            # delete check fail files
             for _file in not_match_files:
                 os.remove(_file)
 
