@@ -5,6 +5,7 @@ from contextlib import closing
 from goperation.filemanager import exceptions
 from goperation.filemanager.downloader.base import DonwerAdapter
 
+CHUNK = 8192
 
 class HttpAdapter(DonwerAdapter):
 
@@ -21,9 +22,9 @@ class HttpAdapter(DonwerAdapter):
         with closing(requests.get(address,
                                   stream=True, headers=self.headers,
                                   timeout=self.timeout)) as response:
-            chunk = 8192
+
             with open(dst, 'wb') as f:
-                for buf in response.iter_content(chunk):
+                for buf in response.iter_content(CHUNK):
                     if time.time() > timeout:
                         raise exceptions.DownLoadTimeout('Download http file overtime')
                     f.write(buf)

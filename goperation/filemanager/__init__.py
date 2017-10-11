@@ -6,6 +6,7 @@ from eventlet import event
 from eventlet.semaphore import Semaphore
 
 from simpleutil.utils import uuidutils
+from simpleutil.utils import digestutils
 from simpleutil.utils.singleton import singleton
 
 from simpleservice.ormdb.engines import create_engine
@@ -69,7 +70,7 @@ class FileManager(object):
     def scanning(self, strict=False):
         if not self.session:
             return
-        files_in_disk = {}
+        local_files = {}
         for filename in os.listdir(self.path):
             full_path = os.path.join(self.path, filename)
             if os.path.isfile(full_path):
@@ -83,10 +84,10 @@ class FileManager(object):
                     if strict:
                         raise RuntimeError('File with name %s is mot uuid' % filename)
                     continue
-                if uuid in files_in_disk:
+                if uuid in local_files:
                     if strict:
                         raise RuntimeError('File with uuid %s is duplication' % filename)
-                files_in_disk[uuid] = dict(size=size, ext=ext[1:])
+                local_files[uuid] = dict(size=size, ext=ext[1:])
 
         not_match_files = []
         with self.lock:
@@ -94,23 +95,38 @@ class FileManager(object):
             query = model_query(self.session, models.FileDetail)
             files = query.all()
             with self.session.begin():
-                for file_detail in files:
-                    filename = file_detail.uuid + os.extsep + file_detail.ext
+                for _file_detail in files:
+                    filename = _file_detail.uuid + os.extsep + _file_detail.ext
                     file_path = os.path.join(self.path, filename)
                     try:
-                        local_size = files_in_disk[file_detail.uuid]['size']
-                        local_ext = files_in_disk[file_detail.uuid]['ext']
-                        if local_size != file_detail.size or local_ext != file_detail.ext:
+                        local_file = local_files.pop(_file_detail.uuid)
+                        local_size = local_file['size']
+                        local_ext = local_file['ext']
+                        if local_size != _file_detail.size or local_ext != _file_detail.ext:
                             not_match_files.append(file_path)
-                            file_detail.delete()
+                            _file_detail.delete()
                             continue
                     except KeyError:
-                        file_detail.delete()
+                        _file_detail.delete()
                         continue
-                    self.localfiles[file_path] = dict(crc32=file_detail.crc32,
-                                                      md5=file_detail.md5,
-                                                      uuid=file_detail.uuid)
-            files_in_disk.clear()
+                    self.localfiles[file_path] = dict(crc32=_file_detail.crc32,
+                                                      md5=_file_detail.md5,
+                                                      uuid=_file_detail.uuid)
+            with self.session.begin():
+                for uuid, local_file in local_files.popitem():
+                    local_size = local_file['size']
+                    local_ext = local_file['ext']
+                    filename = uuid + os.extsep + local_ext
+                    file_path = os.path.join(self.path, filename)
+                    crc32 = digestutils.filecrc32(file_path)
+                    md5 = digestutils.filemd5(file_path)
+                    _file_detail = models.FileDetail(uuid=uuid, size=local_size,
+                                                     crc32=crc32, md5=md5, ext=local_ext,
+                                                     detail='add from scanning')
+                    self.session.add(_file_detail)
+                    self.localfiles[file_path] = dict(crc32=crc32,
+                                                      md5=md5,
+                                                      uuid=uuid)
             for _file in not_match_files:
                 os.remove(_file)
 
@@ -185,10 +201,12 @@ class FileManager(object):
             self.localfiles[local_path] = dict(crc32=crc32,
                                                md5=md5,
                                                uuid=file_info['uuid'])
-            file_detil = models.FileDetail(uuid=file_info['uuid'], crc32=crc32, md5=md5,
+            file_detil = models.FileDetail(uuid=file_info['uuid'], size=size,
+                                           crc32=crc32, md5=md5,
                                            ext=file_info['ext'],
-                                           size=size, detail=file_info.get('detail', 'unkonwn file'),
-                                           address=file_info['address'], uploadtime=file_info['uploadtime'])
+                                           detail=file_info.get('detail', 'unkonwn file'),
+                                           address=file_info['address'],
+                                           uploadtime=file_info.get('uploadtime'))
             try:
                 self.session.add(file_detil)
                 self.flush()
@@ -205,4 +223,3 @@ def downloader_factory(adapter_cls, cls_args):
         adapter_cls + '_cls'
     cls = getattr(downloader, adapter_cls)
     return cls(*cls_args)
-
