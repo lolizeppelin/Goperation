@@ -10,11 +10,14 @@ filemanager_opts = [
                     'to use to connect to the database.'),
     cfg.StrOpt('folder',
                help='File Manager save file folder'),
-    cfg.HostnameOrIPOpt('files_url',
-               help='Get file info from this url'),
-    cfg.StrOpt('url_path',
+    cfg.HostnameOrIPOpt('files_api_address',
+                        help='Get file info from this address'),
+    cfg.PortOpt('files_api_port',
+                default=80,
+                help='Api address listen port'),
+    cfg.StrOpt('files_api_path',
                default='/files',
-               help='Get file info api url path'),
+               help='Get file info url path'),
     cfg.IntOpt('retrys',
                min=1,
                max=5,
@@ -24,5 +27,3 @@ filemanager_opts = [
                default=3,
                help='Timeout of request get file url'),
 ]
-
-
