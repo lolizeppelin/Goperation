@@ -11,6 +11,7 @@ filemanager_opts = [
     cfg.StrOpt('folder',
                help='File Manager save file folder'),
     cfg.HostnameOrIPOpt('files_api_address',
+                        default='127.0.0.1',
                         help='Get file info from this address'),
     cfg.PortOpt('files_api_port',
                 default=80,
