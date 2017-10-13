@@ -10,6 +10,10 @@ class FileNotMatch(FileManagerError):
     """"""
 
 
+class DownLoadFail(FileManagerError):
+    """"""
+
+
 class DownLoadTimeout(FileManagerError):
     """"""
 

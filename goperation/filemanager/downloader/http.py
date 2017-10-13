@@ -1,5 +1,6 @@
 import time
 import requests
+from requests.exceptions import RequestException
 from contextlib import closing
 
 from goperation.filemanager import exceptions
@@ -15,13 +16,17 @@ class HttpAdapter(DonwerAdapter):
         self.timeout = timeout
 
     def download(self, address, dst, timeout):
-        self._download_200(address, dst, timeout)
+        try:
+            self._download_200(address, dst, timeout)
+        except RequestException as e:
+            raise exceptions.DownLoadFail('Download from %s Catch %s %s' % (address,
+                                                                            e.__class__.__name__, e.message))
 
     def _download_200(self, address, dst, timeout):
         if timeout:
             timeout = time.time() + timeout
         else:
-            timeout = timeout.time() + 18000
+            timeout = time.time() + 18000
         with closing(requests.get(address,
                                   stream=True, headers=self.headers,
                                   timeout=self.timeout)) as response:
