@@ -1,7 +1,7 @@
 import os
 import six
 import time
-import functools
+
 from eventlet import event
 from eventlet.semaphore import Semaphore
 
@@ -33,33 +33,43 @@ class TargetFile(object):
 
 @singleton
 class FileManager(object):
-
-    FILE_INFO_SCHEMA = {
-        "downloader": "string",
-        "adapter_args": "array",
-        "address": "string",
-        "ext": "string",
-        "size": "int",
-        "detail": "string",
-        "uploadtime": "datetime",
-        'marks': {
-            'uuid': "string",
-            'crc32': "string",
-            'md5': "string",
+    # file info schema
+    SCHEMA = {
+        'type': 'object',
+        'properties': {
+            "downloader": {'type': 'string'},
+            "adapter_args": {'type': 'array'},
+            "address": {'type': 'string'},
+            "ext": {'type': 'string'},
+            "size": {'type': 'integer'},
+            "detail": {'type': 'string'},
+            "uploadtime": {'type': 'string', 'format': 'date-time'},
+            'marks': {
+                'type': 'object',
+                'properties': {
+                    'uuid': {'type': 'string', 'format': 'uuid'},
+                    'crc32': {'type': 'string', 'format': 'crc32'},
+                    'md5': {'type': 'string', 'format': 'md5'},
+                    },
+                'required': ['uuid', 'crc32', 'md5']
             }
-        }
+        },
+        'required': ['address', 'ext', 'size', 'uploadtime', 'marks']
+    }
 
     def __init__(self, conf, rootpath, threadpool):
         self.threadpool = threadpool
         self.path = os.path.join(rootpath, conf.folder)
-        clinet = HttpClientBase(url=conf.files_url, version=None,
-                                retries=conf.retrys, timeout=conf.timeout)
-        self.httpdict = functools.partial(clinet.get, action=conf.url_path)
+        client = HttpClientBase(url=conf.files_api_address, port=conf.files_api_port,
+                                version=None, retries=conf.retrys, timeout=conf.timeout,
+                                validator=FileManager.SCHEMA)
+        self.httpdict = lambda x: client.get(action=conf.files_api_path + '/' + x,
+                                             params={'random': int(time.time())})[1]
         self.localfiles = {}
         self.downloading = {}
         self.lock = Semaphore()
         # init sqlite session
-        engine = create_engine(sql_connection='///%s' % conf.sqlite,
+        engine = create_engine(sql_connection='sqlite:///%s' % conf.sqlite,
                                logging_name='filemanager')
         if not engine.has_table(models.FileDetail.__tablename__):
             # create table if needed
@@ -117,7 +127,8 @@ class FileManager(object):
                                                       md5=_file_detail.md5,
                                                       uuid=_file_detail.uuid)
             with self.session.begin():
-                for uuid, local_file in local_files.popitem():
+                while local_files:
+                    uuid, local_file = local_files.popitem()
                     local_size = local_file['size']
                     local_ext = local_file['ext']
                     filename = uuid + os.extsep + local_ext
@@ -172,7 +183,7 @@ class FileManager(object):
             raise exceptions.NoFileFound('File Manager can not find file of %s' % target.source)
 
     def _download(self, mark, timeout):
-        file_info = self.httpdict(params={'mark': mark, 'random': int(time.time())})
+        file_info = self.httpdict(mark)
         for mark in six.itervalues(file_info['marks']):
             if mark in self.downloading:
                 th = self.downloading[mark]
@@ -227,6 +238,6 @@ class FileManager(object):
 
 def downloader_factory(adapter_cls, cls_args):
     if not adapter_cls.endswith('_cls'):
-        adapter_cls + '_cls'
+        adapter_cls += '_cls'
     cls = getattr(downloader, adapter_cls)
     return cls(*cls_args)
