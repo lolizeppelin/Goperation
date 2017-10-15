@@ -142,6 +142,7 @@ class AgentEndpoint(PluginTableBase):
                              cascade='delete,delete-orphan,save-update')
     __table_args__ = (
             sa.Index('endpoint_index', 'endpoint'),
+            sa.UniqueConstraint('endpoint', 'entity', name='uniq_entity'),
             InnoDBTableBase.__table_args__
     )
 
