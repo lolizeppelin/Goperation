@@ -138,14 +138,19 @@ class AgentReuest(contorller.BaseContorller):
             return resultutils.results(resultcode=1,
                                        result='Agent_id id:%s can not be found' % agent_id)
         result = resultutils.results(total=1, pagenum=0, result='Show agent success')
+        ports = {}
+        for p in agent.ports:
+            try:
+                ports[p.endpoint].append(p.port)
+            except KeyError:
+                ports[p.endpoint] = [p.port, ]
         result['data'].append(dict(agent_id=agent.agent_id,
                                    host=agent.host,
                                    status=agent.status,
                                    ports_range=agent.ports_range,
                                    endpoints=[dict(endpoint=v.endpoint,
-                                                   entity=v.entity,
-                                                   ports=[vv.port for vv in v.ports]
-                                                   ) for v in agent.endpoints],
+                                                   entity=v.entity) for v in agent.endpoints],
+                                   ports=ports
                                    ))
         return result
 

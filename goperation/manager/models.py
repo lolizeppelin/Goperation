@@ -124,6 +124,7 @@ class AllocatedPort(PluginTableBase):
                          nullable=False)
     port_desc = sa.Column(VARCHAR(256), nullable=True, default=None)
     __table_args__ = (
+            sa.UniqueConstraint('agent_id', 'endpoint', name='uniq_endpoint'),
             InnoDBTableBase.__table_args__
     )
 
@@ -142,7 +143,6 @@ class AgentEndpoint(PluginTableBase):
                              cascade='delete,delete-orphan,save-update')
     __table_args__ = (
             sa.Index('endpoint_index', 'endpoint'),
-            sa.UniqueConstraint('endpoint', 'entity', name='uniq_entity'),
             InnoDBTableBase.__table_args__
     )
 
@@ -167,7 +167,8 @@ class Agent(PluginTableBase):
                             nullable=False)
     endpoints = orm.relationship(AgentEndpoint, backref='agent', lazy='joined',
                                  cascade='delete,delete-orphan,save-update')
-
+    ports = orm.relationship(AllocatedPort, backref='agent', lazy='select',
+                             cascade='delete,delete-orphan,save-update')
     __table_args__ = (
             sa.Index('host_index', 'host'),
             InnoDBTableBase.__table_args__
@@ -181,12 +182,8 @@ class Agent(PluginTableBase):
         return entity
 
     @property
-    def ports(self):
-        ports = []
-        for endpoint in self.endpoints:
-            for port in endpoint.ports:
-                ports.append({endpoint.endpoint: port.port})
-        return ports
+    def port(self):
+        return len(self.ports)
 
 
 class AgentReportLog(PluginTableBase):
