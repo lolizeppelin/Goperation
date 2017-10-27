@@ -37,16 +37,18 @@ class Routers(router.RoutersBase):
         collection.member.link('status', method='GET')
         # edit agent
         collection.member.link('edit', method='PATCH')
+        # delete recode of agent
+        collection.member.link('clean', method='POST')
         # send file to agent
-        collection.member.link('file', name='send_file', action='send_file', method='PUT')
+        # collection.member.link('file', name='send_file', action='send_file', method='PUT', formatted=True)
         # get alloced ports
-        collection.member.link('ports', name='get_ports', action='get_ports', method='GET')
+        # collection.member.link('ports', name='get_ports', action='get_ports', method='GET')
         # alloced  ports
-        collection.member.link('ports', name='add_ports', action='add_ports', method='POST')
+        # collection.member.link('ports', name='add_ports', action='add_ports', method='POST')
         # release ports
-        collection.member.link('ports', name='delete_ports', action='delete_ports', method='DELETE')
+        # collection.member.link('ports', name='delete_ports', action='delete_ports', method='DELETE')
         # add endpoint
-        collection.member.link('endpoints', name='add_endpoints', action='add_endpoints', method='POST')
+        # collection.member.link('endpoints', name='add_endpoints', action='add_endpoints', method='POST')
         # delete endpoint
-        collection.member.link('endpoints', name='delete_endpoints', action='delete_endpoints', method='DELETE')
+        # collection.member.link('endpoints', name='delete_endpoints', action='delete_endpoints', method='DELETE')
         return collection

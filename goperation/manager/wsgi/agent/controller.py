@@ -1,6 +1,22 @@
 import functools
-
 import webob.exc
+
+from sqlalchemy.sql import and_
+from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.orm.exc import MultipleResultsFound
+
+from simpleutil.common.exceptions import InvalidArgument
+from simpleutil.common.exceptions import InvalidInput
+from simpleutil.log import log as logging
+from simpleutil.utils import argutils
+from simpleutil.utils import timeutils
+from simpleutil.utils.attributes import validators
+
+from simpleservice.ormdb.api import model_query
+from simpleservice.ormdb.api import model_count_with_key
+from simpleservice.rpc.exceptions import AMQPDestinationNotFound
+from simpleservice.rpc.exceptions import MessagingTimeout
+from simpleservice.rpc.exceptions import NoSuchMethod
 
 from goperation.manager import common as manager_common
 from goperation.manager import utils
@@ -8,32 +24,19 @@ from goperation.manager import resultutils
 from goperation.manager import targetutils
 from goperation.manager.api import get_client
 from goperation.manager.api import get_redis
+from goperation.manager.api import get_cache
+from goperation.manager.api import get_global
 from goperation.manager.api import get_session
-from goperation.manager.api import mlock
 from goperation.manager.api import rpcfinishtime
 from goperation.manager.models import Agent
 from goperation.manager.models import AgentEndpoint
-from goperation.manager.models import AllocatedPort
+from goperation.manager.models import AgentEntity
+from goperation.manager.exceptions import CacheStoneError
+from goperation.manager.exceptions import EndpointNotEmpty
 from goperation.manager.wsgi import contorller
-from goperation.manager.wsgi import goplockutils
-from goperation.manager.wsgi.exceptions import CacheStoneError
 from goperation.manager.wsgi.exceptions import RpcPrepareError
 from goperation.manager.wsgi.exceptions import RpcResultError
-from simpleservice.ormdb.api import model_autoincrement_id
-from simpleservice.ormdb.api import model_count_with_key
-from simpleservice.ormdb.api import model_query
-from simpleservice.ormdb.exceptions import DBError
-from simpleservice.rpc.exceptions import AMQPDestinationNotFound
-from simpleservice.rpc.exceptions import MessagingTimeout
-from simpleservice.rpc.exceptions import NoSuchMethod
-from simpleutil.common.exceptions import InvalidArgument
-from simpleutil.common.exceptions import InvalidInput
-from simpleutil.log import log as logging
-from simpleutil.utils import argutils
-from simpleutil.utils import timeutils
-from simpleutil.utils.attributes import validators
-from sqlalchemy.exc import OperationalError
-from sqlalchemy.sql import and_
+
 
 LOG = logging.getLogger(__name__)
 
@@ -44,6 +47,8 @@ FAULT_MAP = {InvalidArgument: webob.exc.HTTPClientError,
              RpcResultError: webob.exc.HTTPInternalServerError,
              CacheStoneError: webob.exc.HTTPInternalServerError,
              RpcPrepareError: webob.exc.HTTPInternalServerError,
+             NoResultFound: webob.exc.HTTPNotFound,
+             MultipleResultsFound: webob.exc.HTTPInternalServerError
              }
 
 Idsformater = argutils.Idformater(key='agent_id', formatfunc='agents_id_check')
@@ -52,51 +57,6 @@ Idformater = argutils.Idformater(key='agent_id', formatfunc='agent_id_check')
 
 class AgentReuest(contorller.BaseContorller):
 
-    def _all_id(self):
-        _cache_server = get_redis()
-        key = targetutils.agent_all_id()
-        all_ids = _cache_server.smembers(key)
-        if not all_ids:
-            # lazy init all agent id cache
-            session = get_session(readonly=True)
-            with mlock(goplockutils.lock_all_agent):
-                all_ids = _cache_server.smembers(key)
-                if not all_ids:
-                    query = session.query(Agent.agent_id).filter(Agent.status > manager_common.DELETED)
-                    added = False
-                    for result in query:
-                        added = True
-                        if not _cache_server.sadd(key, str(result[0])):
-                            raise CacheStoneError('Cant not add agent_id to redis, key %s' % key)
-                    if not added:
-                        return set()
-            if not all_ids:
-                raise RuntimeError('Add agent_id to redis success, but get from redis is empyt')
-        id_set = set()
-        for agent_id in all_ids:
-            id_set.add(int(agent_id))
-        return id_set
-
-    def agents_id_check(self, agents_id):
-        if agents_id == 'all':
-            return self._all_id()
-        agents_set = argutils.map_to_int(agents_id)
-        all_id = self._all_id()
-        if agents_set != all_id:
-            for _id in agents_set:
-                if _id not in all_id:
-                    raise InvalidArgument('agent id %d can not be found' % _id)
-        return agents_set
-
-    def agent_id_check(self, agent_id):
-        """For one agent"""
-        if agent_id == 'all':
-            raise InvalidArgument('Just for one agent')
-        agent_id = self.agents_id_check(agent_id)
-        if len(agent_id) > 1:
-            raise InvalidArgument('Just for one agent')
-        return agent_id.pop()
-
     def index(self, req, body):
         """call buy client"""
         filter_list = []
@@ -104,12 +64,14 @@ class AgentReuest(contorller.BaseContorller):
         agent_type = body.pop('agent_type', None)
         order = body.pop('order', None)
         desc = body.pop('desc', False)
+        deleted = body.pop('deleted', False)
         page_num = body.pop('page_num', 0)
         if agent_type:
             filter_list.append(Agent.agent_type == agent_type)
-        deleted = body.pop('deleted', False)
         if not deleted:
             filter_list.append(Agent.status > manager_common.DELETED)
+        else:
+            filter_list.append(Agent.status <= manager_common.DELETED)
 
         agent_filter = and_(*filter_list)
         ret_dict = resultutils.bulk_results(session,
@@ -129,29 +91,31 @@ class AgentReuest(contorller.BaseContorller):
         return ret_dict
 
     @Idformater
-    def show(self, req, agent_id):
-        """call buy client"""
+    def show(self, req, agent_id, body):
+        ports = body.get('ports', False)
+        entitys = body.get('entitys', False)
         session = get_session(readonly=True)
         query = model_query(session, Agent)
-        agent = query.filter_by(agent_id=agent_id).one_or_none()
-        if not agent:
-            return resultutils.results(resultcode=1,
-                                       result='Agent_id id:%s can not be found' % agent_id)
+        agent = query.filter_by(agent_id=agent_id).one()
+        endpoints = {}
+        for endpoint in agent.endpoints:
+            endpoints[endpoint] = {}
         result = resultutils.results(total=1, pagenum=0, result='Show agent success')
-        ports = {}
-        for p in agent.ports:
-            try:
-                ports[p.endpoint].append(p.port)
-            except KeyError:
-                ports[p.endpoint] = [p.port, ]
-        result['data'].append(dict(agent_id=agent.agent_id,
-                                   host=agent.host,
-                                   status=agent.status,
-                                   ports_range=agent.ports_range,
-                                   endpoints=[dict(endpoint=v.endpoint,
-                                                   entity=v.entity) for v in agent.endpoints],
-                                   ports=ports
-                                   ))
+        if entitys:
+            for entity in agent.entitys:
+                try:
+                    endpoints[entity.endpoint]['entity'].append(entity.entity)
+                except KeyError:
+                     endpoints[entity.endpoint] = {'entity': [entity.entity]}
+        if ports:
+            for port in agent.ports:
+                try:
+                    endpoints[port.endpoint]['ports'].append(port.port)
+                except KeyError:
+                     endpoints[port.endpoint] = {'ports': [port.port]}
+        result_data = dict(agent_id=agent.agent_id, host=agent.host,
+                           status=agent.status, ports_range=agent.ports_range, endpoints=endpoints)
+        result['data'].append(result_data)
         return result
 
     def create(self, req, body):
@@ -177,111 +141,86 @@ class AgentReuest(contorller.BaseContorller):
             for endpoint in endpoints:
                 endpoints_list.append(AgentEndpoint(endpoint=endpoint))
             new_agent.endpoints = endpoints_list
-        session = get_session()
-        _cache_server = get_redis()
-        with mlock(goplockutils.lock_all_agent):
-            host_filter = and_(Agent.host == new_agent.host, Agent.status > manager_common.DELETED)
-            if model_count_with_key(session, Agent.host, filter=host_filter) > 0:
-                result = resultutils.results(resultcode=manager_common.RESULT_ERROR,
-                                             result='Create agent fail, host all ready exist with other id')
-                return result
-            with session.begin(subtransactions=True):
-                new_agent_id = model_autoincrement_id(session, Agent.agent_id)
-                new_agent.agent_id = new_agent_id
-                session.add(new_agent)
-                session.flush()
-                result = resultutils.results(total=1, pagenum=0, result='Create agent success',
-                                             data=[dict(agent_id=new_agent.agent_id,
-                                                        host=new_agent.host,
-                                                        status=new_agent.status,
-                                                        ports_range=new_agent.ports_range,
-                                                        endpoints=endpoints)
-                                                   ])
-                key = targetutils.agent_all_id()
-                # add new agent_id to cache all agent_id
-                if not _cache_server.sadd(key, str(new_agent.agent_id)):
-                    raise CacheStoneError('Cant not add agent_id to redis, key %s' % key)
-                return result
+        global_data = get_global()
+        try:
+            global_data.add_agent(new_agent)
+        except:
+            result = resultutils.results(resultcode=manager_common.RESULT_ERROR,
+                                         result='Create agent fail, host all ready exist with other id')
+            return result
+        result = resultutils.results(total=1, pagenum=0, result='Create agent success',
+                                     data=[dict(agent_id=new_agent.agent_id,
+                                                host=new_agent.host,
+                                                status=new_agent.status,
+                                                ports_range=new_agent.ports_range,
+                                                endpoints=endpoints)
+                                           ])
+        return result
 
-    @argutils.Idformater(key='agent_id', formatfunc='agent_id_check')
+    @Idformater
     def delete(self, req, agent_id, body):
         """call buy agent"""
         # if force is true
         # will not notify agent, just delete agent from database
         force = body.get('force', False)
+        _cache_server = get_cache()
+        rpc = get_client()
+        global_data = get_global()
+        with global_data.delete_agent(agent_id) as agent:
+            if not force:
+                host_online_key = targetutils.host_online_key(agent.agent_id)
+                # make sure agent is online
+                agent_ipaddr = _cache_server.get(host_online_key)
+                if agent_ipaddr is None:
+                    raise RpcPrepareError('Can not delete offline agent, try force')
+                # tell agent wait delete
+                delete_agent_precommit = rpc.call(targetutils.target_agent(agent),
+                                                  ctxt={'finishtime': rpcfinishtime()},
+                                                  msg={'method': 'delete_agent_precommit',
+                                                       'args': {'agent_id': agent.agent_id,
+                                                                'agent_type': agent.agent_type,
+                                                                'host': agent.host,
+                                                                'ipaddr': agent_ipaddr}
+                                                       })
+                if not delete_agent_precommit:
+                    raise RpcResultError('delete_agent_precommit result is None')
+                if delete_agent_precommit.get('resultcode') != manager_common.RESULT_SUCCESS:
+                    return resultutils.results(total=1, pagenum=0,
+                                               result=delete_agent_precommit.get('result'),
+                                               resultcode=manager_common.RESULT_SUCCESS)
         if not force:
-            _cache_server = get_redis()
-            rpc = get_client()
+            # tell agent delete itself
+            rpc.cast(targetutils.target_agent(agent),
+                     ctxt={'finishtime': rpcfinishtime()},
+                     msg={'method': 'delete_agent_postcommit',
+                          'args': {'agent_id': agent.agent_id,
+                                   'agent_type': agent.agent_type,
+                                   'host': agent.host,
+                                   'ipaddr': agent_ipaddr}})
+        result = resultutils.results(total=1, pagenum=0, result='Delete agent success',
+                                     data=[dict(agent_id=agent.agent_id,
+                                                host=agent.host,
+                                                status=agent.status,
+                                                ports_range=agent.ports_range)
+                                           ])
+        return result
+
+    def clean(self, req, agent_id, body):
         session = get_session()
         query = model_query(session, Agent,
                             filter=and_(Agent.agent_id == agent_id,
-                                        Agent.status > manager_common.DELETED))
-        with mlock(goplockutils.AgentLock(agent_id)):
-            with session.begin(subtransactions=True):
-                agent = query.one_or_none()
-                if not agent:
-                    raise InvalidArgument('Can not find agent with %d, not exist or alreay deleted' % agent_id)
-                if agent.entity > 0:
-                    raise InvalidArgument('Can not delete agent, entity not 0')
-                if not force:
-                    host_online_key = targetutils.host_online_key(agent.agent_id)
-                    # make sure agent is online
-                    agent_ipaddr = _cache_server.get(host_online_key)
-                    if agent_ipaddr is None:
-                        raise RpcPrepareError('Can not delete offline agent, try force')
-                    # tell agent wait delete
-                    delete_agent_precommit = rpc.call(targetutils.target_agent(agent),
-                                                      ctxt={'finishtime': rpcfinishtime()},
-                                                      msg={'method': 'delete_agent_precommit',
-                                                           'args': {'agent_id': agent.agent_id,
-                                                                    'agent_type': agent.agent_type,
-                                                                    'host': agent.host,
-                                                                    'ipaddr': agent_ipaddr}
-                                                           })
-                    if not delete_agent_precommit:
-                        raise RpcResultError('delete_agent_precommit result is None')
-                    if delete_agent_precommit.get('resultcode') != manager_common.RESULT_SUCCESS:
-                        return resultutils.results(total=1, pagenum=0,
-                                                   result=delete_agent_precommit.get('result'),
-                                                   resultcode=manager_common.RESULT_SUCCESS)
-                # Mark agent deleted
-                query.update({'status': manager_common.DELETED})
-                # Delete endpoint of agent
-                query = model_query(session, AgentEndpoint,
-                                    filter=AgentEndpoint.agent_id == agent_id)
-                try:
-                    query.delete()
-                except OperationalError as e:
-                    LOG.error("Delete agent endpoint error:%d, %s" %
-                              (e.orig[0], e.orig[1].replace("'", '')))
-                    raise
-                except DBError as e:
-                    LOG.error("Delete agent endpoint DBError:%s" % e.message)
-                    raise
-                if not force:
-                    # tell agent delete itself
-                    delete_agent_postcommit = rpc.call(targetutils.target_agent(agent),
-                                                       ctxt={'finishtime': rpcfinishtime()},
-                                                       msg={'method': 'delete_agent_postcommit',
-                                                            'args': {'agent_id': agent.agent_id,
-                                                                     'agent_type': agent.agent_type,
-                                                                     'host': agent.host,
-                                                                     'ipaddr': agent_ipaddr}
-                                                            })
-                    if not delete_agent_postcommit:
-                        raise RpcResultError('delete_agent_postcommit result is None')
-                    if delete_agent_postcommit.get('resultcode') != manager_common.RESULT_SUCCESS:
-                        raise RpcResultError('Call agent delete fail: ' + delete_agent_postcommit.get('result'))
-                result = resultutils.results(total=1, pagenum=0, result='Delete agent success',
-                                             data=[dict(agent_id=agent.agent_id,
-                                                        host=agent.host,
-                                                        status=agent.status,
-                                                        ports_range=agent.ports_range)
-                                                   ])
-                key = targetutils.agent_all_id()
-                if not _cache_server.srem(key, str(agent_id.agent_id)):
-                    LOG.error('Remove agent_id from redis fail, key %s' % key)
-                return result
+                                        Agent.status <= manager_common.DELETED))
+        entity_query = model_query(session, AgentEntity.entity, filter=Agent.agent_id == agent_id)
+        with session.begin(subtransactions=True):
+            entitys = entity_query.all()
+            if entitys:
+                for entity in entitys:
+                    LOG.error('Clean agent fail, entity %s:%d still on %s' %
+                              (entity.endpoint, entity.entity, agent_id))
+                raise EndpointNotEmpty('Clean agent %s fail, still has %d entitys' % (agent_id, len(entitys)))
+            count = query.delete()
+            LOG.info('Clean deleted agent %d, agent_id %s' % (count, agent_id))
+            return resultutils.results(result='Clean deleted agent success')
 
     @Idsformater
     def update(self, req, agent_id, body):
@@ -299,9 +238,7 @@ class AgentReuest(contorller.BaseContorller):
         query = model_query(session, Agent,
                             filter=and_(Agent.agent_id == agent_id,
                                         Agent.status > manager_common.DELETED))
-        agent = query.one_or_none()
-        if not agent:
-            raise InvalidArgument('Agent_id id:%s can not be found' % agent_id)
+        agent = query.one()
         host_online_key = targetutils.host_online_key(agent.agent_id)
         # make sure agent is online
         agent_ipaddr = _cache_server.get(host_online_key)
@@ -330,35 +267,34 @@ class AgentReuest(contorller.BaseContorller):
 
     def flush(self, req, body=None):
         """flush redis key storage"""
-        _cache_server = get_redis()
-        key = targetutils.agent_all_id()
-        with mlock(goplockutils.lock_all_agent):
-            # clean all id key
-            _cache_server.delete(key)
-            if body.get('online', False):
+        _cache_server = get_cache()
+        get_global().flush_all_agents()
+        if body.get('online', False):
+            glock = get_global().lock('all_agents')
+            with glock():
                 # clean host online key
                 keys = _cache_server.keys(targetutils.host_online_key('*'))
                 if keys:
-                    for key in keys:
-                        _cache_server.delete(key)
-        all_ids = _cache_server.smembers(key)
-        return resultutils.results(result='Flush cache key success',
-                                   data=list(all_ids))
+                    with _cache_server.pipeline() as pipe:
+                        pipe.multi()
+                        for key in keys:
+                            pipe.delete(key)
+                        pipe.execute()
+        return resultutils.results(result='Delete cache id success')
 
     @Idformater
     def edit(self, req, agent_id, body):
         """call by agent"""
         # TODO  check data in body
         session = get_session()
-
-        with mlock(goplockutils.AgentLock(agent_id)):
-            query = model_query(session, Agent, filter=(and_(Agent.agent_id == agent_id,
-                                                             Agent.status > manager_common.DELETED)))
+        glock = get_global().lock('agents')
+        with glock([agent_id, ]) as agents:
+            agent = agents[0]
             data = body
             if not data:
                 raise InvalidInput('Not data exist')
             with session.begin(subtransactions=True):
-                query.update(data)
+                agent.update(data)
             result = resultutils.results(pagenum=0,
                                          result='Update agent success',
                                          data=[body, ])
@@ -420,119 +356,14 @@ class AgentReuest(contorller.BaseContorller):
         result['data'].append(ret)
         return result
 
-    @Idformater
-    def get_ports(self, req, agent_id, body):
-        endpoint = body.get('endpoint', None)
-        session = get_session(readonly=True)
-        get_filter = (AllocatedPort.agent_id == agent_id)
-        if endpoint:
-            get_filter = and_(get_filter, AllocatedPort.endpoint == endpoint)
-        query = model_query(session, AllocatedPort, filter=get_filter)
-        with mlock(goplockutils.AgentLock(agent_id)):
-            return resultutils.results(result='Get port for %d success' % agent_id,
-                                       data=[dict(port=x.port, endpoint=x.endpoint, port_desc=x.port_desc)
-                                             for x in query.all()])
-
-    @Idformater
-    def add_ports(self, req, agent_id, body):
-        ports = body.get('ports', None)
-        endpoint = body.get('endpoint', None)
-        if not ports:
-            raise InvalidArgument('Ports is None for add ports')
-        if not endpoint:
-            raise InvalidArgument('Endpoint is None for add ports')
-        if not isinstance(ports, list):
-            ports = [ports, ]
-        for port in ports:
-            if not isinstance(port, (int, long)):
-                raise InvalidArgument('Port in ports not int, can not edit ports')
-            if not (0 <= port <= 65535):
-                raise InvalidArgument('Port in ports over range, can not edit ports')
-        session = get_session()
-        with mlock(goplockutils.AgentLock(agent_id)):
-            with session.begin(subtransactions=True):
-                for port in ports:
-                    session.add(AllocatedPort(agent_id=agent_id, port=port, endpoint=endpoint))
-                    session.flush()
-        return resultutils.results(result='edit ports success')
-
-    @Idformater
-    def delete_ports(self, req, agent_id, body):
-        ports = body.get('ports', None)
-        strict = body.get('strict', True)
-        if not ports:
-            raise InvalidArgument('Ports is None for delete ports')
-        if not isinstance(ports, list):
-            ports = [ports, ]
-        for port in ports:
-            if not isinstance(port, (int, long)):
-                raise InvalidArgument('Port in ports not int, can not edit ports')
-            if not (0 <= port <= 65535):
-                raise InvalidArgument('Port in ports over range, can not edit ports')
-        session = get_session()
-        with mlock(goplockutils.AgentLock(agent_id)):
-            with session.begin(subtransactions=True):
-                port_filter = and_(AllocatedPort.agent_id == agent_id, AllocatedPort.port.in_(ports))
-                query = model_query(session, AllocatedPort, filter=port_filter)
-                delete_count = query.delete().rowcount
-                need_to_delete = len(ports)
-                if delete_count != len(ports):
-                    LOG.warning('Delete %d ports, but expect count is %d' % (delete_count, need_to_delete))
-                    if strict:
-                        raise InvalidArgument('Submit %d ports, but only %d ports found' %
-                                              (len(ports), need_to_delete))
-        return resultutils.results(result='edit ports success')
-
-    @Idformater
-    def add_endpoints(self, req, agent_id, body):
-        endpoints = body.get('endpoints', None)
-        if not endpoints:
-            raise InvalidArgument('Endpoints is None for add endpoints')
-        endpoints = utils.validate_endpoints(endpoints)
-        session = get_session()
-        with mlock(goplockutils.AgentLock(agent_id)):
-            with session.begin(subtransactions=True):
-                for endpoint in endpoints:
-                    session.add(AgentEndpoint(agent_id=agent_id, endpoint=endpoint))
-                    session.flush()
-        return resultutils.results(result='add endpoints success')
-
-    @Idformater
-    def delete_endpoints(self, req, agent_id, body):
-        endpoints = body.get('endpoints', None)
-        strict = body.get('strict', True)
-        if not endpoints:
-            raise InvalidArgument('Endpoints is None for add endpoints')
-        endpoints = utils.validate_endpoints(endpoints)
-        session = get_session()
-        with mlock(goplockutils.AgentLock(agent_id)):
-            with session.begin(subtransactions=True):
-                endpoints_filter = and_(AgentEndpoint.agent_id == agent_id,
-                                        AgentEndpoint.endpoint.in_(endpoints))
-                query = model_query(session, AgentEndpoint, filter=endpoints_filter)
-                delete_count = query.delete().rowcount
-                need_to_delete = len(endpoints)
-                if delete_count != len(endpoints):
-                    LOG.warning('Delete %d endpoints, but expect count is %d' % (delete_count, need_to_delete))
-                    if strict:
-                        raise InvalidArgument('Submit %d endpoints, but only %d endpoints found' %
-                                              (len(endpoints), need_to_delete))
-        return resultutils.results(result='delete endpoints success')
-
     @Idsformater
-    def send_file(self, req, agent_id, body):
-        """call by client, and asyncrequest
-        send file to agents
-        """
-        raise NotImplementedError
-
     def status(self, req, agent_id, body):
         """get status from agent, not from database
         do not need Idsformater, check it in send_asyncrequest
         """
         target = targetutils.target_all(fanout=True)
         rpc_method = 'status_agent'
-        rpc_ctxt = {'agents': functools.partial(self.agents_id_check, agent_id)}
+        rpc_ctxt = {'agents': agent_id}
         rpc_args = body
         return self.send_asyncrequest(body, target, rpc_method, rpc_ctxt, rpc_args)
 
@@ -543,13 +374,17 @@ class AgentReuest(contorller.BaseContorller):
         """
         md5 = body.pop('md5', None)
         crc32 = body.pop('crc32', None)
-        url = body.pop('url', None)
+        uuid = body.pop('uuid', None)
         force = body.pop('force', False)
-        if not crc32 and not md5 and not url:
+        asyncrequest = self.create_asyncrequest(body)
+        if not crc32 and not md5 and not uuid:
             raise InvalidArgument('update file must be set, need md5 or crc32 or url')
         target = targetutils.target_all(fanout=True)
         rpc_method = 'upgrade_agent'
-        rpc_args = {'md5': md5, 'crc32': crc32, 'url': url, 'force': force}
-        lock = mlock(goplockutils.lock_all_agent)
-        rpc_ctxt = {'agents': functools.partial(self.agents_id_check, agent_id)}
-        return self.send_asyncrequest(body, target, rpc_method, rpc_ctxt, rpc_args, lock)
+        rpc_args = {'md5': md5, 'crc32': crc32, 'uuid': uuid, 'force': force}
+        glock = get_global().lock('agents')
+        if agent_id == 'all':
+            lock = glock.all_agent
+        else:
+            lock = functools.partial(glock.agents, agent_id)
+        return self.send_asyncrequest(asyncrequest, target, rpc_method, rpc_args, lock)

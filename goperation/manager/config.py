@@ -1,12 +1,11 @@
 from simpleutil.config import cfg
 
-from glockredis .config import redis_opts
-
 from simpleservice.ormdb.config import database_opts
 from simpleservice.rpc.driver.config import rpc_base_opts
 from simpleservice.rpc.driver.config import rabbit_opts
 from simpleservice.rpc.driver.config import amqp_opts
 
+from goperation.redis.config import redis_opts
 from goperation.filemanager.config import filemanager_opts
 
 

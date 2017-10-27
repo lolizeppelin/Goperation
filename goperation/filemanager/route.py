@@ -1,4 +1,7 @@
 import routes
+
+from simpleutil.utils import uuidutils
+
 from simpleservice.wsgi import router
 from simpleservice.wsgi.middleware import controller_return_response
 
@@ -9,11 +12,22 @@ COLLECTION_ACTIONS = []
 class Contorller(object):
 
     def show(self, req, mark):
-        print 'get mark'
+        print req.params
+        print mark
+        data = {'downloader': 'http',
+                'address': 'http://127.0.0.1/wtf.zip',
+                'ext': 'zip',
+                'size': 4096,
+                'uploadtime': '2010-11-10 11:11:10',
+                'marks': {'uuid': uuidutils.generate_uuid(),
+                          'crc32': 'e3fb18f2',
+                          'md5': 'aa9aca6939589fba87b0d9710f2a4f8c'},
+                }
+        return data
 
 
 class Routers(router.RoutersBase):
-    resource_name='filemanager'
+    resource_name='file'
     collection_name = resource_name + 's'
 
     def append_routers(self, mapper, routers=None):

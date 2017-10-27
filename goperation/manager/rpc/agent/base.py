@@ -14,6 +14,7 @@ from goperation import threadpool
 from goperation.utils import suicide
 from goperation.api.client import AgentManagerClient
 from goperation.manager import common as manager_common
+from goperation.manager.utils import validate_endpoint
 from goperation.manager.targetutils import target_server
 from goperation.manager.rpc.base import RpcManagerBase
 from goperation.manager.rpc.agent.config import agent_group
@@ -89,26 +90,24 @@ class RpcAgentManager(RpcManagerBase):
             endpoint.pre_start(self)
 
     def post_start(self):
-        agent_info = self.client.agent_show(self.agent_id)
+        agent_info = self.client.agent_show(self.agent_id, body={'ports': True, 'entitys': True})
         status = agent_info['status']
         if status <= manager_common.SOFTBUSY:
             raise RuntimeError('Agent can not start, receive status is %d' % status)
         # get port allocked
-        remote_endpoints = []
-        for endpoint in agent_info['endpoints']:
-            endpoint_name = endpoint['endpoint']
-            remote_endpoints.append(endpoint_name)
-        add_endpoints, delete_endpoints = self.validate_endpoint(agent_info['endpoints'])
-        for endpoint in agent_info['endpoints']:
-            if endpoint['endpoint'] in delete_endpoints:
-                if endpoint['entity'] > 0:
+        remote_endpoints = agent_info['endpoints']
+        add_endpoints, delete_endpoints = self.validate_endpoint(remote_endpoints)
+        for endpoint, info in six.itervalues(remote_endpoints):
+            if endpoint in delete_endpoints:
+                if info['entity'] > 0:
                     raise RuntimeError('Agent endpoint entity not zero, '
-                                       'but not endpoint %s in this agent' % endpoint['endpoint'])
-            for port in endpoint['ports']:
-                self.frozen_port(endpoint['endpoint'], port)
+                                       'but not endpoint %s in this agent' % endpoint)
+            for port in info['ports']:
+                self.frozen_port(endpoint, port)
         if delete_endpoints:
-            self.client.agents_delete_endpoints(agent_id=self.agent_id, body={'endpoints': add_endpoints})
-
+            self.client.agents_delete_endpoints(agent_id=self.agent_id, endpoint=delete_endpoints)
+        if add_endpoints:
+            self.client.agent_add_endpoints(agent_id=self.agent_id, endpoint=add_endpoints)
         remote_ports_range = jsonutils.loads_as_bytes(agent_info['ports_range'])
         if remote_ports_range != self.ports_range:
             LOG.warning('Agent ports range has been changed at remote database')
@@ -137,13 +136,8 @@ class RpcAgentManager(RpcManagerBase):
 
     def validate_endpoint(self, endpoints):
         remote_endpoints = set()
-        for endpoint in endpoints:
-            if isinstance(endpoint, dict) and endpoint.get('endpoint'):
-                remote_endpoints.add(endpoint.get('endpoint'))
-            elif isinstance(endpoint, basestring):
-                remote_endpoints.add(endpoint)
-            else:
-                raise RuntimeError('Validate endpoint fail, value type error')
+        for endpoint in six.iterkeys(endpoints):
+            remote_endpoints.add(validate_endpoint(endpoint))
         local_endpoints = set([endpoint.namespace for endpoint in self.endpoints])
         add_endpoints = local_endpoints - remote_endpoints
         delete_endpoints = remote_endpoints - local_endpoints

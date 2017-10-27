@@ -5,6 +5,8 @@ MAX_HOST_NAME_SIZE = 128
 
 ENV_REQUEST_ID = 'goperation.request_id'
 
+
+ALL_AGENTS = object()
 # agent name
 AGENT = 'agent'
 # agent tpye
@@ -12,6 +14,9 @@ APPLICATION = 'application'
 SCHEDULER = 'scheduler'
 DATABASE = 'database'
 
+ENTITY = 'entity'
+FILE = 'file'
+ENDPOINT = 'endpoint'
 
 # -----------status of agent--------------
 ACTIVE = 1

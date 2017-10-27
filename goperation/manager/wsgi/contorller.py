@@ -1,6 +1,7 @@
 import contextlib
 
 from simpleutil.utils import timeutils
+from simpleutil.utils import argutils
 from simpleutil.utils import uuidutils
 from simpleutil.log import log as logging
 from simpleutil.common.exceptions import InvalidArgument
@@ -16,6 +17,7 @@ from goperation.manager import targetutils
 from goperation.manager import common as manager_common
 from goperation.manager.api import get_client
 from goperation.manager.api import get_session
+from goperation.manager.api import get_global
 from goperation.manager.api import rpcfinishtime
 from goperation.manager.models import AsyncRequest
 from goperation.manager.wsgi.exceptions import AsyncRpcPrepareError
@@ -32,8 +34,33 @@ def empty_lock():
 
 class BaseContorller(object):
 
+    AgentIdformater = argutils.Idformater(key='agent_id', formatfunc='agent_id_check')
+    AgentsIdformater = argutils.Idformater(key='agent_id', formatfunc='agents_id_check')
+
     query_interval = 0.7
     interval_increase = 0.3
+
+    def agents_id_check(self, agents_id):
+        global_data = get_global()
+        if agents_id == 'all':
+            return global_data.all_agents
+        agents_set = argutils.map_to_int(agents_id)
+        all_id = global_data.all_agents
+        if agents_set != all_id:
+            errors = agents_set - all_id
+            if (errors):
+                raise InvalidArgument('agents id %s can not be found' % str(list(errors)))
+        return agents_set
+
+    def agent_id_check(self, agent_id):
+        """For one agent"""
+        if agent_id == 'all':
+            raise InvalidArgument('Just for one agent')
+        agent_id = self.agents_id_check(agent_id)
+        if len(agent_id) > 1:
+            raise InvalidArgument('Just for one agent')
+        return agent_id.pop()
+
 
     @staticmethod
     def request_id_check(request_id):
@@ -87,31 +114,24 @@ class BaseContorller(object):
                                    persist=persist)
         return new_request
 
-    def send_asyncrequest(self, body, target,
-                          rpc_method, rpc_ctxt=None, rpc_args=None, lock=None):
+    def send_asyncrequest(self, target, asyncrequest,
+                          rpc_method, rpc_ctxt=None, rpc_args=None,
+                          lock=None):
         if lock is None:
-            lock = empty_lock()
+            lock = empty_lock
         rpc = get_client()
         session = get_session()
-        asyncrequest = self.create_asyncrequest(body)
         rpc_ctxt = rpc_ctxt or {}
         rpc_args = rpc_args or {}
         rpc_args = rpc_args or {}
-        try:
-            agents = rpc_ctxt.pop('agents')
-        except KeyError:
-            raise AsyncRpcPrepareError('Not agents found in ctxt')
-
         def func():
-            with lock:
+            with lock() as lock_objs:
                 rpc_ctxt.setdefault('finishtime', asyncrequest.finishtime)
-                if callable(agents):
-                    _agents = agents()
-                else:
-                    _agents = agents
-                rpc_ctxt.setdefault('agents', list(_agents) if isinstance(_agents, set) else _agents)
-                if not isinstance(rpc_ctxt.get('agents'), list):
-                    raise AsyncRpcPrepareError('Argument agents in ctxt not list')
+                if lock_objs is manager_common.ALL_AGENTS:
+                    pass
+                    # agents = [  agent.agent_id for agent in  ]
+
+                rpc_ctxt.setdefault('agents', )
                 try:
                     async_ret = rpc.call(targetutils.target_anyone(manager_common.SCHEDULER),
                                          ctxt={'finishtime': asyncrequest.finishtime},

@@ -1,3 +1,4 @@
+import datetime
 import sqlalchemy as sa
 from sqlalchemy import orm
 from sqlalchemy.sql import and_
@@ -9,6 +10,7 @@ from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy.dialects.mysql import BOOLEAN
 from sqlalchemy.dialects.mysql import LONGBLOB
+from sqlalchemy.dialects.mysql import DATETIME
 
 from simpleutil.utils import timeutils
 from simpleutil.utils import uuidutils
@@ -18,6 +20,15 @@ from simpleservice.ormdb.models import InnoDBTableBase
 from simpleservice.plugin.models import PluginTableBase
 
 from goperation.manager import common as manager_common
+
+
+def realnowint(after=0):
+    if after:
+        def t():
+            return int(timeutils.realnow()) + after
+        return t
+    else:
+        return int(timeutils.realnow())
 
 
 class ResponeDetail(PluginTableBase):
@@ -41,7 +52,7 @@ class AgentRespone(PluginTableBase):
                          primary_key=True)
     request_id = sa.Column(sa.ForeignKey('asyncrequests.request_id', ondelete="RESTRICT", onupdate='RESTRICT'),
                            nullable=False, primary_key=True)
-    server_time = sa.Column(INTEGER(unsigned=True), default=int(timeutils.realnow()), nullable=False)
+    server_time = sa.Column(INTEGER(unsigned=True), default=realnowint, nullable=False)
     # agent respone unix time in seconds
     agent_time = sa.Column(INTEGER(unsigned=True), nullable=False)
     resultcode = sa.Column(TINYINT, nullable=False, default=manager_common.RESULT_UNKNOWN)
@@ -63,14 +74,14 @@ class AsyncRequest(PluginTableBase):
     request_id = sa.Column(CHAR(36), default=uuidutils.generate_uuid,
                            nullable=False, primary_key=True)
     request_time = sa.Column(INTEGER(unsigned=True),
-                             default=int(timeutils.realnow()), nullable=False)
+                             default=realnowint, nullable=False)
     # request should finish at finish time
     # when agent get a rpc came, if cur time > finishtime
     # agent will drop the package
-    finishtime = sa.Column(INTEGER(unsigned=True), default=int(timeutils.realnow()) + 5, nullable=False)
+    finishtime = sa.Column(INTEGER(unsigned=True), default=realnowint(5), nullable=False)
     # request should finish before deadline time
     # if task scheduler find cur time > deadline, it will not check return any more
-    deadline = sa.Column(INTEGER(unsigned=True), default=int(timeutils.realnow())+10, nullable=False)
+    deadline = sa.Column(INTEGER(unsigned=True), default=realnowint(10), nullable=False)
     # async resopne checker id, means scheduled timer server id
     # 0 means no checker now
     scheduler = sa.Column(INTEGER(unsigned=True), default=0, nullable=False)
@@ -98,7 +109,7 @@ class AgentResponeBackLog(PluginTableBase):
     agent_id = sa.Column(INTEGER(unsigned=True), nullable=False, default=0, primary_key=True)
     request_id = sa.Column(VARCHAR(36),
                            nullable=False, primary_key=True)
-    server_time = sa.Column(INTEGER(unsigned=True), default=int(timeutils.realnow()), nullable=False)
+    server_time = sa.Column(INTEGER(unsigned=True), default=realnowint, nullable=False)
     agent_time = sa.Column(INTEGER(unsigned=True), nullable=False)
     resultcode = sa.Column(TINYINT, nullable=False, default=manager_common.RESULT_UNKNOWN)
     result = sa.Column(VARCHAR(manager_common.MAX_AGENT_RESULT),
@@ -114,33 +125,58 @@ class AgentResponeBackLog(PluginTableBase):
 
 
 class AllocatedPort(PluginTableBase):
-    agent_id = sa.Column(sa.ForeignKey('agentendpoints.agent_id', ondelete="CASCADE", onupdate='RESTRICT'),
-                         nullable=False,
-                         primary_key=True)
-    port = sa.Column(SMALLINT(unsigned=True), nullable=False,
-                     default=0,
-                     primary_key=True)
+    port = sa.Column(SMALLINT(unsigned=True),
+                     nullable=False, primary_key=True)
+    agent_id = sa.Column(sa.ForeignKey('agents.agent_id', ondelete="CASCADE", onupdate='RESTRICT'),
+                         nullable=False, primary_key=True)
     endpoint = sa.Column(sa.ForeignKey('agentendpoints.endpoint', ondelete="CASCADE", onupdate='CASCADE'),
                          nullable=False)
-    port_desc = sa.Column(VARCHAR(256), nullable=True, default=None)
+    entity = sa.Column(sa.ForeignKey('agententitys.entity', ondelete="CASCADE", onupdate='RESTRICT'),
+                       nullable=False)
+    desc = sa.Column(VARCHAR(256), nullable=True, default=None)
     __table_args__ = (
-            sa.UniqueConstraint('agent_id', 'endpoint', name='uniq_endpoint'),
+            sa.UniqueConstraint('entity', 'endpoint', 'port', name='unique_port'),
+            sa.Index('ports_index', 'agent_id', 'endpoint', 'entity'),
+            InnoDBTableBase.__table_args__
+    )
+
+
+class AgentEntity(PluginTableBase):
+    entity = sa.Column(INTEGER(unsigned=True),
+                       nullable=False, primary_key=True)
+    endpoint = sa.Column(sa.ForeignKey('agentendpoints.endpoint', ondelete="CASCADE", onupdate='CASCADE'),
+                         nullable=False, primary_key=True)
+    agent_id = sa.Column(sa.ForeignKey('agents.agent_id', ondelete="CASCADE", onupdate='RESTRICT'),
+                         nullable=False)
+    entity_type = sa.Column(sa.SMALLINT, nullable=False, default=0)
+    desc = sa.Column(VARCHAR(256), nullable=True, default=None)
+    ports = orm.relationship(AllocatedPort, backref='agententity', lazy='select',
+                             primaryjoin=and_(agent_id == AllocatedPort.agent_id,
+                                              endpoint == AllocatedPort.endpoint,
+                                              entity == AllocatedPort.entity),
+                             cascade='delete,delete-orphan,save-update')
+    __table_args__ = (
+            sa.Index('endpoint_index', 'endpoint'),
+            sa.Index('entitys_index', 'endpoint', 'agent_id'),
             InnoDBTableBase.__table_args__
     )
 
 
 class AgentEndpoint(PluginTableBase):
-    agent_id = sa.Column(sa.ForeignKey('agents.agent_id', ondelete="CASCADE", onupdate='RESTRICT'),
-                         nullable=False,
-                         primary_key=True)
     endpoint = sa.Column(VARCHAR(manager_common.MAX_ENDPOINT_NAME_SIZE),
                          default=None,
                          nullable=False, primary_key=True)
-    entity = sa.Column(INTEGER(unsigned=True), default=0, server_default='0', nullable=False)
-    ports = orm.relationship(AllocatedPort, backref='agent', lazy='select',
+    agent_id = sa.Column(sa.ForeignKey('agents.agent_id', ondelete="CASCADE", onupdate='RESTRICT'),
+                         nullable=False,
+                         primary_key=True)
+    entitys = orm.relationship(AgentEntity, backref='agentendpoint', lazy='select',
+                               primaryjoin=and_(agent_id == AgentEntity.agent_id,
+                                                endpoint == AgentEntity.endpoint),
+                               cascade='delete,delete-orphan,save-update')
+    ports = orm.relationship(AllocatedPort, backref='agentendpoint', lazy='select',
                              primaryjoin=and_(agent_id == AllocatedPort.agent_id,
                                               endpoint == AllocatedPort.endpoint),
-                             cascade='delete,delete-orphan,save-update')
+                             cascade='delete,delete-orphan')
     __table_args__ = (
             sa.Index('endpoint_index', 'endpoint'),
             InnoDBTableBase.__table_args__
@@ -152,38 +188,47 @@ class Agent(PluginTableBase):
                          default=1, primary_key=True)
     agent_type = sa.Column(VARCHAR(64), nullable=False)
     create_time = sa.Column(INTEGER(unsigned=True),
-                            default=int(timeutils.realnow()), nullable=False)
+                            default=realnowint, nullable=False)
     host = sa.Column(VARCHAR(manager_common.MAX_HOST_NAME_SIZE), nullable=False)
     # 0 not active, 1 active  -1 mark delete
     status = sa.Column(TINYINT, default=manager_common.UNACTIVE, nullable=False)
     # total cpu number
-    cpu = sa.Column(INTEGER(unsigned=True), server_default='0', nullable=False)
+    cpu = sa.Column(INTEGER(unsigned=True),  default=0, server_default='0', nullable=False)
     # total memory can be used
-    memory = sa.Column(INTEGER(unsigned=True), server_default='0', nullable=False)
+    memory = sa.Column(INTEGER(unsigned=True),  default=0, server_default='0', nullable=False)
     # total disk space left can be used
-    disk = sa.Column(INTEGER(unsigned=True), server_default='0', nullable=False)
+    disk = sa.Column(INTEGER(unsigned=True), default=0, server_default='0', nullable=False)
     ports_range = sa.Column(VARCHAR(manager_common.MAX_PORTS_RANGE_SIZE),
                             default='',
                             nullable=False)
     endpoints = orm.relationship(AgentEndpoint, backref='agent', lazy='joined',
                                  cascade='delete,delete-orphan,save-update')
+    entitys = orm.relationship(AgentEntity, backref='agent', lazy='select',
+                               cascade='delete,delete-orphan')
     ports = orm.relationship(AllocatedPort, backref='agent', lazy='select',
-                             cascade='delete,delete-orphan,save-update')
+                             cascade='delete,delete-orphan')
     __table_args__ = (
             sa.Index('host_index', 'host'),
             InnoDBTableBase.__table_args__
     )
 
-    @property
-    def entity(self):
-        entity = 0
-        for endpoint in self.endpoints:
-            entity += endpoint.entity
-        return entity
 
-    @property
-    def port(self):
-        return len(self.ports)
+class DownFile(PluginTableBase):
+    uuid = sa.Column(CHAR(36), default=uuidutils.generate_uuid, nullable=False, primary_key=True)
+    crc32 = sa.Column(CHAR(33), nullable=False)
+    md5 = sa.Column(CHAR(32), nullable=False)
+    downloader = sa.Column(VARCHAR(12), nullable=False)
+    adapter_args = sa.Column(LONGBLOB, nullable=True)
+    address = sa.Column(VARCHAR(512), nullable=False)
+    ext = sa.Column(VARCHAR(12), nullable=False)
+    size = sa.Column(BIGINT, nullable=False)
+    desc = sa.Column(VARCHAR(512), nullable=True)
+    uploadtime = sa.Column(DATETIME, default=datetime.datetime.now)
+    __table_args__ = (
+            sa.UniqueConstraint('md5', name='md5_unique'),
+            sa.UniqueConstraint('crc32', name='crc32_unique'),
+            InnoDBTableBase.__table_args__
+    )
 
 
 class AgentReportLog(PluginTableBase):

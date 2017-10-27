@@ -10,12 +10,12 @@ mysql升级的taskflow编写                                                    
 mysql升级的taskflow测试                                                                     完成
 filemanager类编写                                                                           完成
 http 下载方式编写                                                                           完成
+filemanager测试                                                                             完成
 
 sql执行超时方式确认                                                                         压后
-编写调度器                                                                                  压后
 RPC测试, RPC descriptor 测试  -- 基本完成,剩余部分需要endpoint调试                          压后
 websocket实现文件发送与tail文件                                                             压后
 spec文件编写,linux安装测试                                                                  spec完成,安装测试压后
 
 全局锁更新锁定和使用方式                                                                    准备进行
-filemanager测试                                                                             准备进行
+编写调度器                                                                                  准备进行

@@ -16,21 +16,24 @@ class AgentManagerClient(HttpClientBase):
 
     USER_AGENT = 'goperation-httpclient'
 
+    agents_path = "/agents"
     agent_path = "/agents/%s"
+
     agent_active_path = "/agents/%s/active"
     agent_edit_path = "/agents/%s/edit"
-    agent_posts_path = "/agents/%s/ports"
-    agent_endpoints_path = "/agents/%s/endpoints"
-    agent_online_path = "/agents/online"
-
-    agents_path = "/agents"
-    agents_flush_path = "/agents/flush"
-    agents_file_path = "/agents/%s/file"
     agents_upgrade_path = "/agents/%s/upgrade"
     agents_status_path = "/agents/%s/status"
 
+    agents_flush_path = "/agents/flush"
+    agent_online_path = "/agents/online"
+
+    agents_file_path = "/agents/%s/files/%s"
+    agent_ports_path = "/agents/%s/ports/%s"
+    agent_endpoints_path = "/agents/%s/endpoints/%s"
+
     asyncs_path = "/asyncrequests"
     async_path = "/asyncrequests/%s"
+
     async_scheduler_report_path = "/asyncrequests/%s/scheduler"
     async_scheduler_report_overtime_path = "/asyncrequests/%s/overtime"
     async_respone_path = "/asyncrequests/%s/respone"
@@ -59,8 +62,8 @@ class AgentManagerClient(HttpClientBase):
                                             resone=results['result'])
         return results
 
-    def agent_show(self, agent_id):
-        resp, results = self.get(action=self.agent_path % str(agent_id))
+    def agent_show(self, agent_id, body=None):
+        resp, results = self.get(action=self.agent_path % str(agent_id), body=body)
         if results['resultcode'] != manager_common.RESULT_SUCCESS:
             raise ServerExecuteRequestError(message='get agent info fail',
                                             code=results['resultcode'],
@@ -84,40 +87,53 @@ class AgentManagerClient(HttpClientBase):
                                             resone=results['result'])
         return results
 
-    def agent_get_ports(self, agent_id, body):
-        resp, results = self.get(action=self.agents_file_path % str(agent_id), body=body)
+    def agent_get_ports(self, agent_id, ports, body):
+        resp, results = self.get(action=self.agent_ports_path % (str(agent_id),
+                                                                 ','.join(map(str, ports))),
+                                 body=body)
         if results['resultcode'] != manager_common.RESULT_SUCCESS:
             raise ServerExecuteRequestError(message='agent get posts fail',
                                             code=results['resultcode'],
                                             resone=results['result'])
         return results
 
-    def agent_add_ports(self, agent_id, body):
-        resp, results = self.retryable_post(action=self.agent_posts_path % str(agent_id), body=body)
+    def agent_add_ports(self, agent_id, ports, body):
+        resp, results = self.retryable_post(action=self.agent_ports_path % (str(agent_id),
+                                                                            ','.join(map(str, ports))),
+                                            body=body)
         if results['resultcode'] != manager_common.RESULT_SUCCESS:
             raise ServerExecuteRequestError(message='agent add posts fail',
                                             code=results['resultcode'],
                                             resone=results['result'])
         return results
 
-    def agent_delete_ports(self, agent_id, body):
-        resp, results = self.delete(action=self.agent_posts_path % str(agent_id), body=body)
+    def agent_delete_ports(self, agent_id, ports, body):
+        resp, results = self.delete(action=self.agent_ports_path % (str(agent_id),
+                                                                    ','.join(map(str, ports))),
+                                    body=body)
         if results['resultcode'] != manager_common.RESULT_SUCCESS:
             raise ServerExecuteRequestError(message='agent delete posts fail',
                                             code=results['resultcode'],
                                             resone=results['result'])
         return results
 
-    def agent_add_endpoints(self, agent_id, body):
-        resp, results = self.retryable_post(action=self.agent_endpoints_path % str(agent_id), body=body)
+    def agent_add_endpoints(self, agent_id, endpoint, body=None):
+        if isinstance(endpoint, basestring):
+            endpoint = [endpoint, ]
+
+        resp, results = self.retryable_post(action=self.agent_endpoints_path % (str(agent_id), ','.join(endpoint)),
+                                            body=body)
         if results['resultcode'] != manager_common.RESULT_SUCCESS:
             raise ServerExecuteRequestError(message='agent add posts fail',
                                             code=results['resultcode'],
                                             resone=results['result'])
         return results
 
-    def agents_delete_endpoints(self, agent_id, body):
-        resp, results = self.delete(action=self.agent_endpoints_path % str(agent_id), body=body)
+    def agents_delete_endpoints(self, agent_id, endpoint, body=None):
+        if isinstance(endpoint, basestring):
+            endpoint = [endpoint, ]
+        resp, results = self.delete(action=self.agent_endpoints_path % (str(agent_id), ','.join(endpoint)),
+                                    body=body)
         if results['resultcode'] != manager_common.RESULT_SUCCESS:
             raise ServerExecuteRequestError(message='agent delete posts fail',
                                             code=results['resultcode'],

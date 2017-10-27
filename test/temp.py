@@ -1,8 +1,15 @@
+import re
 
-from goperation.cmd.server import main
+MD5LIKE = re.compile('^[a-z0-9]{32}$')
+
+def is_md5_like(var):
+    return re.match(MD5LIKE, var) is not None
+
+from simpleutil.utils import digestutils
 
 
-cfg_file = 'C:\\Users\\loliz_000\\Desktop\\etc\\center.conf'
+var = digestutils.filemd5(r'C:\Users\loliz_000\Desktop\backup\db.sql')
+print var
+print digestutils.filecrc32(r'C:\Users\loliz_000\Desktop\backup\db.sql')
 
-main(cfg_file)
-
+print is_md5_like(var)

@@ -1,6 +1,8 @@
 import webob.exc
 from sqlalchemy.sql import and_
 from sqlalchemy.sql import or_
+from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.orm.exc import MultipleResultsFound
 
 from redis.exceptions import RedisError
 
@@ -26,7 +28,9 @@ from goperation.manager.wsgi import contorller
 
 LOG = logging.getLogger(__name__)
 
-FAULT_MAP = {InvalidArgument: webob.exc.HTTPClientError}
+FAULT_MAP = {InvalidArgument: webob.exc.HTTPClientError,
+             NoResultFound: webob.exc.HTTPNotFound,
+             MultipleResultsFound: webob.exc.HTTPInternalServerError}
 
 
 Idformater = argutils.Idformater(key='request_id', formatfunc='request_id_check')
@@ -82,9 +86,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
         details = body.get('details', False)
         session = get_session(readonly=True)
         query = model_query(session, AsyncRequest)
-        request = query.filter_by(request_id=request_id).one_or_none()
-        if not request:
-            raise InvalidArgument('Request id:%s can not be found' % request_id)
+        request = query.filter_by(request_id=request_id).one()
         if request.persist:
             # get resopne from database
             return resultutils.async_request(request, agents, details)
@@ -229,9 +231,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
                                 filter=or_(AsyncRequest.scheduler == 0,
                                            AsyncRequest.scheduler == scheduler))
             unfinish_request = query.filter_by(request_id=request_id,
-                                               status=manager_common.UNFINISH).one_or_none()
-            if not unfinish_request:
-                raise InvalidArgument('Reuest is alreday finished or not exist')
+                                               status=manager_common.UNFINISH).one()
             unfinish_request.update(data)
         return resultutils.results(result='Request %s update scheduler and status success' % request_id)
 
