@@ -10,8 +10,8 @@ from simpleservice.ormdb.models import TableBase
 
 UUID_LENGTH = 36
 MD5_LENGTH = 32
-CRC32_LENGTH = 32
-DETAIL_LENGTH = 512
+CRC32_LENGTH = 33
+DESC_LENGTH = 512
 ADDRESS_LENGTH = 512
 
 FileManagerTables = declarative.declarative_base(cls=TableBase)
@@ -22,6 +22,6 @@ class FileDetail(FileManagerTables):
     crc32 = sa.Column(VARCHAR(CRC32_LENGTH), nullable=False)
     md5 = sa.Column(CHAR(MD5_LENGTH), unique=True, nullable=False)
     ext = sa.Column(VARCHAR(32), nullable=False)
-    detail = sa.Column(VARCHAR(DETAIL_LENGTH), default='unkown file', nullable=False)
+    desc = sa.Column(VARCHAR(DESC_LENGTH), default='unkown file', nullable=False)
     address = sa.Column(VARCHAR(ADDRESS_LENGTH), default=None, nullable=True)
     uploadtime = sa.Column(DATETIME, default=datetime.datetime.now, nullable=True)

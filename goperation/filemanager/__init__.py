@@ -42,7 +42,7 @@ class FileManager(object):
             "address": {'type': 'string'},
             "ext": {'type': 'string'},
             "size": {'type': 'integer'},
-            "detail": {'type': 'string'},
+            "desc": {'type': 'string'},
             "uploadtime": {'type': 'string', 'format': 'date-time'},
             'marks': {
                 'type': 'object',
@@ -95,9 +95,9 @@ class FileManager(object):
                         if strict:
                             raise RuntimeError('File with name %s ext value error' % filename)
                         continue
-                    if uuidutils.is_uuid_like(uuid):
+                    if not uuidutils.is_uuid_like(uuid):
                         if strict:
-                            raise RuntimeError('File with name %s is mot uuid' % filename)
+                            raise RuntimeError('File with name %s is not uuid' % filename)
                         continue
                     if uuid in local_files:
                         if strict:
@@ -137,7 +137,7 @@ class FileManager(object):
                     md5 = digestutils.filemd5(file_path)
                     _file_detail = models.FileDetail(uuid=uuid, size=local_size,
                                                      crc32=crc32, md5=md5, ext=local_ext,
-                                                     detail='add from scanning')
+                                                     desc='add from scanning')
                     # add file record into database
                     self.session.add(_file_detail)
                     self.localfiles[file_path] = dict(crc32=crc32,
@@ -222,7 +222,7 @@ class FileManager(object):
             file_detil = models.FileDetail(uuid=file_info['uuid'], size=size,
                                            crc32=crc32, md5=md5,
                                            ext=file_info['ext'],
-                                           detail=file_info.get('detail', 'unkonwn file'),
+                                           desc=file_info.get('desc', 'unkonwn file'),
                                            address=file_info['address'],
                                            uploadtime=file_info.get('uploadtime'))
             try:
