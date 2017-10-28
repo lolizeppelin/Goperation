@@ -228,7 +228,7 @@ class GlobalData(object):
                 break
             if int(time.time()*1000) > overtime:
                 raise exceptions.AllocLockTimeout('Alloc key %s timeout' % self.AGENTS_KEY)
-            eventlet.sleep(0)
+            eventlet.sleep(0.003)
         try:
             yield manager_common.ALL_AGENTS
         finally:
@@ -241,9 +241,11 @@ class GlobalData(object):
         client = self.client
         session = self.rsession
         query = model_query(session, Agent,
-                            filter=and_(Agent.agent_id.in_(agents), Agent.status > manager_common.DELETED))
+                            filter=and_(Agent.agent_id.in_(agents),
+                                        Agent.status > manager_common.DELETED))
         agents_ids = []
         while True:
+            wpipe = None
             try:
                 with self._lock_all_agents():
                     agents = query.all()
@@ -252,16 +254,19 @@ class GlobalData(object):
                                                             (count, len(agents)))
                     agents_ids = map(str, [agent.agent_id for agent in agents])
                     while client.sinter(self.AGENTS_KEY, agents_ids) and int(time.time()*1000) <= overtime:
-                        eventlet.sleep(0)
+                        eventlet.sleep(0.01)
                     wpipe = client.pipeline()
                     wpipe.watch(self.AGENTS_KEY)
                 wpipe.multi()
                 wpipe.sadd(self.AGENTS_KEY, *agents_ids)
                 wpipe.execute()
+                break
             except WatchError:
-                wpipe.reset()
                 if int(time.time()*1000) > overtime:
                     raise exceptions.AllocLockTimeout('Lock agents timeout')
+            finally:
+                if wpipe:
+                    wpipe.reset()
         try:
             yield agents
         finally:
@@ -281,6 +286,7 @@ class GlobalData(object):
         agents_ids = set()
         entitys_ids = set()
         while True:
+            wpipe = None
             try:
                 with self._lock_all_agents():
                     entitys = query.all()
@@ -301,36 +307,32 @@ class GlobalData(object):
                         if all([True if len(result) == 0 else False for result in retsults]):
                             break
                         else:
-                            eventlet.sleep(0)
+                            eventlet.sleep(0.01)
                     wpipe = client.pipeline()
                     wpipe.watch(self.AGENTS_KEY, entitys_key)
-                with client.pipeline() as pipe:
-                    pipe.multi()
-                    pipe.sinter(self.AGENTS_KEY, agents_ids)
-                    pipe.sinter(entitys_key, entitys_ids)
-                    retsults = pipe.execute()
-                if all([True if len(result) == 0 else False for result in retsults]):
-                    wpipe.multi()
-                    wpipe.sadd(entitys_key, *agents_ids)
-                    wpipe.sadd(entitys_key, *entitys_ids)
-                    wpipe.execute()
-                    break
+                wpipe.multi()
+                wpipe.sadd(entitys_key, *agents_ids)
+                wpipe.sadd(entitys_key, *entitys_ids)
+                wpipe.execute()
+                break
             except WatchError:
-                wpipe.reset()
                 if int(time.time()*1000) > overtime:
                     raise exceptions.AllocLockTimeout('Lock entitys timeout')
+            finally:
+                if wpipe:
+                    wpipe.reset()
+
         try:
             yield entitys
         finally:
             self.garbage_member_collection(self.AGENTS_KEY, agents_ids)
             self.garbage_member_collection(entitys_key, entitys_ids)
 
-
     @contextlib.contextmanager
     def _lock_all_endpoint(self, endpoint):
         overtime = self.alloctime + int(time.time()*1000)
         client = self.client
-        endpoint_key = '-'.join([self.PREFIX, endpoint,'all'])
+        endpoint_key = '-'.join([self.PREFIX, endpoint, 'all'])
         while True:
             if client.set(endpoint_key, self.locker, nx=True):
                 break
@@ -341,7 +343,6 @@ class GlobalData(object):
             yield
         finally:
             self.garbage_key_collection(endpoint_key)
-
 
     @property
     def all_agents(self):
