@@ -8,12 +8,10 @@ from sqlalchemy.orm.exc import MultipleResultsFound
 from simpleutil.common.exceptions import InvalidArgument
 from simpleutil.common.exceptions import InvalidInput
 from simpleutil.log import log as logging
-from simpleutil.utils import argutils
 from simpleutil.utils import timeutils
 from simpleutil.utils.attributes import validators
 
 from simpleservice.ormdb.api import model_query
-from simpleservice.ormdb.api import model_count_with_key
 from simpleservice.rpc.exceptions import AMQPDestinationNotFound
 from simpleservice.rpc.exceptions import MessagingTimeout
 from simpleservice.rpc.exceptions import NoSuchMethod
@@ -23,7 +21,6 @@ from goperation.manager import utils
 from goperation.manager import resultutils
 from goperation.manager import targetutils
 from goperation.manager.api import get_client
-from goperation.manager.api import get_redis
 from goperation.manager.api import get_cache
 from goperation.manager.api import get_global
 from goperation.manager.api import get_session
@@ -33,7 +30,7 @@ from goperation.manager.models import AgentEndpoint
 from goperation.manager.models import AgentEntity
 from goperation.manager.exceptions import CacheStoneError
 from goperation.manager.exceptions import EndpointNotEmpty
-from goperation.manager.wsgi import contorller
+from goperation.manager.wsgi.contorller import BaseContorller
 from goperation.manager.wsgi.exceptions import RpcPrepareError
 from goperation.manager.wsgi.exceptions import RpcResultError
 
@@ -51,11 +48,7 @@ FAULT_MAP = {InvalidArgument: webob.exc.HTTPClientError,
              MultipleResultsFound: webob.exc.HTTPInternalServerError
              }
 
-Idsformater = argutils.Idformater(key='agent_id', formatfunc='agents_id_check')
-Idformater = argutils.Idformater(key='agent_id', formatfunc='agent_id_check')
-
-
-class AgentReuest(contorller.BaseContorller):
+class AgentReuest(BaseContorller):
 
     def index(self, req, body):
         """call buy client"""
@@ -90,7 +83,7 @@ class AgentReuest(contorller.BaseContorller):
                                             filter=agent_filter, page_num=page_num)
         return ret_dict
 
-    @Idformater
+    @BaseContorller.AgentIdformater
     def show(self, req, agent_id, body):
         ports = body.get('ports', False)
         entitys = body.get('entitys', False)
@@ -157,20 +150,20 @@ class AgentReuest(contorller.BaseContorller):
                                            ])
         return result
 
-    @Idformater
+    @BaseContorller.AgentIdformater
     def delete(self, req, agent_id, body):
         """call buy agent"""
         # if force is true
         # will not notify agent, just delete agent from database
         force = body.get('force', False)
-        _cache_server = get_cache()
+        cache_store = get_cache()
         rpc = get_client()
         global_data = get_global()
         with global_data.delete_agent(agent_id) as agent:
             if not force:
                 host_online_key = targetutils.host_online_key(agent.agent_id)
                 # make sure agent is online
-                agent_ipaddr = _cache_server.get(host_online_key)
+                agent_ipaddr = cache_store.get(host_online_key)
                 if agent_ipaddr is None:
                     raise RpcPrepareError('Can not delete offline agent, try force')
                 # tell agent wait delete
@@ -222,17 +215,17 @@ class AgentReuest(contorller.BaseContorller):
             LOG.info('Clean deleted agent %d, agent_id %s' % (count, agent_id))
             return resultutils.results(result='Clean deleted agent success')
 
-    @Idsformater
+    @BaseContorller.AgentsIdformater
     def update(self, req, agent_id, body):
         raise NotImplementedError
 
-    @Idformater
+    @BaseContorller.AgentIdformater
     def active(self, req, agent_id, body):
         """call buy client"""
         status = body.get('status', manager_common.ACTIVE)
         if status not in (manager_common.ACTIVE, manager_common.UNACTIVE):
             raise InvalidArgument('Argument status not right')
-        _cache_server = get_redis()
+        cache_store = get_cache()
         rpc = get_client()
         session = get_session()
         query = model_query(session, Agent,
@@ -241,7 +234,7 @@ class AgentReuest(contorller.BaseContorller):
         agent = query.one()
         host_online_key = targetutils.host_online_key(agent.agent_id)
         # make sure agent is online
-        agent_ipaddr = _cache_server.get(host_online_key)
+        agent_ipaddr = cache_store.get(host_online_key)
         if agent_ipaddr is None:
             raise RpcPrepareError('Can not active or unactive a offline agent: %d' % agent_id)
         with session.begin(subtransactions=True):
@@ -265,24 +258,7 @@ class AgentReuest(contorller.BaseContorller):
                                                ])
             return result
 
-    def flush(self, req, body=None):
-        """flush redis key storage"""
-        _cache_server = get_cache()
-        get_global().flush_all_agents()
-        if body.get('online', False):
-            glock = get_global().lock('all_agents')
-            with glock():
-                # clean host online key
-                keys = _cache_server.keys(targetutils.host_online_key('*'))
-                if keys:
-                    with _cache_server.pipeline() as pipe:
-                        pipe.multi()
-                        for key in keys:
-                            pipe.delete(key)
-                        pipe.execute()
-        return resultutils.results(result='Delete cache id success')
-
-    @Idformater
+    @BaseContorller.AgentIdformater
     def edit(self, req, agent_id, body):
         """call by agent"""
         # TODO  check data in body
@@ -316,7 +292,7 @@ class AgentReuest(contorller.BaseContorller):
         except InvalidInput as e:
             raise InvalidArgument(e.message)
         session = get_session(readonly=True)
-        _cache_server = get_redis()
+        cache_store = get_cache()
         query = model_query(session, Agent,
                             filter=(and_(Agent.status > manager_common.DELETED,
                                          Agent.agent_type == agent_type, Agent.host == host)))
@@ -334,21 +310,21 @@ class AgentReuest(contorller.BaseContorller):
             # lock.degrade([targetutils.AgentLock(agent.agent_id)])
             ret = {'agent_id': agent.agent_id}
             host_online_key = targetutils.host_online_key(agent.agent_id)
-            exist_host_ipaddr = _cache_server.get(host_online_key)
+            exist_host_ipaddr = cache_store.get(host_online_key)
             if exist_host_ipaddr is not None:
                 if exist_host_ipaddr != agent_ipaddr:
                     LOG.error('Host call online with %s, but %s alreday exist on redis' %
                               (agent_ipaddr, exist_host_ipaddr))
                     raise InvalidArgument('Host %s with ipaddr %s alreday eixst' % (host, exist_host_ipaddr))
                 # key exist, set new expire time
-                if not _cache_server.expire(host_online_key,
+                if not cache_store.expire(host_online_key,
                                             manager_common.ONLINE_EXIST_TIME):
-                    if not _cache_server.set(host_online_key, agent_ipaddr,
+                    if not cache_store.set(host_online_key, agent_ipaddr,
                                              ex=manager_common.ONLINE_EXIST_TIME, nx=True):
                         raise InvalidArgument('Another agent login with same '
                                               'host or someone set key %s' % host_online_key)
             else:
-                if not _cache_server.set(host_online_key, agent_ipaddr,
+                if not cache_store.set(host_online_key, agent_ipaddr,
                                          ex=manager_common.ONLINE_EXIST_TIME, nx=True):
                     raise InvalidArgument('Another agent login with same host or '
                                           'someone set key %s' % host_online_key)
@@ -356,7 +332,7 @@ class AgentReuest(contorller.BaseContorller):
         result['data'].append(ret)
         return result
 
-    @Idsformater
+    @BaseContorller.AgentsIdformater
     def status(self, req, agent_id, body):
         """get status from agent, not from database
         do not need Idsformater, check it in send_asyncrequest

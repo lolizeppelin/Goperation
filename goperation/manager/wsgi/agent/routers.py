@@ -16,13 +16,6 @@ class Routers(router.RoutersBase):
     def append_routers(self, mapper, routers=None):
         controller_intance = controller_return_response(controller.AgentReuest(),
                                                         controller.FAULT_MAP)
-        # agent report online
-        self._add_resource(mapper, controller_intance,
-                           path='/%s/online' % self.collection_name,
-                           put_action='online')
-        self._add_resource(mapper, controller_intance,
-                           path='/%s/flush' % self.collection_name,
-                           post_action='flush')
         collection = mapper.collection(collection_name=self.collection_name,
                                        resource_name=self.resource_name,
                                        controller=controller_intance,
@@ -37,18 +30,8 @@ class Routers(router.RoutersBase):
         collection.member.link('status', method='GET')
         # edit agent
         collection.member.link('edit', method='PATCH')
-        # delete recode of agent
+        # delete recode of deleted agent
         collection.member.link('clean', method='POST')
-        # send file to agent
-        # collection.member.link('file', name='send_file', action='send_file', method='PUT', formatted=True)
-        # get alloced ports
-        # collection.member.link('ports', name='get_ports', action='get_ports', method='GET')
-        # alloced  ports
-        # collection.member.link('ports', name='add_ports', action='add_ports', method='POST')
-        # release ports
-        # collection.member.link('ports', name='delete_ports', action='delete_ports', method='DELETE')
-        # add endpoint
-        # collection.member.link('endpoints', name='add_endpoints', action='add_endpoints', method='POST')
-        # delete endpoint
-        # collection.member.link('endpoints', name='delete_endpoints', action='delete_endpoints', method='DELETE')
+        # agent report system info
+        # collection.member.link('report', method='POST')
         return collection
