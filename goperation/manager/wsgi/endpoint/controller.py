@@ -20,6 +20,7 @@ from goperation.manager.api import get_global
 from goperation.manager.api import get_session
 from goperation.manager.models import AgentEndpoint
 from goperation.manager.models import AgentEntity
+from goperation.manager.models import AllocatedPort
 from goperation.manager.models import Agent
 
 from goperation.manager.wsgi.contorller import BaseContorller
@@ -54,19 +55,6 @@ class EndpointReuest(BaseContorller):
                                               ports=len(endpoint.ports))
                                          for endpoint in query.all()])
 
-    @BaseContorller.AgentsIdformater
-    def show(self, req, agent_id, endpoint, body):
-        """call buy client"""
-        session = get_session(readonly=True)
-        endpoints_filter = and_(AgentEndpoint.agent_id == agent_id,
-                                AgentEndpoint.endpoint == endpoint)
-        query = model_query(session, AgentEndpoint, filter=endpoints_filter)
-        return resultutils.results(result='show endpoint success',
-                                   data=[dict(endpoint=e.endpoint,
-                                              agent_id=e.agent_id,
-                                              entitys=[x.entitys for x in endpoint.entitys],
-                                              ports=[x.port for x in endpoint.ports]) for e in query.all()])
-
     @BaseContorller.AgentIdformater
     def create(self, req, agent_id, body):
         endpoints = utils.validate_endpoints(body.get('endpoints'))
@@ -79,6 +67,18 @@ class EndpointReuest(BaseContorller):
                     session.add(AgentEndpoint(agent_id=agent_id, endpoint=endpoint))
                     session.flush()
         return resultutils.results(result='add endpoints success')
+
+    @BaseContorller.AgentsIdformater
+    def show(self, req, agent_id, endpoint, body):
+        session = get_session(readonly=True)
+        endpoints_filter = and_(AgentEndpoint.agent_id == agent_id,
+                                AgentEndpoint.endpoint == endpoint)
+        query = model_query(session, AgentEndpoint, filter=endpoints_filter)
+        return resultutils.results(result='show endpoint success',
+                                   data=[dict(endpoint=e.endpoint,
+                                              agent_id=e.agent_id,
+                                              entitys=[x.entitys for x in endpoint.entitys],
+                                              ports=[x.port for x in endpoint.ports]) for e in query.all()])
 
     @BaseContorller.AgentIdformater
     def delete(self, req, agent_id, endpoint, body):
@@ -103,20 +103,6 @@ class EndpointReuest(BaseContorller):
                 if delete_count != len(endpoints):
                     LOG.warning('Delete %d endpoints, but expect count is %d' % (delete_count, need_to_delete))
         return resultutils.results(result='delete endpoints success')
-
-    def synopsis(self, req, endpoint, body):
-        endpoint = utils.validate_endpoint(endpoint)
-        session = get_session(readonly=True)
-        query = model_query(session, AgentEndpoint, filter=AgentEndpoint.endpoint == endpoint)
-        endpoint_detail = {}
-        for endpoint in query.all():
-            for entity in endpoint.entitys:
-                try:
-                    endpoint_detail[endpoint.agent_id].append(entity.entity)
-                except KeyError:
-                    endpoint_detail[endpoint.agent_id] = [entity.entity]
-        return resultutils.results(result='show endpoint success',
-                                   data=[endpoint_detail, ])
 
     def agents(self, req, endpoint, body):
         session = get_session(readonly=True)

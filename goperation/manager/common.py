@@ -17,6 +17,7 @@ DATABASE = 'database'
 ENTITY = 'entity'
 FILE = 'file'
 ENDPOINT = 'endpoint'
+PORT = 'port'
 
 # -----------status of agent--------------
 ACTIVE = 1

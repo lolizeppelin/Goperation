@@ -17,9 +17,6 @@ class Routers(router.RoutersBase):
         controller_intance = controller_return_response(controller.EndpointReuest(),
                                                         controller.FAULT_MAP)
         self._add_resource(mapper, controller_intance,
-                   path='/%s/{endpoint}/synopsis' % self.collection_name,
-                   get_action='synopsis')
-        self._add_resource(mapper, controller_intance,
                    path='/%s/{endpoint}/agents' % self.collection_name,
                    get_action='agents')
         collection = mapper.collection(collection_name=self.collection_name,
@@ -28,5 +25,6 @@ class Routers(router.RoutersBase):
                                        path_prefix='/%s/{agent_id}' % (manager_common.AGENT + 's'),
                                        member_prefix='/{endpoint}',
                                        collection_actions=COLLECTION_ACTIONS,
-                                       member_actions=MEMBER_ACTIONS)
+                                       member_actions=MEMBER_ACTIONS,
+                                       )
         return collection

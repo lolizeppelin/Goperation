@@ -10,20 +10,16 @@ MEMBER_ACTIONS = ['show', 'delete']
 
 class Routers(router.RoutersBase):
 
-    resource_name = manager_common.ENDPOINT
+    resource_name = manager_common.ENTITY
     collection_name = resource_name + 's'
 
     def append_routers(self, mapper, routers=None):
         controller_intance = controller_return_response(controller.EntityReuest(),
                                                         controller.FAULT_MAP)
-        self._add_resource(mapper, controller_intance,
-                   path='/%s/{endpoint}/synopsis' % self.collection_name,
-                   get_action='synopsis')
         collection = mapper.collection(collection_name=self.collection_name,
                                        resource_name=self.resource_name,
                                        controller=controller_intance,
-                                       path_prefix='/%s/{agent_id}/%s/{endpoint}' % (manager_common.AGENT + 's',
-                                                                                     manager_common.ENDPOINT + 's'),
+                                       path_prefix='/%s/{endpoint}' % (manager_common.ENDPOINT + 's'),
                                        member_prefix='/{entity}',
                                        collection_actions=COLLECTION_ACTIONS,
                                        member_actions=MEMBER_ACTIONS)

@@ -4,13 +4,13 @@ from simpleservice.wsgi.middleware import controller_return_response
 from goperation.manager.wsgi.endpoint import controller
 from goperation.manager import common as manager_common
 
-COLLECTION_ACTIONS = ['create']
+COLLECTION_ACTIONS = ['create', 'index']
 MEMBER_ACTIONS = ['show', 'delete']
 
 
 class Routers(router.RoutersBase):
 
-    resource_name = manager_common.ENDPOINT
+    resource_name = manager_common.PORT
     collection_name = resource_name + 's'
 
     def append_routers(self, mapper, routers=None):
@@ -19,7 +19,6 @@ class Routers(router.RoutersBase):
         collection = mapper.collection(collection_name=self.collection_name,
                                        resource_name=self.resource_name,
                                        controller=controller_intance,
-                                       # path_prefix='/%s/{agent_id}' % (manager_common.AGENT + 's'),
                                        path_prefix='/%s/{agent_id}/%s/{endpoint}/%s/{entity}' %
                                                    (manager_common.AGENT + 's',
                                                     manager_common.ENDPOINT + 's',

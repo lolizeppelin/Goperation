@@ -5,6 +5,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.orm.exc import MultipleResultsFound
 
 from simpleutil.utils import argutils
+from simpleutil.utils.attributes import validators
 from simpleutil.log import log as logging
 from simpleutil.common.exceptions import InvalidArgument
 
@@ -49,20 +50,27 @@ FAULT_MAP = {InvalidArgument: webob.exc.HTTPClientError,
 class EntityReuest(BaseContorller):
 
     @BaseContorller.AgentsIdformater
-    def index(self, req, agent_id, endpoint, body):
+    def index(self, req, endpoint, body):
+        agent_id = body.get('agent_id')
+        endpoint = utils.validate_endpoint(endpoint)
         session = get_session(readonly=True)
-        query = model_query(session, AgentEntity, filter=and_(AgentEntity.agent_id == agent_id,
-                                                              AgentEntity.endpoint == endpoint))
-        entitys = query.all()
-        return resultutils.results(result='list entity success',
-                                   data=[dict(entity=entity.entity,
-                                              ports=len(entity.ports)) for entity in entitys])
+        query = model_query(session, AgentEndpoint, filter=AgentEntity.endpoint == endpoint)
+        if agent_id:
+            query = query.filter(AgentEntity.agent_id == agent_id)
+        endpoint_detail = {}
+        for entity in query.all():
+            try:
+                endpoint_detail[entity.agent_id].append(entity.entity)
+            except KeyError:
+                endpoint_detail[entity.agent_id] = [entity.entity]
+        return resultutils.results(result='show endpoint entitys success',
+                                   data=[endpoint_detail, ])
+
 
     @BaseContorller.AgentsIdformater
-    def show(self, req, agent_id, endpoint, entity, body):
+    def show(self, req, endpoint, entity, body):
         session = get_session(readonly=True)
-        query = model_query(session, AgentEntity, filter=and_(AgentEntity.agent_id == agent_id,
-                                                              AgentEntity.endpoint == endpoint,
+        query = model_query(session, AgentEntity, filter=and_(AgentEntity.endpoint == endpoint,
                                                               AgentEntity.entity == entity))
         return resultutils.results(result='show entity success',
                                    data=[dict(endpoint=e.endpoint,
@@ -71,16 +79,19 @@ class EntityReuest(BaseContorller):
                                               ports=[x.port for x in entity.ports]) for e in query.all()])
 
     @BaseContorller.AgentIdformater
-    def create(self, req, agent_id, endpoint, body):
+    def create(self, req, endpoint, body):
+        agent_id = body.pop('agent_id')
+        entity_type = body.pop('entity_type')
         endpoint = utils.validate_endpoint(endpoint)
         ports = body.get('ports')
-        entity_type = body.get('entity_type')
+        if ports:
+            ports = argutils.map_with(ports, validators['type:port'])
         desc = body.get('desc')
         session = get_session()
         glock = get_global().lock('agents')
         elock = get_global().lock('endpoint')
-        with glock([agent_id, ]):
-            with elock(endpoint):
+        with elock(endpoint):
+            with glock([agent_id, ]):
                 with session.begin(subtransactions=True):
                     entity = AgentEntity(entity=model_autoincrement_id(session, AgentEntity.entity,
                                                                        filter=AgentEntity.endpoint == endpoint),
@@ -96,33 +107,20 @@ class EntityReuest(BaseContorller):
                                                                            port=ports or [])])
 
     @BaseContorller.AgentIdformater
-    def delete(self, req, agent_id, endpoint, entity, body):
+    def delete(self, req, endpoint, entity, body):
         endpoint = utils.validate_endpoint(endpoint)
         entitys = argutils.map_to_int(entity)
         session = get_session()
-        glock = get_global().lock('agents')
+        glock = get_global().lock('entitys')
         elock = get_global().lock('endpoint')
-        with glock([agent_id, ]):
+        with glock(entitys):
             with elock(endpoint):
                 with session.begin(subtransactions=True):
-                    query = model_query(session, AgentEntity, filter=and_(AgentEntity.agent_id == agent_id,
-                                                              AgentEntity.endpoint == endpoint,
-                                                              AgentEntity.entity.in_(entitys)))
+                    query = model_query(session, AgentEntity,
+                                        filter=and_(AgentEntity.endpoint == endpoint,
+                                                    AgentEntity.entity.in_(entitys)))
                     delete_count = query.delete()
                     need_to_delete = len(entitys)
                     if delete_count != len(entitys):
                         LOG.warning('Delete %d entitys, but expect count is %d' % (delete_count, need_to_delete))
         return resultutils.results(result='delete endpoints success')
-
-    def synopsis(self, req, endpoint, entity, body):
-        session = get_session(readonly=True)
-        query = model_query(session, AgentEndpoint, filter=AgentEndpoint.endpoint == endpoint)
-        endpoint_detail = {}
-        for endpoint in query.all():
-            for entity in endpoint.entitys:
-                try:
-                    endpoint_detail[endpoint.agent_id].append(entity.entity)
-                except KeyError:
-                    endpoint_detail[endpoint.agent_id] = [entity.entity]
-        return resultutils.results(result='show endpoint success',
-                                   data=[endpoint_detail, ])

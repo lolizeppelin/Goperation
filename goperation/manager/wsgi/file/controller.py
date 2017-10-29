@@ -91,8 +91,8 @@ class FileReuest(BaseContorller):
         ext = body.get('ext')
         if not ext:
             ext = address.split('.')[-1]
-        downfile = DownFile(md5 = body.get('md5'),
-                            crc32 = body.get('crc32'),
+        downfile = DownFile(md5=body.get('md5'),
+                            crc32=body.get('crc32'),
                             downloader=body.get('downloader', 'http'),
                             adapter_args=body.get('adapter_args'),
                             address=address,
@@ -102,7 +102,6 @@ class FileReuest(BaseContorller):
                             uploadtime=body.get('uploadtime', timeutils.utcnow())
                             )
         return resultutils.results(result='Add file success', data=[downfile.to_dict()])
-
 
     def delete(self, req, file_id, body):
         session = get_session()
@@ -122,7 +121,6 @@ class FileReuest(BaseContorller):
             return resultutils.results(result='Delete file success', data=[downfile.to_dict()])
         return resultutils.results(resultcode=manager_common.RESULT_ERROR,
                                    result='Delete file success')
-
 
     @BaseContorller.AgentsIdformater
     def send(self, req, agent_id, file_id, body):
