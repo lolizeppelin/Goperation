@@ -66,18 +66,6 @@ class EntityReuest(BaseContorller):
         return resultutils.results(result='show endpoint entitys success',
                                    data=[endpoint_detail, ])
 
-
-    @BaseContorller.AgentsIdformater
-    def show(self, req, endpoint, entity, body):
-        session = get_session(readonly=True)
-        query = model_query(session, AgentEntity, filter=and_(AgentEntity.endpoint == endpoint,
-                                                              AgentEntity.entity == entity))
-        return resultutils.results(result='show entity success',
-                                   data=[dict(endpoint=e.endpoint,
-                                              agent_id=e.agent_id,
-                                              entity=e.entity,
-                                              ports=[x.port for x in entity.ports]) for e in query.all()])
-
     @BaseContorller.AgentIdformater
     def create(self, req, endpoint, body):
         agent_id = body.pop('agent_id')
@@ -105,6 +93,17 @@ class EntityReuest(BaseContorller):
         return resultutils.results(result='add entity success', data=[dict(entity=entity, agent_id=agent_id,
                                                                            endpoint=endpoint, entity_type=entity_type,
                                                                            port=ports or [])])
+
+    @BaseContorller.AgentsIdformater
+    def show(self, req, endpoint, entity, body):
+        session = get_session(readonly=True)
+        query = model_query(session, AgentEntity, filter=and_(AgentEntity.endpoint == endpoint,
+                                                              AgentEntity.entity == entity))
+        return resultutils.results(result='show entity success',
+                                   data=[dict(endpoint=e.endpoint,
+                                              agent_id=e.agent_id,
+                                              entity=e.entity,
+                                              ports=[x.port for x in entity.ports]) for e in query.all()])
 
     @BaseContorller.AgentIdformater
     def delete(self, req, endpoint, entity, body):

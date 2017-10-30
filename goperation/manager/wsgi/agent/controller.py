@@ -364,3 +364,11 @@ class AgentReuest(BaseContorller):
         else:
             lock = functools.partial(glock.agents, agent_id)
         return self.send_asyncrequest(asyncrequest, target, rpc_method, rpc_args, lock)
+
+    @BaseContorller.AgentIdformater
+    def report(self, req, agent_id, body):
+        cache_store = get_cache()
+        if body.get('agent_ipaddr'):
+            agent_ipaddr = validators['type:ip_address'](body.pop('agent_ipaddr'))
+            BaseContorller.agent_ipaddr_cache_flush(cache_store, agent_id, agent_ipaddr)
+        pass

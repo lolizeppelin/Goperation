@@ -1,5 +1,8 @@
 import contextlib
 
+
+from redis.exceptions import WatchError
+
 from simpleutil.utils import timeutils
 from simpleutil.utils import argutils
 from simpleutil.utils import uuidutils
@@ -61,7 +64,6 @@ class BaseContorller(object):
             raise InvalidArgument('Just for one agent')
         return agent_id.pop()
 
-
     @staticmethod
     def request_id_check(request_id):
         if not uuidutils.is_uuid_like(request_id):
@@ -113,6 +115,35 @@ class BaseContorller(object):
                                    deadline=deadline,
                                    persist=persist)
         return new_request
+
+    @staticmethod
+    def agent_ipaddr_cache_flush(cache_store, agent_id, agent_ipaddr):
+        host_online_key = targetutils.host_online_key(agent_id)
+        with cache_store.pipeline() as pipe:
+            pipe.watch(host_online_key)
+            pipe.multi()
+            pipe.get(host_online_key)
+            pipe.ttl(host_online_key)
+            pipe.expire(host_online_key, manager_common.ONLINE_EXIST_TIME)
+            try:
+                results = pipe.execute()
+            except WatchError:
+                raise InvalidArgument('Host changed')
+        exist_agent_ipaddr, ttl, expire_result = results
+        if exist_agent_ipaddr is not None:
+            if exist_agent_ipaddr != agent_ipaddr:
+                LOG.error('Host call online with %s, but %s alreday exist with same key' %
+                          (agent_ipaddr, exist_agent_ipaddr))
+                if ttl > 2:
+                    if not cache_store.expire(host_online_key, ttl):
+                        LOG.error('Revet ttl of %s fail' % host_online_key)
+                raise InvalidArgument('Agent %d with ipaddr %s alreday eixst' % (agent_id, exist_agent_ipaddr))
+        else:
+            if not cache_store.set(host_online_key, agent_ipaddr,
+                                   ex=manager_common.ONLINE_EXIST_TIME, nx=True):
+                raise InvalidArgument('Another agent login with same host or '
+                                      'someone set key %s' % host_online_key)
+
 
     def send_asyncrequest(self, target, asyncrequest,
                           rpc_method, rpc_ctxt=None, rpc_args=None,

@@ -92,24 +92,7 @@ class CacheReuest(BaseContorller):
                        'host': host,
                        'agent_ipaddr': agent_ipaddr})
             ret = {'agent_id': agent.agent_id}
-            host_online_key = targetutils.host_online_key(agent.agent_id)
-            exist_host_ipaddr = cache_store.get(host_online_key)
-            if exist_host_ipaddr is not None:
-                if exist_host_ipaddr != agent_ipaddr:
-                    LOG.error('Host call online with %s, but %s alreday exist on redis' %
-                              (agent_ipaddr, exist_host_ipaddr))
-                    raise InvalidArgument('Host %s with ipaddr %s alreday eixst' % (host, exist_host_ipaddr))
-                if not cache_store.expire(host_online_key,
-                                          manager_common.ONLINE_EXIST_TIME):
-                    if not cache_store.set(host_online_key, agent_ipaddr,
-                                           ex=manager_common.ONLINE_EXIST_TIME, nx=True):
-                        raise InvalidArgument('Another agent login with same '
-                                              'host or someone set key %s' % host_online_key)
-            else:
-                if not cache_store.set(host_online_key, agent_ipaddr,
-                                       ex=manager_common.ONLINE_EXIST_TIME, nx=True):
-                    raise InvalidArgument('Another agent login with same host or '
-                                          'someone set key %s' % host_online_key)
+            BaseContorller.agent_ipaddr_cache_flush(cache_store, agent.agent_id, agent_ipaddr)
         result = resultutils.results(result='Online agent function run success')
         result['data'].append(ret)
         return result

@@ -33,5 +33,5 @@ class Routers(router.RoutersBase):
         # delete recode of deleted agent
         collection.member.link('clean', method='POST')
         # agent report system info
-        # collection.member.link('report', method='POST')
+        collection.member.link('report', method='POST')
         return collection
