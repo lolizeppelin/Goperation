@@ -20,3 +20,7 @@ class EndpointNotEmpty(Exception):
 
 class AgentHostExist(Exception):
     """Agent host dulcale"""
+
+
+class DeleteCountNotSame(Exception):
+    """delete count not eq"""
