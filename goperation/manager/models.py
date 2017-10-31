@@ -135,7 +135,7 @@ class AllocatedPort(PluginTableBase):
                        nullable=False)
     desc = sa.Column(VARCHAR(256), nullable=True, default=None)
     __table_args__ = (
-            sa.UniqueConstraint('entity', 'endpoint', 'port', name='unique_port'),
+            sa.UniqueConstraint('entity', 'endpoint', 'port', name='unique_entity_port'),
             sa.Index('ports_index', 'agent_id', 'endpoint', 'entity'),
             InnoDBTableBase.__table_args__
     )
