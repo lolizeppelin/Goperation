@@ -29,9 +29,9 @@ class AuthFilter(FilterBase):
             LOG.debug('AuthFilter skip check url auth')
         else:
             LOG.info('AuthFilter check auth')
-            msg = 'Request Failed: HTTPUnauthorized, Please POST /auth login first'
-            body = default_serializer({'msg': msg})
-            kwargs = {'body': body, 'content_type': DEFAULT_CONTENT_TYPE}
+            # msg = 'Request Failed: HTTPUnauthorized, Please POST /auth login first'
+            # body = default_serializer({'msg': msg})
+            # kwargs = {'body': body, 'content_type': DEFAULT_CONTENT_TYPE}
             # return webob.exc.HTTPUnauthorized(**kwargs)
 
 

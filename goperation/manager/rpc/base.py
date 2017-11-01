@@ -12,6 +12,7 @@ from goperation import threadpool
 from goperation.filemanager import FileManager
 from goperation.manager import common as manager_common
 from goperation.manager import config as manager_config
+from goperation.manager.rpc import config as rpc_config
 
 CONF = cfg.CONF
 
@@ -26,7 +27,7 @@ class RpcManagerBase(ManagerBase):
         self.work_path = CONF.work_path
         self.local_ip = CONF.local_ip
         self.external_ips = CONF.external_ips
-        self.filemanager = FileManager(conf=CONF[manager_config.filemanager_group.name],
+        self.filemanager = FileManager(conf=CONF[rpc_config.filemanager_group.name],
                                        rootpath=self.work_path,
                                        threadpool=threadpool)
         self.work_lock = PriorityLock()

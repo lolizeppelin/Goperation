@@ -9,6 +9,7 @@ from simpleutil.utils import uuidutils
 from simpleutil.log import log as logging
 from simpleutil.common.exceptions import InvalidArgument
 
+from simpleservice.wsgi.middleware import MiddlewareContorller
 from simpleservice.ormdb.exceptions import DBDuplicateEntry
 from simpleservice.rpc.exceptions import AMQPDestinationNotFound
 from simpleservice.rpc.exceptions import MessagingTimeout
@@ -35,7 +36,7 @@ def empty_lock():
     yield
 
 
-class BaseContorller(object):
+class BaseContorller(MiddlewareContorller):
 
     AgentIdformater = argutils.Idformater(key='agent_id', formatfunc='agent_id_check')
     AgentsIdformater = argutils.Idformater(key='agent_id', formatfunc='agents_id_check')

@@ -8,6 +8,7 @@ from sqlalchemy.orm.exc import MultipleResultsFound
 from simpleutil.common.exceptions import InvalidArgument
 from simpleutil.common.exceptions import InvalidInput
 from simpleutil.log import log as logging
+from simpleutil.utils import jsonutils
 from simpleutil.utils import timeutils
 from simpleutil.utils.attributes import validators
 
@@ -29,6 +30,7 @@ from goperation.manager.models import Agent
 from goperation.manager.models import AgentEndpoint
 from goperation.manager.models import AgentEntity
 from goperation.manager.exceptions import CacheStoneError
+from goperation.manager.exceptions import AgentHostExist
 from goperation.manager.exceptions import EndpointNotEmpty
 from goperation.manager.wsgi.contorller import BaseContorller
 from goperation.manager.wsgi.exceptions import RpcPrepareError
@@ -50,8 +52,9 @@ FAULT_MAP = {InvalidArgument: webob.exc.HTTPClientError,
 
 class AgentReuest(BaseContorller):
 
-    def index(self, req, body):
+    def index(self, req, body=None):
         """call buy client"""
+        body = body or {}
         filter_list = []
         session = get_session(readonly=True)
         agent_type = body.pop('agent_type', None)
@@ -75,7 +78,7 @@ class AgentReuest(BaseContorller):
                                                      Agent.cpu,
                                                      Agent.memory,
                                                      Agent.disk,
-                                                     Agent.entity,
+                                                     # Agent.entitys,
                                                      Agent.endpoints,
                                                      Agent.create_time],
                                             counter=Agent.agent_id,
@@ -84,7 +87,8 @@ class AgentReuest(BaseContorller):
         return ret_dict
 
     @BaseContorller.AgentIdformater
-    def show(self, req, agent_id, body):
+    def show(self, req, agent_id, body=None):
+        body = body or {}
         ports = body.get('ports', False)
         entitys = body.get('entitys', False)
         session = get_session(readonly=True)
@@ -92,7 +96,7 @@ class AgentReuest(BaseContorller):
         agent = query.filter_by(agent_id=agent_id).one()
         endpoints = {}
         for endpoint in agent.endpoints:
-            endpoints[endpoint] = {}
+            endpoints[endpoint.endpoint] = {}
         result = resultutils.results(total=1, pagenum=0, result='Show agent success')
         if entitys:
             for entity in agent.entitys:
@@ -107,54 +111,37 @@ class AgentReuest(BaseContorller):
                 except KeyError:
                      endpoints[port.endpoint] = {'ports': [port.port]}
         result_data = dict(agent_id=agent.agent_id, host=agent.host,
-                           status=agent.status, ports_range=agent.ports_range, endpoints=endpoints)
+                           status=agent.status,
+                           ports_range=jsonutils.loads_as_bytes(agent.ports_range),
+                           endpoints=endpoints)
         result['data'].append(result_data)
         return result
 
-    def create(self, req, body):
+    def create(self, req, body=None):
         """call by agent in the normal case"""
-        new_agent = Agent()
-        try:
-            new_agent.host = validators['type:hostname'](body.pop('host'))
-            new_agent.agent_type = body.pop('agent_type', None)
-            if new_agent.agent_type is None or len(new_agent.agent_type) > 64:
-                raise ValueError('Agent type info over size')
-            new_agent.ports_range = body.pop('ports_range')
-            new_agent.memory = int(body.pop('memory'))
-            new_agent.cpu = int(body.pop('cpu'))
-            new_agent.disk = int(body.pop('disk'))
-            endpoints = utils.validate_endpoints(body.pop('endpoints', []))
-        except KeyError as e:
-            raise InvalidArgument('Can not find argument: %s' % e.message)
-        except ValueError as e:
-            raise InvalidArgument('Argument value type error: %s' % e.message)
-        new_agent.create_time = timeutils.realnow()
-        if endpoints:
-            endpoints_list = []
-            for endpoint in endpoints:
-                endpoints_list.append(AgentEndpoint(endpoint=endpoint))
-            new_agent.endpoints = endpoints_list
+        body = body or {}
         global_data = get_global()
         try:
-            global_data.add_agent(new_agent)
-        except:
+            agent = global_data.add_agent(body)
+        except (CacheStoneError, AgentHostExist) as e:
             result = resultutils.results(resultcode=manager_common.RESULT_ERROR,
-                                         result='Create agent fail, host all ready exist with other id')
+                                         result='Create agent fail,%s:%s' % (e.__class__.__name__, e.message))
             return result
         result = resultutils.results(total=1, pagenum=0, result='Create agent success',
-                                     data=[dict(agent_id=new_agent.agent_id,
-                                                host=new_agent.host,
-                                                status=new_agent.status,
-                                                ports_range=new_agent.ports_range,
-                                                endpoints=endpoints)
+                                     data=[dict(agent_id=agent.agent_id,
+                                                host=agent.host,
+                                                status=agent.status,
+                                                ports_range=agent.ports_range,
+                                                endpoints=[endpoint.endpoint for endpoint in agent.endpoints])
                                            ])
         return result
 
     @BaseContorller.AgentIdformater
-    def delete(self, req, agent_id, body):
+    def delete(self, req, agent_id, body=None):
         """call buy agent"""
         # if force is true
         # will not notify agent, just delete agent from database
+        body = body or {}
         force = body.get('force', False)
         cache_store = get_cache()
         rpc = get_client()
@@ -198,13 +185,17 @@ class AgentReuest(BaseContorller):
                                            ])
         return result
 
-    def clean(self, req, agent_id, body):
+    @BaseContorller.AgentsIdformater
+    def update(self, req, agent_id, body):
+        raise NotImplementedError
+
+    def clean(self, req, agent_id):
         session = get_session()
         query = model_query(session, Agent,
                             filter=and_(Agent.agent_id == agent_id,
                                         Agent.status <= manager_common.DELETED))
         entity_query = model_query(session, AgentEntity.entity, filter=Agent.agent_id == agent_id)
-        with session.begin(subtransactions=True):
+        with session.begin():
             entitys = entity_query.all()
             if entitys:
                 for entity in entitys:
@@ -215,13 +206,10 @@ class AgentReuest(BaseContorller):
             LOG.info('Clean deleted agent %d, agent_id %s' % (count, agent_id))
             return resultutils.results(result='Clean deleted agent success')
 
-    @BaseContorller.AgentsIdformater
-    def update(self, req, agent_id, body):
-        raise NotImplementedError
-
     @BaseContorller.AgentIdformater
-    def active(self, req, agent_id, body):
+    def active(self, req, agent_id, body=None):
         """call buy client"""
+        body = body or {}
         status = body.get('status', manager_common.ACTIVE)
         if status not in (manager_common.ACTIVE, manager_common.UNACTIVE):
             raise InvalidArgument('Argument status not right')
@@ -237,7 +225,7 @@ class AgentReuest(BaseContorller):
         agent_ipaddr = cache_store.get(host_online_key)
         if agent_ipaddr is None:
             raise RpcPrepareError('Can not active or unactive a offline agent: %d' % agent_id)
-        with session.begin(subtransactions=True):
+        with session.begin():
             agent.update({'status': status})
             active_agent = rpc.call(targetutils.target_agent(agent),
                                     ctxt={'finishtime': rpcfinishtime()},
@@ -259,9 +247,10 @@ class AgentReuest(BaseContorller):
             return result
 
     @BaseContorller.AgentIdformater
-    def edit(self, req, agent_id, body):
+    def edit(self, req, agent_id, body=None):
         """call by agent"""
         # TODO  check data in body
+        body = body or {}
         session = get_session()
         glock = get_global().lock('agents')
         with glock([agent_id, ]) as agents:
@@ -269,18 +258,19 @@ class AgentReuest(BaseContorller):
             data = body
             if not data:
                 raise InvalidInput('Not data exist')
-            with session.begin(subtransactions=True):
+            with session.begin():
                 agent.update(data)
             result = resultutils.results(pagenum=0,
                                          result='Update agent success',
                                          data=[body, ])
             return result
 
-    def online(self, req, body):
+    def online(self, req, body=None):
         """call buy agent
         when a agent start, it will call online to show it's ipaddr
         and get agent_id from gcenter
         """
+        body = body or {}
         try:
             host = validators['type:hostname'](body.pop('host'))
             agent_type = body.pop('agent_type', 'nonetype')
@@ -333,21 +323,23 @@ class AgentReuest(BaseContorller):
         return result
 
     @BaseContorller.AgentsIdformater
-    def status(self, req, agent_id, body):
+    def status(self, req, agent_id, body=None):
         """get status from agent, not from database
         do not need Idsformater, check it in send_asyncrequest
         """
+        body = body or {}
         target = targetutils.target_all(fanout=True)
         rpc_method = 'status_agent'
         rpc_ctxt = {'agents': agent_id}
         rpc_args = body
         return self.send_asyncrequest(body, target, rpc_method, rpc_ctxt, rpc_args)
 
-    def upgrade(self, req, agent_id, body):
+    def upgrade(self, req, agent_id, body=None):
         """call by client, and asyncrequest
         do not need Idsformater, check it in send_asyncrequest
         send rpm file to upgrade code of agent
         """
+        body = body or {}
         md5 = body.pop('md5', None)
         crc32 = body.pop('crc32', None)
         uuid = body.pop('uuid', None)
@@ -366,7 +358,8 @@ class AgentReuest(BaseContorller):
         return self.send_asyncrequest(asyncrequest, target, rpc_method, rpc_args, lock)
 
     @BaseContorller.AgentIdformater
-    def report(self, req, agent_id, body):
+    def report(self, req, agent_id, body=None):
+        body = body or {}
         cache_store = get_cache()
         if body.get('agent_ipaddr'):
             agent_ipaddr = validators['type:ip_address'](body.pop('agent_ipaddr'))

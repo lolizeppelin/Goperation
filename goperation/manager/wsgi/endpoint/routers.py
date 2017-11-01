@@ -19,6 +19,9 @@ class Routers(router.RoutersBase):
         self._add_resource(mapper, controller_intance,
                    path='/%s/{endpoint}/agents' % self.collection_name,
                    get_action='agents')
+        self._add_resource(mapper, controller_intance,
+                   path='/%s/{endpoint}/entitys' % self.collection_name,
+                   get_action='entitys')
         collection = mapper.collection(collection_name=self.collection_name,
                                        resource_name=self.resource_name,
                                        controller=controller_intance,

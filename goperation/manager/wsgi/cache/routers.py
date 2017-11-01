@@ -3,9 +3,6 @@ from simpleservice.wsgi.middleware import controller_return_response
 
 from goperation.manager.wsgi.cache import controller
 
-COLLECTION_ACTIONS = ['create', 'index']
-MEMBER_ACTIONS = ['show', 'delete']
-
 
 class Routers(router.RoutersBase):
 

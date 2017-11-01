@@ -45,8 +45,7 @@ def get_session(readonly=False):
         init_mysql_session()
     return DbDriver.get_session(read=readonly,
                                 autocommit=True,
-                                expire_on_commit=False,
-                                use_slave=False)
+                                expire_on_commit=False)
 
 
 def init_server_id():
@@ -55,11 +54,19 @@ def init_server_id():
         with lock.get('sid'):
             if SERVER_ID is None:
                 session = get_session()
-                with session.begin():
-                    query = model_query(session, GkeyMap, filter={'host': CONF.host})
+                # result = session.query(GkeyMap).filter(GkeyMap.host ==  CONF.host).with_for_update().one_or_none()
+                # if not result:
+                #     session.query(GkeyMap).filter(GkeyMap.host ==  None).update(dict(host=CONF.host),
+                #                                                                 update_args={'mysql_limit': 1})
+                #     session.commit()
+                # else:
+                #     session.commit()
+                #     return result.sid
+                with session.begin(subtransactions=True):
+                    query = model_query(session, GkeyMap, filter=GkeyMap.host == CONF.host)
                     result = query.one_or_none()
                     if not result:
-                        upquery = model_query(session, GkeyMap, filter={'host': None})
+                        upquery = model_query(session, GkeyMap, filter=GkeyMap.host == None)
                         upquery.update(dict(host=CONF.host),
                                        update_args={'mysql_limit': 1})
                         result = query.one()

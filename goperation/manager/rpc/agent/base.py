@@ -63,8 +63,7 @@ class RpcAgentManager(RpcManagerBase):
         self._agent_id = None
         # port and port and disk space info
         conf = CONF[manager_common.AGENT]
-        self.ports_range = validators['type:ports_range_list'](conf.ports_range) \
-            if conf.ports_range else []
+        self.ports_range = conf.ports_range if conf.ports_range else []
         self.client = AgentManagerClient(host=CONF.host, local_ip=self.local_ip,
                                          agent_type=self.agent_type,
                                          wsgi_url=CONF[manager_common.AGENT].gcenter,

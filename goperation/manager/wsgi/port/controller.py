@@ -34,9 +34,9 @@ FAULT_MAP = {InvalidArgument: webob.exc.HTTPClientError,
              }
 
 
-class EndpointReuest(BaseContorller):
+class PortReuest(BaseContorller):
 
-    def index(self, req, agent_id, endpoint, entity, body):
+    def index(self, req, agent_id, endpoint, entity):
         session = get_session(readonly=True)
         query = model_query(session, AllocatedPort, filter=and_(AllocatedPort.agent_id == agent_id,
                                                                 AllocatedPort.endpoint == endpoint,
@@ -47,31 +47,20 @@ class EndpointReuest(BaseContorller):
 
     @BaseContorller.AgentIdformater
     def create(self, req, agent_id, endpoint, entity, body):
+        body = body or {}
         ports = argutils.map_with(body.get('ports'), validators['type:port'])
         session = get_session()
         glock = get_global().lock('agents')
         with glock([agent_id, ]):
-            with session.begin(subtransactions=True):
+            with session.begin():
                 for port in ports:
                     session.add(AllocatedPort(agent_id=agent_id, port=port, endpoint=endpoint, entity=entity))
                     session.flush()
         return resultutils.results(result='edit ports success')
 
     @BaseContorller.AgentIdformater
-    def show(self, req, agent_id, endpoint, entity, ports, body):
-        """show ports info"""
-        ports = argutils.map_with(ports, validators['type:port'])
-        session = get_session(readonly=True)
-        query = model_query(session, AllocatedPort, filter=and_(AllocatedPort.agent_id == agent_id,
-                                                                AllocatedPort.endpoint == endpoint,
-                                                                AllocatedPort.entity == entity,
-                                                                AllocatedPort.port.in_(ports)
-                                                                ))
-        return resultutils.results(result='show ports success', data=[dict(port=p.port, desc=p.desc,
-                                                                           ) for p in query.all()])
-
-    @BaseContorller.AgentIdformater
-    def delete(self, req, agent_id, endpoint, entity, ports, body):
+    def delete(self, req, agent_id, endpoint, entity, ports, body=None):
+        body = body or {}
         ports = argutils.map_with(ports, validators['type:port'])
         strict = body.get('strict', True)
         if not ports:

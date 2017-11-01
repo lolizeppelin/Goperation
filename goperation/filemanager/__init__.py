@@ -5,6 +5,7 @@ import time
 from eventlet import event
 from eventlet.semaphore import Semaphore
 
+from simpleutil.utils import jsonutils
 from simpleutil.utils import uuidutils
 from simpleutil.utils import digestutils
 from simpleutil.utils.singleton import singleton
@@ -57,14 +58,19 @@ class FileManager(object):
         'required': ['address', 'ext', 'size', 'uploadtime', 'marks']
     }
 
-    def __init__(self, conf, rootpath, threadpool):
+    def __init__(self, conf, rootpath, threadpool, httpdict=None):
         self.threadpool = threadpool
         self.path = os.path.join(rootpath, conf.folder)
-        client = HttpClientBase(url=conf.files_api_address, port=conf.files_api_port,
-                                version=None, retries=conf.retrys, timeout=conf.timeout,
-                                validator=FileManager.SCHEMA)
-        self.httpdict = lambda x: client.get(action=conf.files_api_path + '/' + x,
-                                             params={'random': int(time.time())})[1]
+        if not httpdict:
+            client = HttpClientBase(url=conf.files_api_address, port=conf.files_api_port,
+                                    version=None, retries=conf.retrys, timeout=conf.timeout)
+            def get(file_id):
+                result = client.get(action=conf.files_api_path + '/' + file_id,
+                                    params={'random': int(time.time())})[1]
+                jsonutils.schema_validate(result, FileManager.SCHEMA)
+            self.httpdict = get
+        else:
+            self.httpdict = httpdict
         self.localfiles = {}
         self.downloading = {}
         self.lock = Semaphore()

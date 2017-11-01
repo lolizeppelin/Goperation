@@ -43,8 +43,8 @@ FAULT_MAP = {InvalidArgument: webob.exc.HTTPClientError,
 
 class CacheReuest(BaseContorller):
 
-    def flush(self, req, host, body=None):
-        """flush redis key storage"""
+    def flush(self, req, body=None):
+        """flush cached key"""
         cache_store = get_cache()
         get_global().flush_all_agents()
         if body.get('online', False):
@@ -62,12 +62,11 @@ class CacheReuest(BaseContorller):
 
     def online(self, req, host, body):
         """call buy agent
-        when a agent start, it will call online to show it's ipaddr
-        and get agent_id from gcenter
+        when a agent start, it will cache agent ipaddr
         """
         try:
             host = validators['type:hostname'](host)
-            agent_type = body.pop('agent_type', 'nonetype')
+            agent_type = body.pop('agent_type')
             agent_ipaddr = validators['type:ip_address'](body.pop('agent_ipaddr'))
         except KeyError as e:
             raise InvalidArgument('Can not find argument: %s' % e.message)
@@ -82,10 +81,10 @@ class CacheReuest(BaseContorller):
                                          Agent.agent_type == agent_type, Agent.host == host)))
         agent = query.one_or_none()
         if not agent:
-            LOG.info('Online called but no Agent found')
+            LOG.info('Cache online called but no Agent found')
             ret = {'agent_id': None}
         else:
-            LOG.debug('Agent online called. agent_id:%(agent_id)s, type:%(agent_type)s, '
+            LOG.debug('Cache online called. agent_id:%(agent_id)s, type:%(agent_type)s, '
                       'host:%(host)s, ipaddr:%(agent_ipaddr)s' %
                       {'agent_id': agent.agent_id,
                        'agent_type': agent_type,
@@ -93,6 +92,6 @@ class CacheReuest(BaseContorller):
                        'agent_ipaddr': agent_ipaddr})
             ret = {'agent_id': agent.agent_id}
             BaseContorller.agent_ipaddr_cache_flush(cache_store, agent.agent_id, agent_ipaddr)
-        result = resultutils.results(result='Online agent function run success')
+        result = resultutils.results(result='Cache online function run success')
         result['data'].append(ret)
         return result

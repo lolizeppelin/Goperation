@@ -20,7 +20,7 @@ class Routers(router.RoutersBase):
         self._add_resource(mapper, controller_intance,
                            path='/%s/{agent_id}/%s' % (manager_common.AGENT + 's',
                                                        self.collection_name),
-                           get_action='list')
+                           post_action='list')
         # send file to agent
         self._add_resource(mapper, controller_intance,
                            path='/%s/{agent_id}/%s/{file_id}' % (manager_common.AGENT + 's',

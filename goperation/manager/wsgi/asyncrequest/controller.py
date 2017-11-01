@@ -163,8 +163,8 @@ class AsyncWorkRequest(contorller.BaseContorller):
             try:
                 respone = AgentRespone(**data)
                 session.add(respone)
-                # session.flush()
-                session.commit()
+                session.flush()
+                # session.commit()
             except DBDuplicateEntry:
                 LOG.warning('Agent %d respone %s get DBDuplicateEntry error' % (agent_id, request_id))
                 query = model_query(session, AgentRespone,

@@ -10,8 +10,8 @@ from goperation.manager.wsgi.asyncrequest import routers as asyncrequest_routes
 from goperation.manager.wsgi.agent.scheduler import routers as scheduler_routes
 from goperation.manager.wsgi.agent.application import routers as application_routes
 
-CORE_ROUTES.extend([asyncrequest_routes, agent_routes,
-                    port_routes, endpoint_routes, entity_routes,
-                    scheduler_routes, application_routes, cache_routes])
+CORE_ROUTES.extend([port_routes, entity_routes, endpoint_routes, agent_routes,
+                    scheduler_routes, application_routes, asyncrequest_routes,
+                    cache_routes])
 
 EXTEND_ROUTES.extend([file_routes, ])
