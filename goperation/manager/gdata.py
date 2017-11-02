@@ -16,22 +16,14 @@ from simpleutil.utils.attributes import validators
 from simpleutil.log import log as logging
 from simpleutil.common.exceptions import InvalidArgument
 
-from simpleservice.plugin.models import GkeyMap
 from simpleservice.ormdb.api import model_query
 from simpleservice.ormdb.api import model_count_with_key
 from simpleservice.ormdb.api import model_autoincrement_id
-from simpleservice.ormdb.api import MysqlDriver
-from simpleservice.plugin.rpcclient import RPCClientBase
-from simpleservice.rpc.config import rpc_client_opts
 
-from goperation import lock
-
-from goperation.redis import GRedisPool
 from goperation.manager import utils
 from goperation.manager import exceptions
 from goperation.manager import common as manager_common
 from goperation.manager.config import manager_group
-from goperation.manager.config import manager_rabbit_group
 from goperation.manager.models import Agent
 from goperation.manager.models import AgentEndpoint
 from goperation.manager.models import AgentEntity
