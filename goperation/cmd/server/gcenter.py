@@ -60,6 +60,7 @@ def run(config_files):
     app = load_paste_app(name, paste_config)
     wrappers = []
     wsgi_service = LauncheWsgiServiceBase(name, app, plugin_threadpool=threadpool)
-    wsgi_wrapper = LaunchWrapper(service=wsgi_service, workers=CONF[name].wsgi_process)
+    wsgi_wrapper = LaunchWrapper(service=wsgi_service,
+                                 workers=wsgi_service.conf.wsgi_process)
     wrappers.append(wsgi_wrapper)
     launch(wrappers, CONF[name].user, CONF[name].group)
