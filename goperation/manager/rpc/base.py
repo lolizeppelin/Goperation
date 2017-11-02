@@ -19,9 +19,9 @@ CONF = cfg.CONF
 
 class RpcManagerBase(ManagerBase):
 
-    def __init__(self, target):
+    def __init__(self, target, fget):
         super(RpcManagerBase, self).__init__(target=target)
-        CONF.register_opts(rpc_service_opts, manager_config.manager_rabbit_group)
+        CONF.register_opts(rpc_service_opts, manager_config.manager_group)
         self.status = manager_common.INITIALIZING
         self.rpcservice = None
         self.work_path = CONF.work_path
@@ -29,7 +29,7 @@ class RpcManagerBase(ManagerBase):
         self.external_ips = CONF.external_ips
         self.filemanager = FileManager(conf=CONF[rpc_config.filemanager_group.name],
                                        rootpath=self.work_path,
-                                       threadpool=threadpool)
+                                       threadpool=threadpool, fget=fget)
         self.work_lock = PriorityLock()
         self.endpoint_lock = Semaphores()
         self.work_lock.set_defalut_priority(priority=5)
