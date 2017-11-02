@@ -282,7 +282,7 @@ class GlobalData(object):
             query = model_query(session, Agent,
                                 filter=and_(Agent.agent_id == agent.agent_id,
                                             Agent.status > manager_common.DELETED))
-            with session.begin(subtransactions=True):
+            with session.begin():
                 # Mark agent deleted
                 query.update({'status': manager_common.DELETED})
                 # Delete endpoint of agent
