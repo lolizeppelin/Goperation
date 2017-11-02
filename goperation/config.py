@@ -12,10 +12,6 @@ goperation_opts = [
                  default=[],
                  item_type=cfg.types.MultiImportString(),
                  help='The endpoints class'),
-    cfg.StrOpt('trusted',
-               default='goperation-trusted-user',
-               help='Trusted token, means a unlimit user'
-               ),
     cfg.IPOpt('local_ip',
               version=4,
               help='Goperation local ip address'),
