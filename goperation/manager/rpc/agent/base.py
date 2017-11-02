@@ -1,18 +1,17 @@
 import six
 import random
-from requests import Session
-from requests import adapters
+import psutil
 
 from simpleutil.config import cfg
 from simpleutil.utils import jsonutils
-from simpleutil.utils.attributes import validators
 
 from simpleservice.loopingcall import IntervalLoopinTask
 from simpleservice.rpc.result import BaseRpcResult
 
 from goperation import threadpool
 from goperation.utils import suicide
-from goperation.api.client import AgentManagerClient
+from goperation.api.client import HttpClientApi
+from goperation.manager.api import get_http
 from goperation.manager import common as manager_common
 from goperation.manager.utils import validate_endpoint
 from goperation.manager.targetutils import target_server
@@ -29,9 +28,44 @@ LOG = None
 CONF.register_opts(rpc_agent_opts, agent_group)
 
 
-_Session = Session()
-_Session.mount('http://', adapters.HTTPAdapter(pool_connections=1,
-                                               pool_maxsize=CONF[manager_common.AGENT].http_pconn_count))
+class AgentManagerClient(HttpClientApi):
+
+    def __init__(self, httpclient, **kwargs):
+        self.agent_id = None
+        self.agent_type = kwargs.pop('agent_type')
+        self.local_ip = kwargs.pop('local_ip')
+        self.host = kwargs.pop('host')
+        super(AgentManagerClient, self).__init__(httpclient)
+
+    def agent_init_self(self,  manager):
+        agent_id = self.cache_online(self.host, self.local_ip, self.agent_type)['data'][0]['agent_id']
+        if agent_id is None:
+            self.agent_create_self(manager)
+        else:
+            if self.agent_id is not None:
+                if self.agent_id != agent_id:
+                    raise RuntimeError('Agent init find agent_id changed!')
+                LOG.warning('Do not call agent_init_self more then once')
+            self.agent_id = agent_id
+            manager.agent_id = agent_id
+
+    def agent_create_self(self, manager):
+        """agent notify gcenter add agent"""
+        if self.agent_id:
+            raise RuntimeError('AgentManagerClient has agent_id')
+        body = dict(host=self.host,
+                    agent_type=self.agent_type,
+                    cpu=psutil.cpu_count(),
+                    # memory available MB
+                    memory=psutil.virtual_memory().available/(1024*1024),
+                    disk=manager.partion_left_size,
+                    ports_range=jsonutils.dumps_as_bytes(manager.ports_range),
+                    endpoints=[endpoint.namespace for endpoint in manager.endpoints],
+                    )
+        results = self.agent_create(body)
+        agent_id = results['data'][0]['agent_id']
+        self.agent_id = agent_id
+        manager.agent_id = agent_id
 
 
 class OnlinTaskReporter(IntervalLoopinTask):
@@ -58,17 +92,16 @@ class OnlinTaskReporter(IntervalLoopinTask):
 class RpcAgentManager(RpcManagerBase):
 
     def __init__(self):
-        super(RpcAgentManager, self).__init__(target=target_server(self.agent_type, CONF.host, fanout=True))
+        # init httpclient
+        self.client = AgentManagerClient(httpclient=get_http(),
+                                         host=CONF.host, local_ip=self.local_ip, agent_type=self.agent_type)
+        super(RpcAgentManager, self).__init__(target=target_server(self.agent_type, CONF.host, fanout=True),
+                                              fget=lambda x: self.client.file_show(x)['data'][0])
         # agent id
         self._agent_id = None
         # port and port and disk space info
         conf = CONF[manager_common.AGENT]
         self.ports_range = conf.ports_range if conf.ports_range else []
-        self.client = AgentManagerClient(host=CONF.host, local_ip=self.local_ip,
-                                         agent_type=self.agent_type,
-                                         wsgi_url=CONF[manager_common.AGENT].gcenter,
-                                         wsgi_port=CONF[manager_common.AGENT].gcenter_port,
-                                         token=CONF.trusted, session=_Session)
         # key: port, value endpoint name
         self.allocked_ports = {}
         # left ports
