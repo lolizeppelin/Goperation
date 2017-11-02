@@ -1,13 +1,7 @@
 # -*- coding: UTF-8 -*-
-import socket
-import sys
-from eventlet import hubs
-
 from redis.connection import Connection
 from redis.connection import ConnectionPool
-
 from redis.exceptions import ConnectionError
-from redis.exceptions import RedisError
 
 from simpleutil.log import log as logging
 
@@ -16,8 +10,6 @@ from simpleutil.utils.timeutils import monotonic
 
 
 LOG = logging.getLogger(__name__)
-
-hub = hubs.get_hub()
 
 
 class ConnectionEx(Connection):
