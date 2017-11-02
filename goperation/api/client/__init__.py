@@ -389,41 +389,14 @@ class ManagerClient(HttpClientBase):
         return results
 
 
-class AgentManagerClient(ManagerClient):
+class HttpClientApi(object):
 
-    def __init__(self, wsgi_url, wsgi_port, **kwargs):
-        super(AgentManagerClient, self).__init__(wsgi_url, wsgi_port, **kwargs)
-        self.agent_id = None
-        self.agent_type = kwargs.pop('agent_type')
-        self.local_ip = kwargs.pop('local_ip')
-        self.host = kwargs.pop('host')
+    def __init__(self, httpclient):
+        if not isinstance(httpclient, ManagerClient):
+            raise TypeError('httpclient must class of ManagerClient')
+        self.httpclient = httpclient
 
-    def agent_init_self(self,  manager):
-        agent_id = self.cache_online(self.host, self.local_ip, self.agent_type)['data'][0]['agent_id']
-        if agent_id is None:
-            self.agent_create_self(manager)
-        else:
-            if self.agent_id is not None:
-                if self.agent_id != agent_id:
-                    raise RuntimeError('Agent init find agent_id changed!')
-                LOG.warning('Do not call agent_init_self more then once')
-            self.agent_id = agent_id
-            manager.agent_id = agent_id
-
-    def agent_create_self(self, manager):
-        """agent notify gcenter add agent"""
-        if self.agent_id:
-            raise RuntimeError('AgentManagerClient has agent_id')
-        body = dict(host=self.host,
-                    agent_type=self.agent_type,
-                    cpu=psutil.cpu_count(),
-                    # memory available MB
-                    memory=psutil.virtual_memory().available/(1024*1024),
-                    disk=manager.partion_left_size,
-                    ports_range=jsonutils.dumps_as_bytes(manager.ports_range),
-                    endpoints=[endpoint.namespace for endpoint in manager.endpoints],
-                    )
-        results = self.agent_create(body)
-        agent_id = results['data'][0]['agent_id']
-        self.agent_id = agent_id
-        manager.agent_id = agent_id
+    def __getattr__(self, attrib):
+        if not hasattr(self.httpclient, attrib):
+            raise AttributeError('%s has no attrib %s' % (self.__class__.__name__, attrib))
+        return getattr(self.httpclient, attrib)
