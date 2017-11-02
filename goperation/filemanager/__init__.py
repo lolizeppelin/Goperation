@@ -1,19 +1,17 @@
 import os
 import six
-import time
 
 from eventlet import event
 from eventlet.semaphore import Semaphore
 
-from simpleutil.utils import jsonutils
 from simpleutil.utils import uuidutils
 from simpleutil.utils import digestutils
+from simpleutil.utils import jsonutils
 from simpleutil.utils.singleton import singleton
 
 from simpleservice.ormdb.engines import create_engine
 from simpleservice.ormdb.orm import get_maker
 from simpleservice.ormdb.api import model_query
-from simpleservice.plugin.httpclient import HttpClientBase
 
 from goperation.filemanager import common
 from goperation.filemanager import exceptions
@@ -58,19 +56,10 @@ class FileManager(object):
         'required': ['address', 'ext', 'size', 'uploadtime', 'marks']
     }
 
-    def __init__(self, conf, rootpath, threadpool, httpdict=None):
+    def __init__(self, conf, rootpath, threadpool, fget):
         self.threadpool = threadpool
         self.path = os.path.join(rootpath, conf.folder)
-        if not httpdict:
-            client = HttpClientBase(url=conf.files_api_address, port=conf.files_api_port,
-                                    version=None, retries=conf.retrys, timeout=conf.timeout)
-            def get(file_id):
-                result = client.get(action=conf.files_api_path + '/' + file_id,
-                                    params={'random': int(time.time())})[1]
-                jsonutils.schema_validate(result, FileManager.SCHEMA)
-            self.httpdict = get
-        else:
-            self.httpdict = httpdict
+        self.fget = fget
         self.localfiles = {}
         self.downloading = {}
         self.lock = Semaphore()
@@ -189,7 +178,8 @@ class FileManager(object):
             raise exceptions.NoFileFound('File Manager can not find file of %s' % target.source)
 
     def _download(self, mark, timeout):
-        file_info = self.httpdict(mark)
+        file_info = self.fget(mark)
+        jsonutils.schema_validate(file_info, FileManager.SCHEMA)
         for mark in six.itervalues(file_info['marks']):
             if mark in self.downloading:
                 th = self.downloading[mark]
