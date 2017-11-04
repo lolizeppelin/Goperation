@@ -22,20 +22,6 @@ class ApplicationManager(base.RpcAgentManager):
     def __init__(self, **kwargs):
         base.LOG = LOG
         super(ApplicationManager, self).__init__()
-        if CONF.endpoints:
-            # endpoint class must be singleton
-            for endpoint in CONF.endpoints:
-                endpoint_group = cfg.OptGroup(endpoint.lower(),
-                                              title='endpopint of %s' % endpoint)
-                CONF.register_group(endpoint_group)
-                CONF.register_opts(rpc_endpoint_opts, endpoint_group)
-                endpoint_class = '%s.%s' % (CONF[endpoint_group].module,
-                                            self.agent_type.capitalize())
-                endpoint_class = importutils.import_class(endpoint_class)
-                endpoint_kwargs = kwargs.get(endpoint_group.name, {})
-                endpoint_kwargs.update({'manager': self,
-                                        'group': endpoint_group})
-                self.endpoints.add(endpoint_class(**endpoint_kwargs))
 
     @CheckManagerRpcCtxt
     @CheckEndpointRpcCtxt

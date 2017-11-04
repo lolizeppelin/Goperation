@@ -93,11 +93,11 @@ class AsyncWorkRequest(contorller.BaseContorller):
         else:
             ret_dict = resultutils.async_request(request,
                                                  agents=False, details=False)
-            _cache_server = get_cache()
+            cache_store = get_cache()
             # get respone from cache redis server
             key_pattern = targetutils.async_request_pattern(request_id)
-            respone_keys = _cache_server.keys(key_pattern)
-            agent_respones = _cache_server.mget(respone_keys)
+            respone_keys = cache_store.keys(key_pattern)
+            agent_respones = cache_store.mget(respone_keys)
             if agent_respones:
                 for agent_respone in agent_respones:
                     if agent_respone:
@@ -139,32 +139,32 @@ class AsyncWorkRequest(contorller.BaseContorller):
             agent_time = body.pop('agent_time')
             resultcode = body.pop('resultcode')
             result = body.pop('result')
-            details = body.pop('details', [])
-            persist = body.pop('persist', 1)
-            expire = body.pop('expire', 30)
         except KeyError as e:
             raise InvalidArgument('Agent respone need key %s' % e.message)
-        _cache_server = get_cache()
+        details=[dict(agent_id=agent_id,
+                      request_id=request_id,
+                      detail_id=detail['detail'],
+                      resultcode=detail['resultcode'],
+                      result=detail['result'] if isinstance(detail['result'], basestring)
+                      else jsonutils.dumps_as_bytes(detail['result'])) for detail in body.pop('details', [])]
+        persist = body.pop('persist', 1)
+        expire = body.pop('expire', 30)
+        cache_store = get_cache()
         session = get_session()
         data = dict(request_id=request_id,
                     agent_id=agent_id,
                     agent_time=agent_time,
                     resultcode=resultcode,
                     result=result,
-                    details=[dict(agent_id=agent_id,
-                                  request_id=request_id,
-                                  detail_id=detail['detail'],
-                                  resultcode=detail['resultcode'],
-                                  result=detail['result'] if isinstance(detail['result'], basestring)
-                                  else jsonutils.dumps_as_bytes(detail['result']))
-                             for detail in details])
-        if persist and details:
-            data['details'] = [ResponeDetail(**detail) for detail in data.pop(details)]
+                    )
+        if persist:
             try:
-                respone = AgentRespone(**data)
-                session.add(respone)
-                session.flush()
-                # session.commit()
+                with session.begin():
+                    session.add(AgentRespone(**data))
+                    session.flush()
+                    for detail in details:
+                        session.add(ResponeDetail(**detail))
+                        session.flush()
             except DBDuplicateEntry:
                 LOG.warning('Agent %d respone %s get DBDuplicateEntry error' % (agent_id, request_id))
                 query = model_query(session, AgentRespone,
@@ -180,18 +180,19 @@ class AsyncWorkRequest(contorller.BaseContorller):
                                                    resultcode=manager_common.RESULT_ERROR)
                     query.update(data)
         else:
+            data.setdefault('details', details)
             respone_key = targetutils.async_request_key(request_id, agent_id)
             try:
-                if not _cache_server.set(respone_key, jsonutils.dumps_as_bytes(data), ex=expire, nx=True):
+                if not cache_store.set(respone_key, jsonutils.dumps_as_bytes(data), ex=expire, nx=True):
                     LOG.warning('Scheduler set agent overtime to redis get a Duplicate Entry, Agent responed?')
-                    respone = jsonutils.loads_as_bytes(_cache_server.get(respone_key))
+                    respone = jsonutils.loads_as_bytes(cache_store.get(respone_key))
                     if respone.get('resultcode') != manager_common.RESULT_OVER_FINISHTIME:
                         result = 'Agent %d respone %s fail,another agent ' \
                                  'with same agent_id in redis' % (agent_id, request_id)
                         LOG.error(result)
                         return resultutils.results(result=result, resultcode=manager_common.RESULT_ERROR)
                     # overwirte respone_key
-                    _cache_server.set(respone_key, jsonutils.dumps_as_bytes(data), ex=expire, nx=False)
+                    cache_store.set(respone_key, jsonutils.dumps_as_bytes(data), ex=expire, nx=False)
             except RedisError as e:
                 LOG.error('Scheduler set agent overtime to redis get RedisError %s: %s' % (e.__class__.__name__,
                                                                                            e.message))
@@ -276,11 +277,11 @@ class AsyncWorkRequest(contorller.BaseContorller):
                     except DBError as e:
                         LOG.error('Scheduler set agent overtime get DBError %s: %s' % (e.__class__.__name__, e.message))
         else:
-            _cache_server = get_cache()
+            cache_store = get_cache()
             for data in bulk_data:
                 respone_key = targetutils.async_request_key(request_id, agent_id)
                 try:
-                    if not _cache_server.set(respone_key, jsonutils.dumps_as_bytes(data), ex=expire, nx=True):
+                    if not cache_store.set(respone_key, jsonutils.dumps_as_bytes(data), ex=expire, nx=True):
                         count_finish += 1
                         LOG.warning('Scheduler set agent overtime to redis get a Duplicate Entry, Agent responed?')
                 except RedisError as e:

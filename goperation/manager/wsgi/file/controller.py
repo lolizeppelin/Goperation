@@ -1,38 +1,26 @@
 import functools
 import webob.exc
 
-from sqlalchemy.sql import and_
 
 from simpleutil.common.exceptions import InvalidArgument
-from simpleutil.common.exceptions import InvalidInput
 from simpleutil.log import log as logging
 from simpleutil.utils import jsonutils
 from simpleutil.utils import uuidutils
 from simpleutil.utils import timeutils
-from simpleutil.utils import timeutils
-from simpleutil.utils.attributes import validators
 
 from simpleservice.ormdb.api import model_query
 from simpleservice.rpc.exceptions import AMQPDestinationNotFound
 from simpleservice.rpc.exceptions import MessagingTimeout
 from simpleservice.rpc.exceptions import NoSuchMethod
 
+from goperation import threadpool
+from goperation.utils import safe_func_wrapper
 from goperation.manager import common as manager_common
-from goperation.manager import utils
 from goperation.manager import resultutils
 from goperation.manager import targetutils
-from goperation.manager.api import get_client
-from goperation.manager.api import get_redis
-from goperation.manager.api import get_cache
-from goperation.manager.api import get_global
 from goperation.manager.api import get_session
-from goperation.manager.api import rpcfinishtime
-from goperation.manager.models import Agent
-from goperation.manager.models import AgentEndpoint
-from goperation.manager.models import AllocatedPort
 from goperation.manager.models import DownFile
 from goperation.manager.wsgi.contorller import BaseContorller
-from goperation.manager.exceptions import CacheStoneError
 from goperation.manager.wsgi.exceptions import RpcPrepareError
 from goperation.manager.wsgi.exceptions import RpcResultError
 
@@ -44,7 +32,6 @@ FAULT_MAP = {InvalidArgument: webob.exc.HTTPClientError,
              AMQPDestinationNotFound: webob.exc.HTTPServiceUnavailable,
              MessagingTimeout: webob.exc.HTTPServiceUnavailable,
              RpcResultError: webob.exc.HTTPInternalServerError,
-             CacheStoneError: webob.exc.HTTPInternalServerError,
              RpcPrepareError: webob.exc.HTTPInternalServerError,
              }
 
@@ -138,12 +125,24 @@ class FileReuest(BaseContorller):
                                                                             uploadtime=downfile.uploadtime,
                                                                             downloader=downfile.downloader)])
 
-    @BaseContorller.AgentsIdformater
-    def send(self, req, agent_id, file_id, body):
+    def send(self, req, agent_id, file_id, body=None):
         """call by client, and asyncrequest
         send file to agents
         """
-        raise NotImplementedError
+        body = body or {}
+        asyncrequest = self.create_asyncrequest(body)
+        target = targetutils.target_all(fanout=True)
+        rpc_method = 'getfile'
+        rpc_args = {'mark': file_id,  'timeout': asyncrequest.deadline-1}
+        rpc_ctxt = {}
+        if agent_id != 'all':
+            rpc_ctxt.setdefault('agents', self.agents_id_check(agent_id))
+        def wapper():
+            self.send_asyncrequest(asyncrequest, target,
+                                   rpc_ctxt, rpc_method, rpc_args)
+        threadpool.add_thread(safe_func_wrapper, wapper, LOG)
+        return resultutils.results(result='Send file to agents thread spawning')
+
 
     @BaseContorller.AgentIdformater
     def list(self, req, agent_id, body):

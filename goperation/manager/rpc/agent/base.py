@@ -1,12 +1,17 @@
+import time
 import six
 import random
 import psutil
 
 from simpleutil.config import cfg
 from simpleutil.utils import jsonutils
+from simpleutil.utils import importutils
+from simpleutil.utils.lockutils import Semaphores
 
 from simpleservice.loopingcall import IntervalLoopinTask
 from simpleservice.rpc.result import BaseRpcResult
+from simpleservice.plugin.base import EndpointBase
+
 
 from goperation import threadpool
 from goperation.utils import suicide
@@ -15,11 +20,12 @@ from goperation.manager.api import get_http
 from goperation.manager import common as manager_common
 from goperation.manager.utils import validate_endpoint
 from goperation.manager.targetutils import target_server
+from goperation.manager.targetutils import target_endpoint
 from goperation.manager.rpc.base import RpcManagerBase
 from goperation.manager.rpc.agent.config import agent_group
 from goperation.manager.rpc.agent.config import rpc_agent_opts
 from goperation.manager.rpc.agent.ctxtdescriptor import CheckManagerRpcCtxt
-
+from goperation.manager.rpc.agent.config import rpc_endpoint_opts
 
 CONF = cfg.CONF
 
@@ -89,6 +95,14 @@ class OnlinTaskReporter(IntervalLoopinTask):
         return None
 
 
+class RpcAgentEndpointBase(EndpointBase):
+
+    def __init__(self, manager, name):
+        super(EndpointBase, self).__init__(target=target_endpoint(name))
+        self.manager = manager
+        self.conf = CONF[name]
+
+
 class RpcAgentManager(RpcManagerBase):
 
     def __init__(self):
@@ -110,6 +124,27 @@ class RpcAgentManager(RpcManagerBase):
             up, down = map(int, p_range.split('-'))
             for port in xrange(up, down):
                 self.left_ports.add(port)
+        # init endpoint
+        if CONF.endpoints:
+            # endpoint class must be singleton
+            for endpoint in CONF.endpoints:
+                endpoint_group = cfg.OptGroup(endpoint.lower(),
+                                              title='endpopint of %s' % endpoint)
+                CONF.register_group(endpoint_group)
+                CONF.register_opts(rpc_endpoint_opts, endpoint_group)
+                endpoint_class = '%s.%s' % (CONF[endpoint_group].module,
+                                            self.agent_type.capitalize())
+                try:
+                    cls = importutils.import_class(endpoint_class)
+                    # if not isinstance(cls, RpcEndpointBase):
+                    #     raise TypeError('Endpoint class string %s not RpcEndpointBase' % endpoint_class)
+                except ImportError:
+                    pass
+                else:
+                    self.endpoints.add(cls(manager=self, name=endpoint_group.name))
+                    if not isinstance(self.endpoints[-1], RpcAgentEndpointBase):
+                        raise TypeError('Endpoint string %s not base from RpcEndpointBase')
+        self.endpoint_lock = Semaphores()
 
     def pre_start(self, external_objects):
         super(RpcAgentManager, self).pre_start(external_objects)
@@ -161,7 +196,6 @@ class RpcAgentManager(RpcManagerBase):
         super(RpcAgentManager, self).post_stop()
 
     def initialize_service_hook(self):
-        super(RpcAgentManager, self).initialize_service_hook()
         # check endpoint here
         for endpoint in self.endpoints:
             endpoint.initialize_service_hook()
@@ -316,3 +350,10 @@ class RpcAgentManager(RpcManagerBase):
             self.force_status(last_status)
             return BaseRpcResult(self.agent_id, ctxt, resultcode=manager_common.RESULT_SUCCESS,
                                  result='upgrade call rpm Uvh success')
+
+    @CheckManagerRpcCtxt
+    def getfile(self, ctxt, mark, timeout):
+        timeout - time.time()
+        self.filemanager.get(mark, download=True, timeout=timeout)
+        return BaseRpcResult(self.agent_id, ctxt, resultcode=manager_common.RESULT_SUCCESS,
+                             result='getfile success')

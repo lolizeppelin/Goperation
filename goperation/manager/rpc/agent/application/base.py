@@ -2,26 +2,18 @@ import os
 
 from simpleutil.config import cfg
 
-from simpleservice.plugin.base import EndpointBase
-
 from goperation.manager import targetutils
+from goperation.manager.rpc.agent.base import RpcAgentEndpointBase
 
 
 CONF = cfg.CONF
 
-class AppEndpointBase(EndpointBase):
+class AppEndpointBase(RpcAgentEndpointBase):
     """"""
 
-    def __init__(self, manager, group):
-        self.manager = manager
-        self.group = group
-        super(AppEndpointBase, self).__init__(target=targetutils.target_endpoint(self.group.name))
+    def __init__(self, manager, name):
+        super(AppEndpointBase, self).__init__(manager, name)
         self._home_path = os.path.join(manager.work_path, self.namespace)
-
-
-    @property
-    def filemanager(self):
-        return self.manager.filemanager
 
     @property
     def endpoint_home(self):

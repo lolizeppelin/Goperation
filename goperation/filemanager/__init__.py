@@ -156,7 +156,16 @@ class FileManager(object):
             self.session.close()
             self.session = None
 
+    def find(self, mark):
+        for path, marks in six.iteritems(self.localfiles):
+            if mark in six.itervalues(marks):
+                target = TargetFile(mark)
+                target.realpath = path
+                return target
+
     def get(self, target, download=True, timeout=None):
+        if isinstance(target, basestring):
+            target = TargetFile(target)
         if not isinstance(target, TargetFile):
             raise TypeError('Target type is not TargetFile')
         for path, marks in six.iteritems(self.localfiles):

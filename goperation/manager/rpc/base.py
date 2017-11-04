@@ -1,7 +1,6 @@
 import eventlet
 
 from simpleutil.config import cfg
-from simpleutil.utils.lockutils import Semaphores
 from simpleutil.utils.lockutils import PriorityLock
 from simpleutil.utils.sysemutils import get_partion_free_bytes
 
@@ -31,18 +30,11 @@ class RpcManagerBase(ManagerBase):
                                        rootpath=self.work_path,
                                        threadpool=threadpool, fget=fget)
         self.work_lock = PriorityLock()
-        self.endpoint_lock = Semaphores()
         self.work_lock.set_defalut_priority(priority=5)
 
     def pre_start(self, external_objects):
         self.filemanager.scanning(strict=True)
         self.rpcservice = external_objects
-
-    def post_start(self):
-        pass
-
-    def initialize_service_hook(self):
-        pass
 
     def post_stop(self):
         self.filemanager.stop()

@@ -50,7 +50,7 @@ class CheckManagerRpcCtxt(CheckRpcCtxt):
         finishtime = ctxt.get('finishtime', None)
         agents = ctxt.get('agents', None)
         try:
-            if agents and self.manager.agent_id not in agents:
+            if agents is not None and self.manager.agent_id not in agents:
                 # rpc not for this agent
                 raise MessageNotForMe
             if finishtime and int(realnow()) >= finishtime:
@@ -58,16 +58,16 @@ class CheckManagerRpcCtxt(CheckRpcCtxt):
                 result = BaseRpcResult(self.manager.agent_id, ctxt,
                                        resultcode=manager_common.RESULT_OVER_FINISHTIME, result=msg)
                 raise exceptions.RpcCtxtException(result)
-            file_info = ctxt.pop('file', None)
-            if file_info:
-                target_file = self.manager.files.find_file(file_info)
-                if not target_file:
+            file_mark = ctxt.pop('file', None)
+            if file_mark:
+                target_file = self.manager.filemanager.find(file_mark)
+                if target_file is None:
                     result = BaseRpcResult(self.manager.agent_id, ctxt,
                                            resultcode=manager_common.RESULT_ERROR,
                                            result='Could not find target file')
                     raise exceptions.RpcCtxtException(result)
-                # change file info to  object
-                ctxt.setdefault('file', target_file)
+                # change file info to object
+                ctxt.update({'file', target_file})
             # check success run rpc function
             result = self.func(*args, **kwargs)
         except MessageNotForMe:
@@ -80,13 +80,12 @@ class CheckManagerRpcCtxt(CheckRpcCtxt):
             # witch ctxt include key request_id
             result = e
         # get a request_id means the asyncrequest need to post data to gcenter
-        # TODO this part should in AMQPIncomingMessage.relay
         request_id = ctxt.get('request_id', None)
         if request_id:
             if isinstance(result, BaseRpcResult):
                 http_result = result.to_dict()
             elif isinstance(result, Exception):
-                # TODO shoul get more details for exception like
+                # TODO should get more details for exception like
                 # simpleservic.rpc.driver.common.serialize_remote_exception dose
                 msg = 'Call rpc function catch %s' % result.__class__.__name__
                 # exc_info = sys.exc_info()

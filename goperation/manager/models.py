@@ -59,8 +59,6 @@ class AgentRespone(PluginTableBase):
     result = sa.Column(VARCHAR(manager_common.MAX_AGENT_RESULT),
                        nullable=False, default='agent respone rpc request')
     details = orm.relationship(ResponeDetail, backref='agentrespone', lazy='select',
-                               # primaryjoin="and_(AgentRespone.agent_id==ResponeDetail.agent_id, "
-                               #             "AgentRespone.request_id==ResponeDetail.request_id)",
                                primaryjoin=and_(agent_id == ResponeDetail.agent_id,
                                                 request_id == ResponeDetail.request_id),
                                cascade='delete,delete-orphan,save-update')
@@ -273,3 +271,24 @@ class AgentReportLog(PluginTableBase):
             sa.Index('agent_id_index', 'agent_id'),
             MyISAMTableBase.__table_args__
     )
+
+
+class JobStep(PluginTableBase):
+    job_id =  sa.Column(sa.ForeignKey('schedulejobs.job_id', ondelete="CASCADE", onupdate='RESTRICT'),
+                        nullable=False, primary_key=True)
+    step = sa.Column(TINYINT,  nullable=False, primary_key=True)
+    execute = sa.Column(LONGBLOB, nullable=False)
+    revert = sa.Column(LONGBLOB, nullable=True)
+    result = sa.Column(VARCHAR(manager_common.MAX_JOB_RESULT),
+                       nullable=False, default='not executed')
+
+class ScheduleJob(PluginTableBase):
+    job_id =  sa.Column(CHAR(36), default=uuidutils.Gkey, nullable=False, primary_key=True)
+    schedule = sa.Column(sa.ForeignKey('agents.agent_id'), nullable=False)
+    jobtype = sa.Column(TINYINT(unsigned=True), default=0, nullable=False)
+    step = sa.Column(TINYINT, default=0, nullable=False)
+    start = sa.Column(INTEGER(unsigned=True), nullable=False)
+    end = sa.Column(INTEGER(unsigned=True), nullable=False)
+    deadline = sa.Column(INTEGER(unsigned=True), nullable=False)
+    steps = orm.relationship(JobStep, backref='schedulejob', lazy='joined',
+                                 cascade='delete,delete-orphan,save-update')

@@ -9,7 +9,7 @@ from simpleutil.common.exceptions import InvalidArgument
 from simpleutil.common.exceptions import InvalidInput
 from simpleutil.log import log as logging
 from simpleutil.utils import jsonutils
-from simpleutil.utils import timeutils
+from simpleutil.utils import uuidutils
 from simpleutil.utils.attributes import validators
 
 from simpleservice.ormdb.api import model_query
@@ -17,6 +17,8 @@ from simpleservice.rpc.exceptions import AMQPDestinationNotFound
 from simpleservice.rpc.exceptions import MessagingTimeout
 from simpleservice.rpc.exceptions import NoSuchMethod
 
+from goperation import threadpool
+from goperation.utils import safe_func_wrapper
 from goperation.manager import common as manager_common
 from goperation.manager import utils
 from goperation.manager import resultutils
@@ -49,6 +51,7 @@ FAULT_MAP = {InvalidArgument: webob.exc.HTTPClientError,
              NoResultFound: webob.exc.HTTPNotFound,
              MultipleResultsFound: webob.exc.HTTPInternalServerError
              }
+
 
 class AgentReuest(BaseContorller):
 
@@ -153,6 +156,7 @@ class AgentReuest(BaseContorller):
                 agent_ipaddr = cache_store.get(host_online_key)
                 if agent_ipaddr is None:
                     raise RpcPrepareError('Can not delete offline agent, try force')
+                secret = uuidutils.generate_uuid()
                 # tell agent wait delete
                 delete_agent_precommit = rpc.call(targetutils.target_agent(agent),
                                                   ctxt={'finishtime': rpcfinishtime()},
@@ -160,24 +164,25 @@ class AgentReuest(BaseContorller):
                                                        'args': {'agent_id': agent.agent_id,
                                                                 'agent_type': agent.agent_type,
                                                                 'host': agent.host,
-                                                                'ipaddr': agent_ipaddr}
+                                                                'ipaddr': agent_ipaddr,
+                                                                'secret': secret}
                                                        })
                 if not delete_agent_precommit:
                     raise RpcResultError('delete_agent_precommit result is None')
                 if delete_agent_precommit.get('resultcode') != manager_common.RESULT_SUCCESS:
-                    return resultutils.results(total=1, pagenum=0,
-                                               result=delete_agent_precommit.get('result'),
-                                               resultcode=manager_common.RESULT_SUCCESS)
+                    return resultutils.results(result=delete_agent_precommit.get('result'))
         if not force:
             # tell agent delete itself
+            LOG.info('Delete agent %s postcommit with secret %s' % (agent_ipaddr, secret))
             rpc.cast(targetutils.target_agent(agent),
                      ctxt={'finishtime': rpcfinishtime()},
                      msg={'method': 'delete_agent_postcommit',
                           'args': {'agent_id': agent.agent_id,
                                    'agent_type': agent.agent_type,
                                    'host': agent.host,
-                                   'ipaddr': agent_ipaddr}})
-        result = resultutils.results(total=1, pagenum=0, result='Delete agent success',
+                                   'ipaddr': agent_ipaddr,
+                                   'secret': secret}})
+        result = resultutils.results(result='Delete agent success',
                                      data=[dict(agent_id=agent.agent_id,
                                                 host=agent.host,
                                                 status=agent.status,
@@ -310,52 +315,17 @@ class AgentReuest(BaseContorller):
                 if not cache_store.expire(host_online_key,
                                             manager_common.ONLINE_EXIST_TIME):
                     if not cache_store.set(host_online_key, agent_ipaddr,
-                                             ex=manager_common.ONLINE_EXIST_TIME, nx=True):
+                                           ex=manager_common.ONLINE_EXIST_TIME, nx=True):
                         raise InvalidArgument('Another agent login with same '
                                               'host or someone set key %s' % host_online_key)
             else:
                 if not cache_store.set(host_online_key, agent_ipaddr,
-                                         ex=manager_common.ONLINE_EXIST_TIME, nx=True):
+                                       ex=manager_common.ONLINE_EXIST_TIME, nx=True):
                     raise InvalidArgument('Another agent login with same host or '
                                           'someone set key %s' % host_online_key)
         result = resultutils.results(result='Online agent function run success')
         result['data'].append(ret)
         return result
-
-    @BaseContorller.AgentsIdformater
-    def status(self, req, agent_id, body=None):
-        """get status from agent, not from database
-        do not need Idsformater, check it in send_asyncrequest
-        """
-        body = body or {}
-        target = targetutils.target_all(fanout=True)
-        rpc_method = 'status_agent'
-        rpc_ctxt = {'agents': agent_id}
-        rpc_args = body
-        return self.send_asyncrequest(body, target, rpc_method, rpc_ctxt, rpc_args)
-
-    def upgrade(self, req, agent_id, body=None):
-        """call by client, and asyncrequest
-        do not need Idsformater, check it in send_asyncrequest
-        send rpm file to upgrade code of agent
-        """
-        body = body or {}
-        md5 = body.pop('md5', None)
-        crc32 = body.pop('crc32', None)
-        uuid = body.pop('uuid', None)
-        force = body.pop('force', False)
-        asyncrequest = self.create_asyncrequest(body)
-        if not crc32 and not md5 and not uuid:
-            raise InvalidArgument('update file must be set, need md5 or crc32 or url')
-        target = targetutils.target_all(fanout=True)
-        rpc_method = 'upgrade_agent'
-        rpc_args = {'md5': md5, 'crc32': crc32, 'uuid': uuid, 'force': force}
-        glock = get_global().lock('agents')
-        if agent_id == 'all':
-            lock = glock.all_agent
-        else:
-            lock = functools.partial(glock.agents, agent_id)
-        return self.send_asyncrequest(asyncrequest, target, rpc_method, rpc_args, lock)
 
     @BaseContorller.AgentIdformater
     def report(self, req, agent_id, body=None):
@@ -365,3 +335,49 @@ class AgentReuest(BaseContorller):
             agent_ipaddr = validators['type:ip_address'](body.pop('agent_ipaddr'))
             BaseContorller.agent_ipaddr_cache_flush(cache_store, agent_id, agent_ipaddr)
         pass
+
+    def status(self, req, agent_id, body=None):
+        """get status from agent, not from database
+        do not need Idsformater, check it in send_asyncrequest
+        """
+        body = body or {}
+        asyncrequest = self.create_asyncrequest(body)
+        target = targetutils.target_all(fanout=True)
+        rpc_ctxt = {}
+        if agent_id != 'all':
+            rpc_ctxt.setdefault('agents', self.agents_id_check(agent_id))
+        rpc_method = 'status_agent'
+        rpc_args = body
+
+        def wapper():
+            self.send_asyncrequest(asyncrequest, target,
+                                   rpc_ctxt, rpc_method, rpc_args)
+
+        threadpool.add_thread(safe_func_wrapper, wapper, LOG)
+        return resultutils.results(result='Status agent async request thread spawning')
+
+    @BaseContorller.AgentsIdformater
+    def upgrade(self, req, agent_id, body=None):
+        """call by client, and asyncrequest
+        do not need Idsformater, check it in send_asyncrequest
+        send rpm file to upgrade code of agent
+        """
+        body = body or {}
+        asyncrequest = self.create_asyncrequest(body)
+        target = targetutils.target_all(fanout=True)
+        rpc_method = 'upgrade_agent'
+        rpc_args = {'file': body.get('file')}
+        rpc_ctxt = {}
+
+        global_data = get_global()
+        glock = functools.partial(global_data.lock('agents'), agent_id)
+        def wapper():
+            with glock() as agents:
+                if agents is not manager_common.ALL_AGENTS:
+                    agents = [agent.agent_id for agent in agents]
+                rpc_ctxt.setdefault('agents', agents)
+                self.send_asyncrequest(asyncrequest, target,
+                                       rpc_ctxt, rpc_method, rpc_args)
+
+        threadpool.add_thread(safe_func_wrapper, wapper, LOG)
+        return resultutils.results(result='Upgrade agent async request thread spawning')

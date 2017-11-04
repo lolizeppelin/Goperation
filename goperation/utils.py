@@ -20,7 +20,7 @@ class UnExceptExit(Exception):
     """"""
 
 
-def safe_fun_wrapper(f, logger=None):
+def safe_func_wrapper(f, logger=None):
     try:
         f()
     except Exception as e:

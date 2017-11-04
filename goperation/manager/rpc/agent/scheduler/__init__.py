@@ -3,6 +3,7 @@ import eventlet
 
 from simpleutil.config import cfg
 from simpleutil.log import log as logging
+from simpleutil.utils import jsonutils
 from simpleutil.utils import singleton
 
 from simpleservice.ormdb.api import model_query
@@ -11,15 +12,18 @@ from simpleservice.rpc.result import BaseRpcResult
 from simpleservice.rpc.target import Target
 
 from goperation import threadpool
-from goperation.utils import safe_fun_wrapper
+from goperation.utils import safe_func_wrapper
 from goperation.manager import common as manager_common
 from goperation.manager.rpc.agent import base
 from goperation.manager.api import get_client
 from goperation.manager.api import get_session
+from goperation.manager.models import Agent
 from goperation.manager.models import AgentRespone
 from goperation.manager.models import AsyncRequest
+from goperation.manager.models import ScheduleJob
 from goperation.manager.rpc.agent.ctxtdescriptor import CheckManagerRpcCtxt
 from goperation.manager.rpc.agent.ctxtdescriptor import CheckThreadPoolRpcCtxt
+from goperation.manager.rpc.agent.scheduler import jobs
 
 
 CONF = cfg.CONF
@@ -35,22 +39,23 @@ class SchedulerManager(base.RpcAgentManager):
     def __init__(self):
         base.LOG = LOG
         super(SchedulerManager, self).__init__()
-
-    def resopne_checker(self):
-        pass
+        self.timers = []
 
     @CheckManagerRpcCtxt
     @CheckThreadPoolRpcCtxt
-    # def asyncrequest(self, ctxt, **kwargs):
     def asyncrequest(self, ctxt,
                      asyncrequest, rpc_target, rpc_method,
                      rpc_ctxt, rpc_args):
-        wait_agents = set(rpc_ctxt.get('agents'))
+        session = get_session()
+        if rpc_ctxt.get('agents') is None:
+            wait_agents = set([x[0] for x in model_query(session, Agent.agent_id,
+                                                         filter=Agent.status > manager_common.DELETED).all()])
+        else:
+            wait_agents = set(rpc_ctxt.get('agents'))
         asyncrequest = AsyncRequest(**asyncrequest)
         asyncrequest.scheduler = self.agent_id
         target = Target(**rpc_target)
         with self.work_lock:
-            session = get_session()
             rpc = get_client()
             try:
                 rpc.cast(target, ctxt=rpc_args, msg={'method': rpc_method, 'args': rpc_args})
@@ -66,29 +71,55 @@ class SchedulerManager(base.RpcAgentManager):
             session.add(asyncrequest)
             session.flush()
 
-            def check_respone():
-                now = int(time.time())
-                wait_time = asyncrequest.finishtime - now
-                if wait_time > 0:
-                    eventlet.sleep(wait_time)
-                query = model_query(get_session(readonly=True),
-                                    AgentRespone.agent_id,
-                                    filter=AgentRespone.request_id == asyncrequest.request_id)
-                while True:
-                    finish_agents = set()
-                    for row in query:
-                        finish_agents.add(row[0])
-                    if finish_agents == wait_agents:
-                        return
-                    if int(time.time()) > asyncrequest.deadline:
-                        agents_over_deadline = wait_agents - finish_agents
-                        self.client.scheduler_overtime_respone(asyncrequest.request_id,
-                                                               {'agents': agents_over_deadline})
-                        if finish_agents - wait_agents:
-                            LOG.warning('Finished async request agent more then agents in ctxt')
-                            LOG.debug('Agent %s is finished, but not in ctxt' % str(finish_agents - wait_agents))
-                        return
-                    eventlet.sleep(0.25)
+        def check_respone():
+            now = int(time.time())
+            wait_time = asyncrequest.finishtime - now
+            if wait_time > 0:
+                eventlet.sleep(wait_time)
+            query = model_query(get_session(readonly=True),
+                                AgentRespone.agent_id,
+                                filter=AgentRespone.request_id == asyncrequest.request_id)
+            finish_agents = set()
+            while True:
+                for row in query.all():
+                    finish_agents.add(row[0])
+                if finish_agents == wait_agents:
+                    return
+                if int(time.time()) > asyncrequest.deadline:
+                    agents_over_deadline = wait_agents - finish_agents
+                    self.client.scheduler_overtime_respone(asyncrequest.request_id,
+                                                           {'agents': agents_over_deadline})
+                    if finish_agents - wait_agents:
+                        LOG.warning('Finished async request agent more then agents in ctxt')
+                        LOG.debug('Agent %s is finished, but not in ctxt' % str(finish_agents - wait_agents))
+                    break
+                finish_agents.clear()
+                eventlet.sleep(0.25)
+            # some agent not respon
+            body = dict(agents=list(wait_agents - finish_agents),
+                        persist=asyncrequest.persist,
+                        agent_time=int(time.time()),
+                        scheduler=self.agent_id)
+            self.client.scheduler_overtime_respone(asyncrequest.request_id, body)
 
-            threadpool.add_thread(safe_fun_wrapper, check_respone, LOG)
-            return BaseRpcResult(self.agent_id, resultcode=manager_common.RESULT_SUCCESS, result=asyncrequest.result)
+        threadpool.add_thread(safe_func_wrapper, check_respone, LOG)
+        return BaseRpcResult(self.agent_id, resultcode=manager_common.RESULT_SUCCESS, result=asyncrequest.result)
+
+    @CheckManagerRpcCtxt
+    @CheckThreadPoolRpcCtxt
+    def scheduler(self, ctxt, jobdata, dispose=True):
+        session = get_session()
+        schedule_time = 0
+        with session.begin():
+            for data in jobs.build_httpfuncjob(jobdata, self.agent_id):
+                if isinstance(data, ScheduleJob):
+                    # todo add to timer
+                    schedule_time = data.start
+                session.add(data)
+                session.flush()
+
+    @CheckManagerRpcCtxt
+    @CheckThreadPoolRpcCtxt
+    def call_endpoint(self, endpoint, method, ctxt, **kwargs):
+        func = getattr(endpoint, method)
+        return func(ctxt, **kwargs)
