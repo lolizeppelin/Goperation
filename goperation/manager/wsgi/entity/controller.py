@@ -116,6 +116,7 @@ class EntityReuest(BaseContorller):
                                    data=[dict(endpoint=e.endpoint,
                                               agent_id=e.agent_id,
                                               entity=e.entity,
+                                              etype=e.etype,
                                               ports=[x.port for x in entity.ports] if show_ports else [])
                                          for e in entitys])
 
@@ -140,3 +141,16 @@ class EntityReuest(BaseContorller):
                         if strict:
                             raise DeleteCountNotSame('Need delete %d, but match %d' % (need_to_delete, delete_count))
         return resultutils.results(result='delete endpoints success')
+
+    def etypes(self, req, endpoint, etype):
+        endpoint = utils.validate_endpoint(endpoint)
+        etype = int(etype)
+        session = get_session(readonly=True)
+        query = model_query(session, AgentEntity, filter=and_(AgentEntity.endpoint == endpoint,
+                                                              AgentEntity.etype == etype))
+        entitys = query.one()
+        return resultutils.results(result='show entity success',
+                                   data=[dict(endpoint=e.endpoint,
+                                              agent_id=e.agent_id,
+                                              entity=e.entity)
+                                         for e in entitys])
