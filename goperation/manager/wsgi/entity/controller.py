@@ -62,7 +62,7 @@ class EntityReuest(BaseContorller):
             return resultutils.results(result='no entity found', resultcode=manager_common.RESULT_ERROR)
         return resultutils.results(result='show endpoint entitys success',
                                    data=[dict(entity=entity.entity,
-                                              entity_type=entity.entity_type,
+                                              etype=entity.etype,
                                               ports=[port.port for port in entity.ports] if show_ports else [])
                                          for entity in entitys])
 
@@ -70,7 +70,7 @@ class EntityReuest(BaseContorller):
     def create(self, req, agent_id, endpoint, body=None):
         body = body or {}
         endpoint = utils.validate_endpoint(endpoint)
-        entity_type = body.pop('entity_type')
+        etype = body.pop('etype')
         ports = body.get('ports')
         session = get_session()
         if ports:
@@ -90,7 +90,7 @@ class EntityReuest(BaseContorller):
                                                     filter=AgentEntity.endpoint == endpoint)
                     session.add(AgentEntity(entity=entity,
                                             agent_id=agent_id, endpoint=endpoint,
-                                            entity_type=entity_type, desc=desc))
+                                            etype=etype, desc=desc))
                     session.flush()
                     if ports:
                         for port in ports:
@@ -98,7 +98,7 @@ class EntityReuest(BaseContorller):
                                                       endpoint=endpoint, entity=entity))
                             session.flush()
         return resultutils.results(result='add entity success', data=[dict(entity=entity, agent_id=agent_id,
-                                                                           endpoint=endpoint, entity_type=entity_type,
+                                                                           endpoint=endpoint, etype=etype,
                                                                            port=ports or [])])
 
     def show(self, req, endpoint, entity, body=None):

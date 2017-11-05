@@ -146,7 +146,7 @@ class AgentEntity(PluginTableBase):
                          nullable=False, primary_key=True)
     agent_id = sa.Column(sa.ForeignKey('agents.agent_id', ondelete="CASCADE", onupdate='RESTRICT'),
                          nullable=False)
-    entity_type = sa.Column(sa.SMALLINT, nullable=False, default=0)
+    etype = sa.Column(sa.SMALLINT, nullable=False, default=0)
     desc = sa.Column(VARCHAR(256), nullable=True, default=None)
     ports = orm.relationship(AllocatedPort, backref='agententity', lazy='select',
                              primaryjoin=and_(agent_id == AllocatedPort.agent_id,
