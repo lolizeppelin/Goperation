@@ -77,7 +77,20 @@ class GlobalData(object):
             eventlet.sleep(0)
 
     def lock(self, target):
-        return getattr(self, '_lock_%s' % target)
+        method = '_lock_%s' % target
+        if not hasattr(self, method):
+            raise NotImplementedError('lock %s not exist' % method)
+        return getattr(self, method)
+
+    def _lock_autorelase(self, key, expire):
+        overtime = self.alloctime + int(time.time()*1000)
+        client = self.client
+        while True:
+            if client.set(self.AGENT_KEY, self.locker, nx=True, ex=expire):
+                break
+            if int(time.time()*1000) > overtime:
+                raise exceptions.AllocLockTimeout('Alloc key %s timeout' % key)
+            eventlet.sleep(0.003)
 
     @contextlib.contextmanager
     def _lock_all_agents(self):
