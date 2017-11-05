@@ -63,7 +63,7 @@ def test_entitys():
     #     print e.resone, e.code
     try:
         print client.entitys_add(1, 'mszl',
-                                 body={'entity_type': 0,
+                                 body={'etype': 0,
                                        'ports': [3303,3304]})
     except Exception as e:
         print e.message
