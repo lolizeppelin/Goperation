@@ -1,10 +1,12 @@
 import time
+import datetime
 import eventlet
 
 from simpleutil.config import cfg
 from simpleutil.log import log as logging
 from simpleutil.utils import jsonutils
 from simpleutil.utils import singleton
+from simpleutil.utils import importutils
 
 from simpleservice.ormdb.api import model_query
 from simpleservice.rpc.driver.exceptions import AMQPDestinationNotFound
@@ -21,9 +23,9 @@ from goperation.manager.models import Agent
 from goperation.manager.models import AgentRespone
 from goperation.manager.models import AsyncRequest
 from goperation.manager.models import ScheduleJob
+from goperation.manager.models import JobStep
 from goperation.manager.rpc.agent.ctxtdescriptor import CheckManagerRpcCtxt
 from goperation.manager.rpc.agent.ctxtdescriptor import CheckThreadPoolRpcCtxt
-from goperation.manager.rpc.agent.scheduler import jobs
 
 
 CONF = cfg.CONF
@@ -107,16 +109,37 @@ class SchedulerManager(base.RpcAgentManager):
 
     @CheckManagerRpcCtxt
     @CheckThreadPoolRpcCtxt
-    def scheduler(self, ctxt, jobdata, dispose=True):
+    def scheduler(self, ctxt, job_id, jobdata, dispose=True):
         session = get_session()
-        schedule_time = 0
+        start=datetime.datetime.fromtimestamp(jobdata['start']),
+        end=datetime.datetime.fromtimestamp(jobdata['end']),
+        deadline=datetime.datetime.fromtimestamp(jobdata['deadline'])
         with session.begin():
-            for data in jobs.build_httpfuncjob(jobdata, self.agent_id):
-                if isinstance(data, ScheduleJob):
-                    # todo add to timer
-                    schedule_time = data.start
-                session.add(data)
+            session.add(ScheduleJob(job_id=job_id,
+                                    schedule=self.agent_id,
+                                    start=start,
+                                    end=end,
+                                    deadline=deadline))
+            session.flush()
+            for index, step in enumerate(jobdata['jobs']):
+                if step.get('revert'):
+                    rcls=step['revert']['cls']
+                    rmethod=step['revert']['method']
+                    rargs=jsonutils.dumps_as_bytes(step['revert']['args']) if step['revert']['args'] else None
+                    cls = importutils.import_class(rcls)
+                    if not hasattr(cls, rmethod):
+                        raise NotImplementedError('%s no method %s' % (rcls, rmethod))
+                else:
+                    rcls=None
+                    rmethod=None
+                    rargs=None
+                session.add(JobStep(job_id=job_id, step=index,
+                            ecls=step['execute']['cls'],
+                            emethod=step['execute']['method'],
+                            eargs=jsonutils.dumps_as_bytes(step['execute']['args']),
+                            rcls=rcls, rmethod=rmethod, rargs=rargs))
                 session.flush()
+        return BaseRpcResult(result='Scheduler Job accepted', agent_id=self.agent_id)
 
     @CheckManagerRpcCtxt
     @CheckThreadPoolRpcCtxt

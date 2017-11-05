@@ -274,21 +274,25 @@ class AgentReportLog(PluginTableBase):
 
 
 class JobStep(PluginTableBase):
-    job_id =  sa.Column(sa.ForeignKey('schedulejobs.job_id', ondelete="CASCADE", onupdate='RESTRICT'),
-                        nullable=False, primary_key=True)
+    job_id = sa.Column(sa.ForeignKey('schedulejobs.job_id', ondelete="CASCADE", onupdate='RESTRICT'),
+                       nullable=False, primary_key=True)
     step = sa.Column(TINYINT,  nullable=False, primary_key=True)
-    execute = sa.Column(LONGBLOB, nullable=False)
-    revert = sa.Column(LONGBLOB, nullable=True)
+    ecls = sa.Column(VARCHAR(512), nullable=False)
+    emethod = sa.Column(VARCHAR(64), nullable=False)
+    eargs = sa.Column(LONGBLOB, nullable=True)
+    rcls = sa.Column(VARCHAR(512), nullable=True)
+    rmethod = sa.Column(VARCHAR(64), nullable=True)
+    rargs = sa.Column(LONGBLOB, nullable=True)
     result = sa.Column(VARCHAR(manager_common.MAX_JOB_RESULT),
                        nullable=False, default='not executed')
 
+
 class ScheduleJob(PluginTableBase):
-    job_id =  sa.Column(CHAR(36), default=uuidutils.Gkey, nullable=False, primary_key=True)
+    job_id = sa.Column(CHAR(36), default=uuidutils.Gkey, nullable=False, primary_key=True)
     schedule = sa.Column(sa.ForeignKey('agents.agent_id'), nullable=False)
-    jobtype = sa.Column(TINYINT(unsigned=True), default=0, nullable=False)
     step = sa.Column(TINYINT, default=0, nullable=False)
     start = sa.Column(INTEGER(unsigned=True), nullable=False)
     end = sa.Column(INTEGER(unsigned=True), nullable=False)
     deadline = sa.Column(INTEGER(unsigned=True), nullable=False)
     steps = orm.relationship(JobStep, backref='schedulejob', lazy='joined',
-                                 cascade='delete,delete-orphan,save-update')
+                             cascade='delete,delete-orphan,save-update')
