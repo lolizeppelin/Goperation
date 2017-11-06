@@ -8,6 +8,7 @@ from simpleutil.utils import jsonutils
 from simpleutil.utils import singleton
 from simpleutil.utils import importutils
 
+from simpleservice import loopingcall
 from simpleservice.ormdb.api import model_query
 from simpleservice.rpc.driver.exceptions import AMQPDestinationNotFound
 from simpleservice.rpc.result import BaseRpcResult
@@ -26,11 +27,48 @@ from goperation.manager.models import ScheduleJob
 from goperation.manager.models import JobStep
 from goperation.manager.rpc.agent.ctxtdescriptor import CheckManagerRpcCtxt
 from goperation.manager.rpc.agent.ctxtdescriptor import CheckThreadPoolRpcCtxt
+from goperation.manager.rpc.agent.scheduler.taskflow import JobFlow
 
 
 CONF = cfg.CONF
 
 LOG = logging.getLogger(__name__)
+
+
+class SchedulerTask(loopingcall.IntervalLoopinTask):
+    """Report Agent online
+    """
+    def __init__(self, func, start, interval):
+        delay = int(time.time()) - start
+        if delay < 5:
+            raise ValueError('Scheduler task has not enough time to start')
+        self.func = func
+        self.repeatable = True if interval else None
+        self._clean = None
+        super(SchedulerTask, self).__init__(periodic_interval=interval,
+                                            initial_delay=delay,
+                                            stop_on_exception=True)
+
+    def __call__(self, *args, **kwargs):
+        self.func()
+        if not self.repeatable:
+            self.func = None
+            self.clean()
+            raise loopingcall.LoopingCallDone('Scheduler task run success')
+
+    @property
+    def clean(self):
+        if self._clean:
+            return self._clean
+        else:
+            return lambda: None
+
+    @clean.setter
+    def clean(self, func):
+        if self._clean is None:
+            self._clean = func
+        else:
+            raise AttributeError('Do not set clean twice')
 
 
 @singleton.singleton
@@ -41,7 +79,17 @@ class SchedulerManager(base.RpcAgentManager):
     def __init__(self):
         base.LOG = LOG
         super(SchedulerManager, self).__init__()
-        self.timers = []
+        self.timers = set()
+
+    def post_stop(self):
+        for x in self.timers:
+            x.stop()
+        for x in self.timers:
+            try:
+                x.wait()
+            except Exception:
+                LOG.exception("Exception occurs when wait scheduler manager timer finish")
+        super(SchedulerManager, self).post_stop()
 
     @CheckManagerRpcCtxt
     @CheckThreadPoolRpcCtxt
@@ -108,12 +156,12 @@ class SchedulerManager(base.RpcAgentManager):
         return BaseRpcResult(self.agent_id, resultcode=manager_common.RESULT_SUCCESS, result=asyncrequest.result)
 
     @CheckManagerRpcCtxt
-    @CheckThreadPoolRpcCtxt
-    def scheduler(self, ctxt, job_id, jobdata, dispose=True):
+    def scheduler(self, ctxt, job_id, jobdata, interval=0):
         session = get_session()
-        start=datetime.datetime.fromtimestamp(jobdata['start']),
-        end=datetime.datetime.fromtimestamp(jobdata['end']),
-        deadline=datetime.datetime.fromtimestamp(jobdata['deadline'])
+        start = datetime.datetime.fromtimestamp(jobdata['start']),
+        end = datetime.datetime.fromtimestamp(jobdata['end']),
+        deadline = datetime.datetime.fromtimestamp(jobdata['deadline'])
+        # write job to database
         with session.begin():
             session.add(ScheduleJob(job_id=job_id,
                                     schedule=self.agent_id,
@@ -122,23 +170,45 @@ class SchedulerManager(base.RpcAgentManager):
                                     deadline=deadline))
             session.flush()
             for index, step in enumerate(jobdata['jobs']):
+                # check cls and method
+                ecls = step['execute']['cls']
+                emethod = step['execute']['method']
+                eargs = jsonutils.dumps_as_bytes(step['execute']['args']) if step['execute']['args'] else None
+                cls = importutils.import_class(ecls)
+                if not hasattr(cls, emethod):
+                    raise NotImplementedError('%s no method %s' % (cls, emethod))
                 if step.get('revert'):
-                    rcls=step['revert']['cls']
-                    rmethod=step['revert']['method']
-                    rargs=jsonutils.dumps_as_bytes(step['revert']['args']) if step['revert']['args'] else None
+                    rcls = step['revert']['cls']
+                    rmethod = step['revert']['method']
+                    rargs = jsonutils.dumps_as_bytes(step['revert']['args']) if step['revert']['args'] else None
                     cls = importutils.import_class(rcls)
                     if not hasattr(cls, rmethod):
                         raise NotImplementedError('%s no method %s' % (rcls, rmethod))
                 else:
-                    rcls=None
-                    rmethod=None
-                    rargs=None
+                    rcls = None
+                    rmethod = None
+                    rargs = None
                 session.add(JobStep(job_id=job_id, step=index,
-                            ecls=step['execute']['cls'],
-                            emethod=step['execute']['method'],
-                            eargs=jsonutils.dumps_as_bytes(step['execute']['args']),
+                            ecls=ecls,
+                            emethod=emethod,
+                            eargs=eargs,
                             rcls=rcls, rmethod=rmethod, rargs=rargs))
                 session.flush()
+
+        def run_job():
+            _session = get_session()
+            job = model_query(_session, ScheduleJob, filter=ScheduleJob.job_id == job_id).one()
+            # call taskflow run job
+            JobFlow.start_jbo(job)
+
+        task = SchedulerTask(run_job, start, interval)
+        periodic = loopingcall.FixedIntervalLoopingCall(task)
+        periodic.start(interval=task.periodic_interval,
+                       initial_delay=task.initial_delay,
+                       stop_on_exception=task.stop_on_exception)
+        # remove from timers when task finish
+        task.clean = lambda: self.timers.discard(periodic)
+        self.timers.add(periodic)
         return BaseRpcResult(result='Scheduler Job accepted', agent_id=self.agent_id)
 
     @CheckManagerRpcCtxt
