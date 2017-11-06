@@ -25,6 +25,7 @@ from goperation.manager.rpc.base import RpcManagerBase
 from goperation.manager.rpc.agent.config import agent_group
 from goperation.manager.rpc.agent.config import rpc_agent_opts
 from goperation.manager.rpc.agent.ctxtdescriptor import CheckManagerRpcCtxt
+from goperation.manager.rpc.agent.ctxtdescriptor import CheckThreadPoolRpcCtxt
 from goperation.manager.rpc.agent.config import rpc_endpoint_opts
 
 CONF = cfg.CONF
@@ -352,6 +353,7 @@ class RpcAgentManager(RpcManagerBase):
                                  result='upgrade call rpm Uvh success')
 
     @CheckManagerRpcCtxt
+    @CheckThreadPoolRpcCtxt
     def getfile(self, ctxt, mark, timeout):
         timeout - time.time()
         self.filemanager.get(mark, download=True, timeout=timeout)
