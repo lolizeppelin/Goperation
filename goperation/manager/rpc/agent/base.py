@@ -99,6 +99,8 @@ class OnlinTaskReporter(IntervalLoopinTask):
 class RpcAgentEndpointBase(EndpointBase):
 
     def __init__(self, manager, name):
+        if not isinstance(manager, RpcAgentManager):
+            raise TypeError('Manager for rpc endpoint is not RpcAgentManager')
         super(EndpointBase, self).__init__(target=target_endpoint(name))
         self.manager = manager
         self.conf = CONF[name]
