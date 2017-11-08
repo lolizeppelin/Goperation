@@ -354,7 +354,8 @@ class AgentReuest(BaseContorller):
                                    rpc_ctxt, rpc_method, rpc_args)
 
         threadpool.add_thread(safe_func_wrapper, wapper, LOG)
-        return resultutils.results(result='Status agent async request thread spawning')
+        return resultutils.results(result='Status agent async request thread spawning',
+                                   data=[asyncrequest.to_dict()])
 
     @BaseContorller.AgentsIdformater
     def upgrade(self, req, agent_id, body=None):
@@ -380,4 +381,5 @@ class AgentReuest(BaseContorller):
                                        rpc_ctxt, rpc_method, rpc_args)
 
         threadpool.add_thread(safe_func_wrapper, wapper, LOG)
-        return resultutils.results(result='Upgrade agent async request thread spawning')
+        return resultutils.results(result='Upgrade agent async request thread spawning',
+                                   data=[asyncrequest.to_dict()])
