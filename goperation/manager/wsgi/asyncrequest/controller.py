@@ -88,7 +88,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
         query = model_query(session, AsyncRequest)
         request = query.filter_by(request_id=request_id).one()
         if request.persist:
-            # get resopne from database
+            # get response from database
             return resultutils.async_request(request, agents, details)
         else:
             ret_dict = resultutils.async_request(request,
@@ -103,33 +103,14 @@ class AsyncWorkRequest(contorller.BaseContorller):
                     if agent_respone:
                         try:
                             agent_respone_data = jsonutils.loads_as_bytes(agent_respone)
-                            if isinstance(agent_respone_data, (int, long)):
-                                raise ValueError
                         except (TypeError, ValueError):
                             continue
                         ret_dict['respones'].append(agent_respone_data)
             return ret_dict
 
     @Idformater
-    def details(self, req, request_id, body):
-        try:
-            agent_id = body.get('agent_id')
-        except (KeyError, TypeError):
-            raise InvalidArgument('Get agent respone need agent_id value of int')
-        session = get_session(readonly=True)
-        agent_filter = and_(ResponeDetail.request_id == request_id,
-                            ResponeDetail.agent_id == agent_id)
-        query = model_query(session, ResponeDetail, filter=agent_filter)
-        details = query.all()
-        if not details:
-            return resultutils.results(result='Details of agent %d can not be found' % agent_id,
-                                       resultcode=manager_common.RESULT_IS_NONE)
-        return resultutils.results(result='Get details success',
-                                   data=[resultutils.detail(detail) for detail in details])
-
-    @Idformater
-    def update(self, req, request_id, body):
-        raise NotImplementedError
+    def update(self, req, request_id, body=None):
+        raise NotImplementedError('update asynecrequest not implemented')
 
     @Idformater
     def respone(self, req, request_id, body):
@@ -203,47 +184,53 @@ class AsyncWorkRequest(contorller.BaseContorller):
         return resultutils.results(result='Agent %d Post respone of %s success' % (agent_id, request_id))
 
     @Idformater
-    def scheduler(self, req, request_id, body):
-        """scheduler declare async request check and
-           scheduler mark saync request finish
-        """
-        scheduler = int(body.get('scheduler', 0))
-        status = int(body.get('status', manager_common.UNFINISH))
-        result = body.get('result', 'Scheduler declare')
-        resultcode = body.get('resultcode', None)
-        if scheduler <= 0:
-            raise InvalidArgument('Async checker id is 0')
-        if status not in (manager_common.FINISH, manager_common.UNFINISH):
-            raise InvalidArgument('Async request status value error')
-        data = {'scheduler': scheduler}
-        if status:
-            data.setdefault('status', status)
-        if resultcode is not None:
-            data.setdefault('resultcode', resultcode)
-        if result:
-            if not isinstance(result, basestring):
-                raise InvalidArgument('Msg of result not basestring')
-            if len(result) > manager_common.MAX_REQUEST_RESULT:
-                raise InvalidArgument('Msg of result over range')
-            data.setdefault('result', result)
-        session = get_session()
-        with session.begin(subtransactions=True):
-            query = model_query(session, AsyncRequest,
-                                filter=or_(AsyncRequest.scheduler == 0,
-                                           AsyncRequest.scheduler == scheduler))
-            unfinish_request = query.filter_by(request_id=request_id,
-                                               status=manager_common.UNFINISH).one()
-            unfinish_request.update(data)
-        return resultutils.results(result='Request %s update scheduler and status success' % request_id)
+    def responses(self, req, request_id, body):
+        """"""
+        persist = body.pop('persist', True)
+        agents = argutils.map_to_int(body.pop('agents'))
+        session = get_session(readonly=True)
+        response_agents = set()
+        if persist:
+            query = model_query(session, AgentRespone.agent_id, filter=AgentRespone.request_id==request_id)
+            # get response from database
+            for r in query.all():
+                response_agents.add(r[0])
+        else:
+            model_query(session, AsyncRequest, filter=AgentRespone.request_id==request_id).one()
+            cache_store = get_cache()
+            # get respone from cache redis server
+            key_pattern = targetutils.async_request_pattern(request_id)
+            respone_keys = cache_store.keys(key_pattern)
+            for key in respone_keys:
+                response_agents.add(int(key.split('-')[-1]))
+        wait_agents = set(agents) - response_agents
+        return resultutils.results(result='Get agents success', data=[dict(agents=list(wait_agents))])
+
+    @Idformater
+    def details(self, req, request_id, body):
+        try:
+            agent_id = body.get('agent_id')
+        except (KeyError, TypeError):
+            raise InvalidArgument('Get agent respone need agent_id value of int')
+        session = get_session(readonly=True)
+        agent_filter = and_(ResponeDetail.request_id == request_id,
+                            ResponeDetail.agent_id == agent_id)
+        query = model_query(session, ResponeDetail, filter=agent_filter)
+        details = query.all()
+        if not details:
+            return resultutils.results(result='Details of agent %d can not be found' % agent_id,
+                                       resultcode=manager_common.RESULT_IS_NONE)
+        return resultutils.results(result='Get details success',
+                                   data=[resultutils.detail(detail) for detail in details])
 
     @Idformater
     def overtime(self, req, request_id, body):
-        """agent not resopne, async checker send a overtime respone"""
+        """agent not response, async checker send a overtime respone"""
         scheduler = body.get('scheduler')
         agent_time = body.get('agent_time')
         agents = body.get('agents')
         persist = body.get('persist', 1)
-        expire = body.get('expire', 30)
+        expire = body.get('expire', 60)
         if not agents:
             raise InvalidArgument('Not agets report overtime?')
         bulk_data = []
@@ -264,6 +251,10 @@ class AsyncWorkRequest(contorller.BaseContorller):
         request_id = bulk_data[0]['request_id']
         agent_id = bulk_data[0]['agent_id']
         count_finish = 0
+        query = model_query(session, AsyncRequest).filter_by(request_id=request_id)
+        asynecrequest = query.one()
+        if asynecrequest.status == manager_common.FINISH:
+            return
         if persist:
             with session.begin():
                 for data in bulk_data:
@@ -272,9 +263,9 @@ class AsyncWorkRequest(contorller.BaseContorller):
                         session.add(resp)
                         session.flush()
                     except DBDuplicateEntry:
-                        count_finish += 1
                         LOG.warning('Scheduler set agent overtime get a DBDuplicateEntry, Agent responed?')
                     except DBError as e:
+                        count_finish += 1
                         LOG.error('Scheduler set agent overtime get DBError %s: %s' % (e.__class__.__name__, e.message))
         else:
             cache_store = get_cache()
@@ -282,14 +273,16 @@ class AsyncWorkRequest(contorller.BaseContorller):
                 respone_key = targetutils.async_request_key(request_id, agent_id)
                 try:
                     if not cache_store.set(respone_key, jsonutils.dumps_as_bytes(data), ex=expire, nx=True):
-                        count_finish += 1
                         LOG.warning('Scheduler set agent overtime to redis get a Duplicate Entry, Agent responed?')
                 except RedisError as e:
                     LOG.error('Scheduler set agent overtime to redis get RedisError %s: %s' % (e.__class__.__name__,
                                                                                                e.message))
+                    count_finish += 1
+                    continue
         data = {'status': manager_common.FINISH, 'resultcode': manager_common.RESULT_SUCCESS}
-        query = model_query(session, AsyncRequest).filter_by(request_id=request_id)
         if count_finish < len(bulk_data):
-            data.update({'resultcode': manager_common.RESULT_NOT_ALL_SUCCESS})
+            data.update({'resultcode': manager_common.RESULT_NOT_ALL_SUCCESS,
+                         'result': 'fail some response, should %d, but just %d success' % (len(bulk_data),
+                                                                                           count_finish)})
         query.update(data)
         session.commit()
