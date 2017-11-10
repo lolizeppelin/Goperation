@@ -18,8 +18,8 @@ from goperation import utils
 from goperation.filemanager import TargetFile
 from goperation.taskflow import common
 from goperation.taskflow import exceptions
-from goperation.taskflow.base import StandardTask
-from goperation.taskflow.base import format_store_rebind
+from goperation.manager.rpc.agent.application.taskflow.base import StandardTask
+from goperation.manager.rpc.agent.application.taskflow.base import format_store_rebind
 
 from goperation.manager.rpc.agent.application import taskflow
 

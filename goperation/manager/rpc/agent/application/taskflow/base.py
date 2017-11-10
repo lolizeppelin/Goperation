@@ -6,8 +6,9 @@ from simpleflow.storage.middleware import LogBook
 from simpleflow.engines.engine import ParallelActionEngine
 
 from goperation.taskflow import common
+from goperation.manager.rpc.agent.application import taskflow
 
-LOG = None
+LOG = taskflow.LOG
 
 class StandardTask(Task):
 

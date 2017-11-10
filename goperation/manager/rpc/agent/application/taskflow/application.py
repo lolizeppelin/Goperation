@@ -15,8 +15,8 @@ from zlibstream.tofile import async_extract
 from goperation.utils import safe_fork
 from goperation.filemanager import TargetFile
 from goperation.taskflow import common
-from goperation.taskflow.base import StandardTask
 from goperation.manager.rpc.agent.application import taskflow
+from goperation.manager.rpc.agent.application.taskflow.base import StandardTask
 
 LOG = taskflow.LOG
 
@@ -79,7 +79,7 @@ class Application(object):
 
 class AppKill(Retry):
 
-    def __init__(self, name=None, provides=None, requires=None,
+    def __init__(self, name, provides=None, requires=None,
                  auto_extract=True, rebind=None):
         provides = provides if provides else 'kill'
         super(AppKill, self).__init__(name, provides, requires,

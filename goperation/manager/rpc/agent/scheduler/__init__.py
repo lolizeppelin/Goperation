@@ -6,7 +6,6 @@ from simpleutil.config import cfg
 from simpleutil.log import log as logging
 from simpleutil.utils import jsonutils
 from simpleutil.utils import singleton
-from simpleutil.utils import importutils
 
 from simpleservice import loopingcall
 from simpleservice.ormdb.api import model_query
@@ -21,21 +20,27 @@ from goperation.manager.rpc.agent import base
 from goperation.manager.api import get_client
 from goperation.manager.api import get_session
 from goperation.manager.models import Agent
-from goperation.manager.models import AgentRespone
 from goperation.manager.models import AsyncRequest
 from goperation.manager.models import ScheduleJob
 from goperation.manager.models import JobStep
 from goperation.manager.rpc.agent.ctxtdescriptor import CheckManagerRpcCtxt
 from goperation.manager.rpc.agent.ctxtdescriptor import CheckThreadPoolRpcCtxt
-from goperation.manager.rpc.agent.scheduler.taskflow import JobFlow
+from goperation.manager.rpc.agent.scheduler.taskflow import executor
+from goperation.manager.rpc.agent.scheduler.taskflow import analyzer
+from goperation.manager.rpc.agent.scheduler.taskflow import factory
 
 
 CONF = cfg.CONF
 
 LOG = logging.getLogger(__name__)
 
+def safe_dumps(var):
+    if var is None:
+        return None
+    return jsonutils.dumps_as_bytes(var)
 
-class SchedulerTask(loopingcall.IntervalLoopinTask):
+
+class SchedulerLoopinTask(loopingcall.IntervalLoopinTask):
     """Report Agent online
     """
     def __init__(self, func, start, interval):
@@ -43,18 +48,18 @@ class SchedulerTask(loopingcall.IntervalLoopinTask):
         if delay < 5:
             raise ValueError('Scheduler task has not enough time to start')
         self.func = func
-        self.repeatable = True if interval else None
         self._clean = None
-        super(SchedulerTask, self).__init__(periodic_interval=interval,
-                                            initial_delay=delay,
-                                            stop_on_exception=True)
+        super(SchedulerLoopinTask, self).__init__(periodic_interval=interval,
+                                                  initial_delay=delay,
+                                                  stop_on_exception=True)
 
     def __call__(self, *args, **kwargs):
-        self.func()
-        if not self.repeatable:
+        try:
+            self.func()
+        except loopingcall.LoopingCallDone:
             self.func = None
             self.clean()
-            raise loopingcall.LoopingCallDone('Scheduler task run success')
+            raise
 
     @property
     def clean(self):
@@ -102,13 +107,15 @@ class SchedulerManager(base.RpcAgentManager):
                                                          filter=Agent.status > manager_common.DELETED).all()])
         else:
             wait_agents = set(rpc_ctxt.get('agents'))
+        if not asyncrequest.persist:
+            rpc_ctxt.setdefaut('expire', 60)
         asyncrequest = AsyncRequest(**asyncrequest)
         asyncrequest.scheduler = self.agent_id
         target = Target(**rpc_target)
         with self.work_lock:
             rpc = get_client()
             try:
-                rpc.cast(target, ctxt=rpc_args, msg={'method': rpc_method, 'args': rpc_args})
+                rpc.cast(target, ctxt=rpc_ctxt, msg={'method': rpc_method, 'args': rpc_args})
             except AMQPDestinationNotFound:
                 asyncrequest.resultcode = manager_common.SEND_FAIL
                 asyncrequest.result = 'Async %s request send fail, AMQPDestinationNotFound' % rpc_method
@@ -121,87 +128,89 @@ class SchedulerManager(base.RpcAgentManager):
             session.add(asyncrequest)
             session.flush()
 
+        request_id = asyncrequest.request_id
+        finishtime = asyncrequest.finishtime
+        deadline = asyncrequest.deadline + 1
+        persist = asyncrequest.persist
+        expire = rpc_ctxt.get('expire', 60)
+
         def check_respone():
-            now = int(time.time())
-            wait_time = asyncrequest.finishtime - now
-            if wait_time > 0:
-                eventlet.sleep(wait_time)
-            query = model_query(get_session(readonly=True),
-                                AgentRespone.agent_id,
-                                filter=AgentRespone.request_id == asyncrequest.request_id)
-            finish_agents = set()
+            wait = finishtime - int(time.time())
+            if wait > 0:
+                eventlet.sleep(wait)
+            body = dict(agents=list(wait_agents),
+                        persist=persist)
+            not_overtime = 2
             while True:
-                for row in query.all():
-                    finish_agents.add(row[0])
-                if finish_agents == wait_agents:
+                result = self.client.async_responses(request_id, body)
+                not_response_agents = set(result['data'][0]['agents'])
+                body['agents'] = list(not_response_agents)
+                if not not_response_agents:
                     return
-                if int(time.time()) > asyncrequest.deadline:
-                    agents_over_deadline = wait_agents - finish_agents
-                    self.client.scheduler_overtime_respone(asyncrequest.request_id,
-                                                           {'agents': agents_over_deadline})
-                    if finish_agents - wait_agents:
-                        LOG.warning('Finished async request agent more then agents in ctxt')
-                        LOG.debug('Agent %s is finished, but not in ctxt' % str(finish_agents - wait_agents))
-                    break
-                finish_agents.clear()
-                eventlet.sleep(0.25)
-            # some agent not respon
-            body = dict(agents=list(wait_agents - finish_agents),
-                        persist=asyncrequest.persist,
-                        agent_time=int(time.time()),
-                        scheduler=self.agent_id)
-            self.client.scheduler_overtime_respone(asyncrequest.request_id, body)
+                if int(time.time()) > deadline:
+                    not_overtime -= 1
+                    if not not_overtime:
+                        break
+                eventlet.sleep(1)
+            body.setdefault('scheduler', self.agent_id)
+            body.setdefault('agent_time', int(time.time()))
+            if persist:
+                body.setdefault('expire', expire)
+            self.client.async_overtime(request_id, body)
 
         threadpool.add_thread(safe_func_wrapper, check_respone, LOG)
         return BaseRpcResult(self.agent_id, resultcode=manager_common.RESULT_SUCCESS, result=asyncrequest.result)
 
     @CheckManagerRpcCtxt
-    def scheduler(self, ctxt, job_id, jobdata, interval=0):
+    def scheduler(self, ctxt, job_id, jobdata, times, interval=300):
         session = get_session()
-        start = datetime.datetime.fromtimestamp(jobdata['start']),
-        end = datetime.datetime.fromtimestamp(jobdata['end']),
-        deadline = datetime.datetime.fromtimestamp(jobdata['deadline'])
         # write job to database
+        start = datetime.datetime.fromtimestamp(jobdata['start'])
         with session.begin():
             session.add(ScheduleJob(job_id=job_id,
+                                    times=times,
+                                    interval=interval,
                                     schedule=self.agent_id,
                                     start=start,
-                                    end=end,
-                                    deadline=deadline))
+                                    retry=jobdata['retry'],
+                                    revertall=jobdata['revertall'],
+                                    desc=jobdata['desc'],
+                                    kwargs=safe_dumps(jobdata.get('kwargs'))))
             session.flush()
             for index, step in enumerate(jobdata['jobs']):
-                # check cls and method
-                ecls = step['execute']['cls']
-                emethod = step['execute']['method']
-                eargs = jsonutils.dumps_as_bytes(step['execute']['args']) if step['execute']['args'] else None
-                cls = importutils.import_class(ecls)
-                if not hasattr(cls, emethod):
-                    raise NotImplementedError('%s no method %s' % (cls, emethod))
-                if step.get('revert'):
-                    rcls = step['revert']['cls']
-                    rmethod = step['revert']['method']
-                    rargs = jsonutils.dumps_as_bytes(step['revert']['args']) if step['revert']['args'] else None
-                    cls = importutils.import_class(rcls)
-                    if not hasattr(cls, rmethod):
-                        raise NotImplementedError('%s no method %s' % (rcls, rmethod))
-                else:
-                    rcls = None
-                    rmethod = None
-                    rargs = None
+                executor_cls = getattr(executor, step['executor'])
+                analyzer_cls = getattr(analyzer, step['executor'])
+                if not executor_cls and not analyzer_cls:
+                    raise NotImplementedError('executor not exist')
+                # check execute and revert
+                executor_cls.esure_subclass(step)
                 session.add(JobStep(job_id=job_id, step=index,
-                            ecls=ecls,
-                            emethod=emethod,
-                            eargs=eargs,
-                            rcls=rcls, rmethod=rmethod, rargs=rargs))
+                                    executor=step['executor'],
+                                    kwargs=safe_dumps(step.get('kwargs', None)),
+                                    execute=step.get('execute', None),
+                                    revert=step.get('revert', None),
+                                    method=step.get('method', None),
+                                    rebind=safe_dumps(step.get('rebind', None)),
+                                    provides=safe_dumps(step.get('provides', None))))
                 session.flush()
 
         def run_job():
             _session = get_session()
             job = model_query(_session, ScheduleJob, filter=ScheduleJob.job_id == job_id).one()
+            if job.times is not None:
+                if job.times == 0:
+                    raise loopingcall.LoopingCallDone
             # call taskflow run job
-            JobFlow.start_jbo(job)
+            factory.start_taskflow(job)
+            if job.times is not None:
+                job.times -= 1
+            _session.commit()
+            _session.close()
+            if job.times is not None:
+                if job.times == 0:
+                    raise loopingcall.LoopingCallDone
 
-        task = SchedulerTask(run_job, start, interval)
+        task = SchedulerLoopinTask(run_job, start, interval)
         periodic = loopingcall.FixedIntervalLoopingCall(task)
         periodic.start(interval=task.periodic_interval,
                        initial_delay=task.initial_delay,

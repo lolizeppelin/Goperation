@@ -23,29 +23,29 @@ from goperation.manager.wsgi.exceptions import RpcResultError
 
 FAULT_MAP = {InvalidArgument: webob.exc.HTTPClientError}
 
+
 SCHEDULEJOBSCHEMA = {
     {'type': 'object',
-     'required': ['jobs', 'start', 'end', ],
+     'required': ['jobs', 'start', 'retry', 'revertall', 'desc'],
      'properties':
-         {'jobs': {'type': 'array',                                             # jobs info
-                   'minItems': 1,
+         {'jobs': {'type': 'array',
                    'items': {'type': 'object',
-                             'required': ['execute'],
-                             'properties': {'execute': {'type': 'object',       # execute job
-                                                        'required': ['cls', 'method'],
-                                                        'properties': {'cls': {'type': 'string'},
-                                                                       'method': {'type': 'string'},
-                                                                       'args': {'type': 'object'}
-                                                                       }},
-                                            'revert': {'type': 'object',        # revert job
-                                                       'required': ['cls', 'method'],
-                                                       'properties': {'cls': {'type': 'string'},
-                                                                      'method': {'type': 'string'},
-                                                                      'args': {'type': 'object'}
-                                                                      }}}}, },
-          'start': {'type': 'string', 'format': 'date-time'},      # jobs start time
-          'end': {'type': 'string', 'format': 'date-time'},        # jobs end time
-          'deadline': {'type': 'string', 'format': 'date-time'},   # jobs deadline time
+                             'required': ['executor'],
+                             'properties': {
+                                 'executor': {'type': 'string'},
+                                 'kwargs': {'type': 'object'},
+                                 'execute': {'type': 'string'},
+                                 'revert': {'type': 'string'},
+                                 'method': {'type': 'string'},
+                                 'rebind': {'type': 'array', 'minItems': 1,'items': {'type': 'string'}},
+                                 'provides': {'type': 'array', 'minItems': 1, 'items': {'type': 'string'}}
+                             }}
+                   },
+          'kwargs': {'type': 'object'},                             # for taskflow args:stone
+          'start': {'type': 'string', 'format': 'date-time'},       # jobs start time
+          'retry': {'type': 'int'},                                 # jobs retry times
+          'revertall': {'type': 'blob'},                            # revert all jobs when job fail
+          'desc': {'type': 'string'}                                # job infomation
           }
      }
 }
@@ -61,18 +61,14 @@ class SchedulerRequest(object):
 
     def create(self, req, body=None):
         body = body or {}
-        dispose = body.pop('dispose', False)
+        interval = body.pop('interval', 300)
+        times = body.pop('times', 1)
+        if times <= 0:
+            times = None
         jsonutils.schema_validate(body, SCHEDULEJOBSCHEMA)
-        start=datetime.datetime.fromtimestamp(body['start']),
-        end=datetime.datetime.fromtimestamp(body['end']),
-        deadline=datetime.datetime.fromtimestamp(body['deadline'])
-        mini_time = int(time.time()) + 300
-        if start < mini_time:
-            raise InvalidArgument()
-        if end < start + 3:
-            raise InvalidArgument()
-        if deadline:
-            raise
+        start = datetime.datetime.fromtimestamp(body['start'])
+        if start < int(time.time()) + 300:
+            raise InvalidArgument('Do not add a scheduler in 5 min')
         job_id = uuidutils.Gkey()
         rpc = get_client()
         glock = get_global().lock('autorelase')
@@ -82,7 +78,8 @@ class SchedulerRequest(object):
                                   msg={'method': 'scheduler',
                                        'args': {'job_id': job_id,
                                                 'jobdata': body,
-                                                'dispose': dispose}})
+                                                'times': times,                 # run times
+                                                'interval': interval}})        # job interval
             if not job_result:
                 raise RpcResultError('delete_agent_precommit result is None')
             if job_result.get('resultcode') != manager_common.RESULT_SUCCESS:

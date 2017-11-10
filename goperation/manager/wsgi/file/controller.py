@@ -141,7 +141,8 @@ class FileReuest(BaseContorller):
             self.send_asyncrequest(asyncrequest, target,
                                    rpc_ctxt, rpc_method, rpc_args)
         threadpool.add_thread(safe_func_wrapper, wapper, LOG)
-        return resultutils.results(result='Send file to agents thread spawning')
+        return resultutils.results(result='Send file to agents thread spawning',
+                                   data=[asyncrequest.to_dict()])
 
 
     @BaseContorller.AgentIdformater

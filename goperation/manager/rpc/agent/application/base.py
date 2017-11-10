@@ -30,3 +30,7 @@ class AppEndpointBase(RpcAgentEndpointBase):
 
     def entity_home(self, entity):
         raise NotImplementedError
+
+    @property
+    def filemanager(self):
+        return self.manager.filemanager

@@ -19,5 +19,6 @@ filemanager测试                                                               
 
 spec文件编写,linux安装测试                                                                  spec完成,安装测试压后
 
+agent升级rpm编写                                                                            压后
 websocket实现文件发送与tail文件                                                             压后
 sql执行超时方式确认                                                                         暂时关闭功能

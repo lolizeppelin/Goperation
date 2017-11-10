@@ -35,10 +35,10 @@ class EntityMiddleware(object):
 
     def pipe_success(self, name):
         for key, value in self.iterresults():
-            if key == name:
-                break
             if value is not common.EXECUTE_SUCCESS:
                 return False
+            if key == name:
+                break
         return True
 
     def iterresults(self):

@@ -15,7 +15,7 @@ from simpleservice.plugin.base import EndpointBase
 
 from goperation import threadpool
 from goperation.utils import suicide
-from goperation.api.client import HttpClientApi
+from goperation.api.client import GopHttpClientApi
 from goperation.manager.api import get_http
 from goperation.manager import common as manager_common
 from goperation.manager.utils import validate_endpoint
@@ -35,7 +35,7 @@ LOG = None
 CONF.register_opts(rpc_agent_opts, agent_group)
 
 
-class AgentManagerClient(HttpClientApi):
+class AgentManagerClient(GopHttpClientApi):
 
     def __init__(self, httpclient, **kwargs):
         self.agent_id = None

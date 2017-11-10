@@ -1,14 +1,13 @@
 import random
 import eventlet
 
-
 from simpleflow.patterns import linear_flow as lf
 from simpleflow.patterns import unordered_flow as uf
 
 from goperation.manager.rpc.agent.application.taskflow import application
 from goperation.manager.rpc.agent.application.taskflow import database
-from goperation.taskflow.base import format_store_rebind
-from goperation.taskflow.base import EntityTask
+from goperation.manager.rpc.agent.application.taskflow.base import EntityTask
+from goperation.manager.rpc.agent.application.taskflow.base import format_store_rebind
 
 
 def entity_factory(session, middleware, store, db_flow_factory):
