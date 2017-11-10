@@ -280,6 +280,7 @@ class ManagerClient(HttpClientBase):
         return results
 
     def async_details(self, request_id, body):
+        """get asyncrequest result of target agent"""
         resp, results = self.get(action=self.async_ext_path % (request_id, 'details'), body=body)
         if results['resultcode'] != manager_common.RESULT_SUCCESS:
             raise ServerExecuteRequestError(message='show asyncrequest details fail:%d' % results['resultcode'],
@@ -287,26 +288,32 @@ class ManagerClient(HttpClientBase):
                                             resone=results['result'])
         return results
 
-    def async_resopne(self, request_id, body):
-        resp, results = self.retryable_post(action=self.async_ext_path % (request_id, 'resopne'), body=body)
+    def async_response(self, request_id, body):
+        """agent respone asyncrequest result"""
+        resp, results = self.retryable_post(action=self.async_ext_path % (request_id, 'response'), body=body)
         if results['resultcode'] != manager_common.RESULT_SUCCESS:
             raise ServerExecuteRequestError(message='agent respone fail:%d' % results['resultcode'],
                                             code=resp.status_code,
                                             resone=results['result'])
+        return results
 
-    def scheduler_overtime_respone(self, request_id, body):
+    def async_responses(self, request_id, body):
+        """get respone agents list"""
+        resp, results = self.get(action=self.async_ext_path % (request_id, 'responses'), body=body)
+        if results['resultcode'] != manager_common.RESULT_SUCCESS:
+            raise ServerExecuteRequestError(message='get respone agents list fail:%d' % results['resultcode'],
+                                            code=resp.status_code,
+                                            resone=results['result'])
+        return results
+
+    def async_overtime(self, request_id, body):
+        """scheduler respone asyncrequest over deadline"""
         resp, results = self.put(action=self.async_ext_path % (request_id, 'overtime'), body=body)
         if results['resultcode'] != manager_common.RESULT_SUCCESS:
-            raise ServerExecuteRequestError(message='scheduler overtime report fail:%d' % results['resultcode'],
+            raise ServerExecuteRequestError(message='scheduler overtime fail:%d' % results['resultcode'],
                                             code=resp.status_code,
                                             resone=results['result'])
-
-    def scheduler_report(self, request_id, body):
-        resp, results = self.retryable_post(action=self.async_ext_path % (request_id, 'scheduler'), body=body)
-        if results['resultcode'] != manager_common.RESULT_SUCCESS:
-            raise ServerExecuteRequestError(message='scheduler declare fail:%d' % results['resultcode'],
-                                            code=resp.status_code,
-                                            resone=results['result'])
+        return results
 
     # -- file path --
     def files_index(self):
@@ -389,7 +396,7 @@ class ManagerClient(HttpClientBase):
         return results
 
 
-class HttpClientApi(object):
+class GopHttpClientApi(object):
 
     def __init__(self, httpclient):
         if not isinstance(httpclient, ManagerClient):
