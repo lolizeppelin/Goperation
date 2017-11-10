@@ -278,9 +278,9 @@ class JobStep(PluginTableBase):
                        nullable=False, primary_key=True)
     step = sa.Column(TINYINT,  nullable=False, primary_key=True)
     executor = sa.Column(VARCHAR(64), nullable=False)
-    execute = sa.Column(VARCHAR(256), nullable=False)
+    execute = sa.Column(VARCHAR(256), nullable=True)
     revert = sa.Column(VARCHAR(256), nullable=True)
-    method = sa.Column(VARCHAR(64), nullable=False)
+    method = sa.Column(VARCHAR(64), nullable=True)
     kwargs = sa.Column(LONGBLOB, nullable=True)             # kwargs for executor
     rebind = sa.Column(LONGBLOB, nullable=True)             # execute rebind  taskflow
     provides = sa.Column(LONGBLOB, nullable=True)           # execute provides taskflow
