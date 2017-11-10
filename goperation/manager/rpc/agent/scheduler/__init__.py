@@ -2,6 +2,8 @@ import time
 import datetime
 import eventlet
 
+from eventlet.semaphore import Semaphore
+
 from simpleutil.config import cfg
 from simpleutil.log import log as logging
 from simpleutil.utils import jsonutils
@@ -43,10 +45,11 @@ def safe_dumps(var):
 class SchedulerLoopinTask(loopingcall.IntervalLoopinTask):
     """Report Agent online
     """
-    def __init__(self, func, start, interval):
+    def __init__(self, job_id, func, start, interval):
         delay = int(time.time()) - start
         if delay < 5:
             raise ValueError('Scheduler task has not enough time to start')
+        self.job_id = job_id
         self.func = func
         self._clean = None
         super(SchedulerLoopinTask, self).__init__(periodic_interval=interval,
@@ -57,9 +60,17 @@ class SchedulerLoopinTask(loopingcall.IntervalLoopinTask):
         try:
             self.func()
         except loopingcall.LoopingCallDone:
-            self.func = None
             self.clean()
+            self.clean = None
+            self.func = None
             raise
+        except Exception:
+            self.clean()
+            self.clean = None
+            self.func = None
+            LOG.exception('SchedulerLoopinTask run job %d catch error' % self.job_id)
+            # TODO send notify to admin
+            raise loopingcall.LoopingCallDone
 
     @property
     def clean(self):
@@ -84,17 +95,17 @@ class SchedulerManager(base.RpcAgentManager):
     def __init__(self):
         base.LOG = LOG
         super(SchedulerManager, self).__init__()
-        self.timers = set()
+        self.jobs = set()
+        self.job_lock = Semaphore(1)
 
-    def post_stop(self):
-        for x in self.timers:
-            x.stop()
-        for x in self.timers:
-            try:
-                x.wait()
-            except Exception:
-                LOG.exception("Exception occurs when wait scheduler manager timer finish")
-        super(SchedulerManager, self).post_stop()
+    def post_start(self):
+        super(SchedulerManager, self).post_start()
+        with self.job_lock:
+            session = get_session(readonly=True)
+            query = model_query(session, ScheduleJob, filter=ScheduleJob.schedule == self.agent_id)
+            for job in query.all():
+                if job.times is not None and job.times:
+                    self.start_task(job.job_id, job.start, job.interval)
 
     @CheckManagerRpcCtxt
     @CheckThreadPoolRpcCtxt
@@ -161,15 +172,56 @@ class SchedulerManager(base.RpcAgentManager):
         threadpool.add_thread(safe_func_wrapper, check_respone, LOG)
         return BaseRpcResult(self.agent_id, resultcode=manager_common.RESULT_SUCCESS, result=asyncrequest.result)
 
+    def start_task(self, job_id, start, interval):
+        with self.job_lock:
+            if job_id in self.jobs:
+                raise
+            def task():
+                session = get_session()
+                query = model_query(session, ScheduleJob, filter=ScheduleJob.job_id == job_id)
+                job = query.one_or_none()
+                if job is None:
+                    LOG.warring('Scheduler job %d has been deleted or run by this scheduler')
+                    raise loopingcall.LoopingCallDone
+                if job.times is not None:
+                    if job.times == 0:
+                        query.delete()
+                        raise loopingcall.LoopingCallDone
+                # call taskflow run job
+                factory.start_taskflow(job)
+                if job.times is not None:
+                    job.times -= 1
+                session.commit()
+                session.close()
+                if job.times is not None:
+                    if job.times == 0:
+                        query.delete()
+                        raise loopingcall.LoopingCallDone
+
+            task = SchedulerLoopinTask(job_id, task, start, interval)
+            periodic = loopingcall.FixedIntervalLoopingCall(task)
+            periodic.start(interval=task.periodic_interval,
+                           initial_delay=task.initial_delay,
+                           stop_on_exception=task.stop_on_exception)
+
+            self.jobs.add(job_id)
+            self.timers.add(periodic)
+            # remove from timers when task finish
+            def clean():
+                self.timers.discard(periodic)
+                self.jobs.discard(job_id)
+            task.clean = clean
+
     @CheckManagerRpcCtxt
-    def scheduler(self, ctxt, job_id, jobdata, times, interval=300):
+    def scheduler(self, ctxt, job_id, jobdata):
         session = get_session()
         # write job to database
+        interval = jobdata['interval']
         start = datetime.datetime.fromtimestamp(jobdata['start'])
         with session.begin():
             session.add(ScheduleJob(job_id=job_id,
-                                    times=times,
-                                    interval=interval,
+                                    times=jobdata['times'],
+                                    interval=jobdata['interval'],
                                     schedule=self.agent_id,
                                     start=start,
                                     retry=jobdata['retry'],
@@ -193,31 +245,7 @@ class SchedulerManager(base.RpcAgentManager):
                                     rebind=safe_dumps(step.get('rebind', None)),
                                     provides=safe_dumps(step.get('provides', None))))
                 session.flush()
-
-        def run_job():
-            _session = get_session()
-            job = model_query(_session, ScheduleJob, filter=ScheduleJob.job_id == job_id).one()
-            if job.times is not None:
-                if job.times == 0:
-                    raise loopingcall.LoopingCallDone
-            # call taskflow run job
-            factory.start_taskflow(job)
-            if job.times is not None:
-                job.times -= 1
-            _session.commit()
-            _session.close()
-            if job.times is not None:
-                if job.times == 0:
-                    raise loopingcall.LoopingCallDone
-
-        task = SchedulerLoopinTask(run_job, start, interval)
-        periodic = loopingcall.FixedIntervalLoopingCall(task)
-        periodic.start(interval=task.periodic_interval,
-                       initial_delay=task.initial_delay,
-                       stop_on_exception=task.stop_on_exception)
-        # remove from timers when task finish
-        task.clean = lambda: self.timers.discard(periodic)
-        self.timers.add(periodic)
+        self.start_task(job_id, start, interval)
         return BaseRpcResult(result='Scheduler Job accepted', agent_id=self.agent_id)
 
     @CheckManagerRpcCtxt

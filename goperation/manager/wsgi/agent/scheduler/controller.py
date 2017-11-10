@@ -41,11 +41,13 @@ SCHEDULEJOBSCHEMA = {
                                  'provides': {'type': 'array', 'minItems': 1, 'items': {'type': 'string'}}
                              }}
                    },
-          'kwargs': {'type': 'object'},                             # for taskflow args:stone
-          'start': {'type': 'string', 'format': 'date-time'},       # jobs start time
-          'retry': {'type': 'int'},                                 # jobs retry times
-          'revertall': {'type': 'blob'},                            # revert all jobs when job fail
-          'desc': {'type': 'string'}                                # job infomation
+          'kwargs': {'type': 'object'},                                     # for taskflow args:stone
+          'start': {'type': 'string', 'format': 'date-time'},               # jobs start time
+          'times': [{'type': 'integer', 'minimum': 1}, {'type': 'null'}],   # jobs run times, null means nolimit
+          'interval': {'type': 'integer', 'minimum': 0},                    # jobs run interval
+          'retry': {'type': 'int'},                                         # jobs retry times
+          'revertall': {'type': 'blob'},                                    # revert all jobs when job fail
+          'desc': {'type': 'string'}                                        # job infomation
           }
      }
 }
@@ -61,10 +63,6 @@ class SchedulerRequest(object):
 
     def create(self, req, body=None):
         body = body or {}
-        interval = body.pop('interval', 300)
-        times = body.pop('times', 1)
-        if times <= 0:
-            times = None
         jsonutils.schema_validate(body, SCHEDULEJOBSCHEMA)
         start = datetime.datetime.fromtimestamp(body['start'])
         if start < int(time.time()) + 300:
@@ -77,9 +75,7 @@ class SchedulerRequest(object):
                                   ctxt={'finishtime': ""},
                                   msg={'method': 'scheduler',
                                        'args': {'job_id': job_id,
-                                                'jobdata': body,
-                                                'times': times,                 # run times
-                                                'interval': interval}})        # job interval
+                                                'jobdata': body}})        # job interval
             if not job_result:
                 raise RpcResultError('delete_agent_precommit result is None')
             if job_result.get('resultcode') != manager_common.RESULT_SUCCESS:
