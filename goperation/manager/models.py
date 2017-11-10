@@ -58,7 +58,7 @@ class AgentRespone(PluginTableBase):
     resultcode = sa.Column(TINYINT, nullable=False, default=manager_common.RESULT_UNKNOWN)
     result = sa.Column(VARCHAR(manager_common.MAX_AGENT_RESULT),
                        nullable=False, default='agent respone rpc request')
-    details = orm.relationship(ResponeDetail, backref='agentrespone', lazy='select',
+    details = orm.relationship(ResponeDetail, backref='agentrespone', lazy='joined',
                                primaryjoin=and_(agent_id == ResponeDetail.agent_id,
                                                 request_id == ResponeDetail.request_id),
                                cascade='delete,delete-orphan,save-update')
@@ -73,6 +73,10 @@ class AsyncRequest(PluginTableBase):
                            nullable=False, primary_key=True)
     request_time = sa.Column(INTEGER(unsigned=True),
                              default=realnowint, nullable=False)
+    # if request finish
+    status = sa.Column(BOOLEAN, nullable=False, default=manager_common.UNFINISH)
+    # write agent respone into database
+    persist = sa.Column(BOOLEAN, nullable=False, default=1)
     # request should finish at finish time
     # when agent get a rpc came, if cur time > finishtime
     # agent will drop the package
@@ -80,16 +84,12 @@ class AsyncRequest(PluginTableBase):
     # request should finish before deadline time
     # if task scheduler find cur time > deadline, it will not check return any more
     deadline = sa.Column(INTEGER(unsigned=True), default=realnowint(10), nullable=False)
-    # async resopne checker id, means scheduled timer server id
+    # async response checker id, means scheduled timer server id
     # 0 means no checker now
     scheduler = sa.Column(INTEGER(unsigned=True), default=0, nullable=False)
-    # if request finish
-    status = sa.Column(BOOLEAN, nullable=False, default=manager_common.UNFINISH)
     resultcode = sa.Column(TINYINT, nullable=False, default=manager_common.RESULT_UNKNOWN)
     result = sa.Column(VARCHAR(manager_common.MAX_REQUEST_RESULT),
                        nullable=False, default='waiting respone')
-    # write agent respone into database
-    persist = sa.Column(BOOLEAN, nullable=False, default=1)
     # AgentRespone list
     respones = orm.relationship(AgentRespone, backref='asyncrequest', lazy='select',
                                 cascade='delete, delete-orphan')
@@ -277,22 +277,35 @@ class JobStep(PluginTableBase):
     job_id = sa.Column(sa.ForeignKey('schedulejobs.job_id', ondelete="CASCADE", onupdate='RESTRICT'),
                        nullable=False, primary_key=True)
     step = sa.Column(TINYINT,  nullable=False, primary_key=True)
-    ecls = sa.Column(VARCHAR(512), nullable=False)
-    emethod = sa.Column(VARCHAR(64), nullable=False)
-    eargs = sa.Column(LONGBLOB, nullable=True)
-    rcls = sa.Column(VARCHAR(512), nullable=True)
-    rmethod = sa.Column(VARCHAR(64), nullable=True)
-    rargs = sa.Column(LONGBLOB, nullable=True)
+    executor = sa.Column(VARCHAR(64), nullable=False)
+    execute = sa.Column(VARCHAR(256), nullable=False)
+    revert = sa.Column(VARCHAR(256), nullable=True)
+    method = sa.Column(VARCHAR(64), nullable=False)
+    kwargs = sa.Column(LONGBLOB, nullable=True)             # kwargs for executor
+    rebind = sa.Column(LONGBLOB, nullable=True)             # execute rebind  taskflow
+    provides = sa.Column(LONGBLOB, nullable=True)           # execute provides taskflow
+    resultcode = sa.Column(TINYINT, nullable=False, default=manager_common.RESULT_UNKNOWN)
     result = sa.Column(VARCHAR(manager_common.MAX_JOB_RESULT),
                        nullable=False, default='not executed')
+
+    __table_args__ = (
+            InnoDBTableBase.__table_args__
+    )
 
 
 class ScheduleJob(PluginTableBase):
     job_id = sa.Column(CHAR(36), default=uuidutils.Gkey, nullable=False, primary_key=True)
+    times = sa.Column(TINYINT(unsigned=True),  nullable=True, default=1)
+    interval = sa.Column(INTEGER(unsigned=True),  nullable=False, default=300)
     schedule = sa.Column(sa.ForeignKey('agents.agent_id'), nullable=False)
-    step = sa.Column(TINYINT, default=0, nullable=False)
     start = sa.Column(INTEGER(unsigned=True), nullable=False)
-    end = sa.Column(INTEGER(unsigned=True), nullable=False)
-    deadline = sa.Column(INTEGER(unsigned=True), nullable=False)
+    retry = sa.Column(TINYINT, nullable=False, default=0)
+    revertall = sa.Column(BOOLEAN, nullable=False, default=0)
+    desc = sa.Column(VARCHAR(512), nullable=False)
+    kwargs = sa.Column(LONGBLOB, nullable=True)
     steps = orm.relationship(JobStep, backref='schedulejob', lazy='joined',
                              cascade='delete,delete-orphan,save-update')
+
+    __table_args__ = (
+            InnoDBTableBase.__table_args__
+    )
