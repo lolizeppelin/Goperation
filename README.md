@@ -1,5 +1,3 @@
-Goperation
-==========
 游戏运维管理框架
 
 所遵循的RESTful规范
