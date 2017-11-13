@@ -41,8 +41,8 @@ routers对应http方法
 
     动作    方法    作用域
     index   GET     collection
-    show    GET     member
     create  POST    collection
+    show    GET     member
     update  PUT     member
     delete  DELETE  member
     edit    ?       member
@@ -54,7 +54,7 @@ RPC调用规范
 
     CAST: 用于不接收执行结果的RPC调用的,必须预先在rabbit中创建队列,target中有fanout标记使用广播交换机广播发送
 
-    CALL: 用于需要接收执行结果的RPC调用, 必须预先在rabbit中创建队列
+    CALL: 用于需要接收执行结果的RPC调用, 必须预先在rabbit中创建队列,只能点对点不允许广播
 
     NOTIFY: 非RPC信息发送,用于直接发送消息, rabbit中可以不预先创建队列
 
