@@ -17,9 +17,6 @@ class Routers(router.RoutersBase):
         controller_intance = controller_return_response(controller.EntityReuest(),
                                                         controller.FAULT_MAP)
         self._add_resource(mapper, controller_intance,
-                   path='/%s/{endpoint}/etypes/{etype}' % (manager_common.ENDPOINT + 's'),
-                   get_action='etypes')
-        self._add_resource(mapper, controller_intance,
                    path='/%s/{endpoint}/entitys/{entity}' % (manager_common.ENDPOINT + 's'),
                    get_action='show')
         self._add_resource(mapper, controller_intance,

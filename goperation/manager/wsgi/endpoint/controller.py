@@ -138,7 +138,6 @@ class EndpointReuest(BaseContorller):
         return resultutils.results(result='get endpoint %s entitys success' % endpoint,
                                    data=[dict(agent_id=entity.agent_id,
                                               entity=entity.entity,
-                                              etype=entity.etype,
                                               ports=[port.port for port in entity.ports])
                                          for entity in query.options(joinedload(AgentEntity.ports,
                                                                                 innerjoin=False)).all()])

@@ -77,7 +77,7 @@ class BaseContorller(MiddlewareContorller):
         persist: 0 or 1, if zero, respone will store into redis else store into database
         """
         request_time = int(timeutils.realnow())
-        persist = body.get('persist', 1)
+        persist = body.pop('persist', 1)
         if persist not in (0, 1):
             raise InvalidArgument('Async argv persist not in 0, 1')
         try:
@@ -89,7 +89,7 @@ class BaseContorller(MiddlewareContorller):
         offset_time = request_time - client_request_time
         if abs(offset_time) > 5:
             raise InvalidArgument('The diff time between send and receive is %d' % offset_time)
-        finishtime = body.get('finishtime', None)
+        finishtime = body.pop('finishtime', None)
         if finishtime:
             finishtime = int(finishtime) + offset_time
         else:
@@ -97,7 +97,7 @@ class BaseContorller(MiddlewareContorller):
             finishtime = rpcfinishtime(request_time)
         if finishtime - request_time < 3:
             raise InvalidArgument('Job can not be finished in 3 second')
-        deadline = body.get('deadline', None)
+        deadline = body.pop('deadline', None)
         if deadline:
             deadline = int(deadline) + offset_time - 1
         else:
