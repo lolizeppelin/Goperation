@@ -371,6 +371,7 @@ class AgentReuest(BaseContorller):
 
         global_data = get_global()
         glock = functools.partial(global_data.lock('agents'), agent_id)
+
         def wapper():
             with glock() as agents:
                 if agents is not manager_common.ALL_AGENTS:
