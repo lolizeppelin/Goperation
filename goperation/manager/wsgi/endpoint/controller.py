@@ -2,7 +2,6 @@ import webob.exc
 
 from sqlalchemy.sql import and_
 from sqlalchemy.orm import joinedload
-from sqlalchemy.orm import joinedload_all
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.orm.exc import MultipleResultsFound
 
@@ -57,7 +56,8 @@ class EndpointReuest(BaseContorller):
                                               ports=len(endpoint.ports))
                                          for endpoint in
                                          query.options(joinedload(AgentEndpoint.entitys,
-                                                                  AgentEndpoint.ports)).all()])
+                                                                  AgentEndpoint.ports,
+                                                                  innerjoin=False)).all()])
 
     @BaseContorller.AgentIdformater
     def create(self, req, agent_id, body=None):
@@ -81,7 +81,8 @@ class EndpointReuest(BaseContorller):
                                 AgentEndpoint.endpoint == endpoint)
         query = model_query(session, AgentEndpoint, filter=endpoints_filter)
         endpoint = query.options(joinedload(AgentEndpoint.entitys,
-                                            AgentEndpoint.ports)).one()
+                                            AgentEndpoint.ports,
+                                            innerjoin=False)).one()
         return resultutils.results(result='show endpoint success',
                                    data=[dict(endpoint=endpoint.endpoint,
                                               agent_id=endpoint.agent_id,
@@ -139,4 +140,5 @@ class EndpointReuest(BaseContorller):
                                               entity=entity.entity,
                                               etype=entity.etype,
                                               ports=[port.port for port in entity.ports])
-                                         for entity in query.options(joinedload(AgentEntity.ports)).all()])
+                                         for entity in query.options(joinedload(AgentEntity.ports,
+                                                                                innerjoin=False)).all()])

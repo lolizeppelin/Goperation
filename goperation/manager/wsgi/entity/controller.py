@@ -59,7 +59,7 @@ class EntityReuest(BaseContorller):
         query = model_query(session, AgentEntity, filter=and_(AgentEntity.endpoint == endpoint,
                                                               AgentEntity.agent_id == agent_id))
         if show_ports:
-            query = query.options(joinedload(AgentEntity.ports))
+            query = query.options(joinedload(AgentEntity.ports, innerjoin=False))
         entitys = query.all()
         if not entitys:
             return resultutils.results(result='no entity found', resultcode=manager_common.RESULT_ERROR)
@@ -113,7 +113,7 @@ class EntityReuest(BaseContorller):
         query = model_query(session, AgentEntity, filter=and_(AgentEntity.endpoint == endpoint,
                                                               AgentEntity.entity.in_(entitys)))
         if show_ports:
-            query = query.options(joinedload(AgentEntity.ports))
+            query = query.options(joinedload(AgentEntity.ports, innerjoin=False))
         entitys = query.all()
         if not entitys:
             return resultutils.results(result='no entity found', resultcode=manager_common.RESULT_ERROR)

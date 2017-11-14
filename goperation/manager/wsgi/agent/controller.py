@@ -21,7 +21,6 @@ from simpleservice.rpc.exceptions import NoSuchMethod
 from goperation import threadpool
 from goperation.utils import safe_func_wrapper
 from goperation.manager import common as manager_common
-from goperation.manager import utils
 from goperation.manager import resultutils
 from goperation.manager import targetutils
 from goperation.manager.api import get_client
@@ -96,11 +95,11 @@ class AgentReuest(BaseContorller):
         show_ports = body.get('ports', False)
         show_entitys = body.get('entitys', False)
         session = get_session(readonly=True)
-        joins = joinedload(Agent.endpoints)
+        joins = joinedload(Agent.endpoints, innerjoin=False)
         if show_entitys:
-            joins = joins.joinedload(AgentEndpoint.entitys)
+            joins = joins.joinedload(AgentEndpoint.entitys, innerjoin=False)
         if show_ports:
-            joins = joins.joinedload(AgentEntity.ports)
+            joins = joins.joinedload(AgentEntity.ports, innerjoin=False)
         query = model_query(session, Agent).options(joins)
         agent = query.filter_by(agent_id=agent_id).one()
         result = resultutils.results(total=1, pagenum=0, result='Show agent success')
