@@ -25,7 +25,7 @@ FAULT_MAP = {InvalidArgument: webob.exc.HTTPClientError}
 
 
 SCHEDULEJOBSCHEMA = {
-    {'type': 'object',
+     'type': 'object',
      'required': ['jobs', 'start', 'retry', 'revertall', 'desc'],
      'properties':
          {'jobs': {'type': 'array',
@@ -39,13 +39,13 @@ SCHEDULEJOBSCHEMA = {
                                  'method': {'type': 'string'},
                                  'rebind': {'type': 'array', 'minItems': 1,'items': {'type': 'string'}},
                                  'provides': {'type': 'array', 'minItems': 1, 'items': {'type': 'string'}}
-                             }}
+                             }
                    },
           'kwargs': {'type': 'object'},                                     # for taskflow args:stone
           'start': {'type': 'string', 'format': 'date-time'},               # jobs start time
           'times': [{'type': 'integer', 'minimum': 1}, {'type': 'null'}],   # jobs run times, null means nolimit
           'interval': {'type': 'integer', 'minimum': 0},                    # jobs run interval
-          'retry': {'type': 'int'},                                         # jobs retry times
+          'retry': {'type': 'integer', 'minimum': 0},                                         # jobs retry times
           'revertall': {'type': 'blob'},                                    # revert all jobs when job fail
           'desc': {'type': 'string'}                                        # job infomation
           }
@@ -53,7 +53,7 @@ SCHEDULEJOBSCHEMA = {
 }
 
 
-class SchedulerRequest(object):
+class SchedulerRequest(BaseContorller):
 
     def __init__(self):
         self._all_server_id = set()

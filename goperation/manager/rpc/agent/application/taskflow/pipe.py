@@ -50,7 +50,7 @@ def entity_factory(session, middleware, store, db_flow_factory):
     return EntityTask(session, entity_flow, store)
 
 
-def flow_factory(session, middlewares, store,
+def flow_factory(session, middlewares, store=None,
                  db_flow_factory=database.mysql_flow_factory):
     """
     @param session:                 class: sqlalchemy:session
@@ -60,6 +60,7 @@ def flow_factory(session, middlewares, store,
     """
     if not middlewares:
         raise RuntimeError('No middleware found')
+    store = store or {}
     main_flow = lf.Flow('%s_taskflow' % middlewares[0].endpoint)
 
     # choice one entity by randomizing the selection of middlewares

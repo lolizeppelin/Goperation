@@ -27,7 +27,7 @@ except ImportError:
     def PyTest(x):
         pass
 
-f = open(os.path.join(os.path.dirname(__file__), 'README.rst'))
+f = open(os.path.join(os.path.dirname(__file__), 'README.md'))
 long_description = f.read()
 f.close()
 
