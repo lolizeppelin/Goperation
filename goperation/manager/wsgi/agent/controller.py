@@ -2,6 +2,7 @@ import functools
 import webob.exc
 
 from sqlalchemy.sql import and_
+from sqlalchemy.orm import joinedload
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.orm.exc import MultipleResultsFound
 
@@ -92,27 +93,26 @@ class AgentReuest(BaseContorller):
     @BaseContorller.AgentIdformater
     def show(self, req, agent_id, body=None):
         body = body or {}
-        ports = body.get('ports', False)
-        entitys = body.get('entitys', False)
+        show_ports = body.get('ports', False)
+        show_entitys = body.get('entitys', False)
         session = get_session(readonly=True)
-        query = model_query(session, Agent)
+        joins = joinedload(Agent.endpoints)
+        if show_entitys:
+            joins = joins.joinedload(AgentEndpoint.entitys)
+        if show_ports:
+            joins = joins.joinedload(AgentEntity.ports)
+        query = model_query(session, Agent).options(joins)
         agent = query.filter_by(agent_id=agent_id).one()
+        result = resultutils.results(total=1, pagenum=0, result='Show agent success')
         endpoints = {}
         for endpoint in agent.endpoints:
-            endpoints[endpoint.endpoint] = {}
-        result = resultutils.results(total=1, pagenum=0, result='Show agent success')
-        if entitys:
-            for entity in agent.entitys:
-                try:
-                    endpoints[entity.endpoint]['entity'].append(entity.entity)
-                except KeyError:
-                     endpoints[entity.endpoint] = {'entity': [entity.entity]}
-        if ports:
-            for port in agent.ports:
-                try:
-                    endpoints[port.endpoint]['ports'].append(port.port)
-                except KeyError:
-                     endpoints[port.endpoint] = {'ports': [port.port]}
+            endpoints[endpoint] = dict()
+            if show_entitys:
+                for entity in endpoint.entity:
+                    endpoints[endpoint][entity.entity] = []
+                    if show_ports:
+                        for port in entity.ports:
+                            endpoints[endpoint][entity.entity].append(port)
         result_data = dict(agent_id=agent.agent_id, host=agent.host,
                            status=agent.status,
                            ports_range=jsonutils.loads_as_bytes(agent.ports_range),

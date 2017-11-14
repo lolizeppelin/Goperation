@@ -199,7 +199,7 @@ class Agent(PluginTableBase):
     ports_range = sa.Column(VARCHAR(manager_common.MAX_PORTS_RANGE_SIZE),
                             default='',
                             nullable=False)
-    endpoints = orm.relationship(AgentEndpoint, backref='agent', lazy='joined',
+    endpoints = orm.relationship(AgentEndpoint, backref='agent', lazy='select',
                                  cascade='delete,delete-orphan,save-update')
     entitys = orm.relationship(AgentEntity, backref='agent', lazy='select',
                                cascade='delete,delete-orphan')

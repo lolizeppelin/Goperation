@@ -1,6 +1,7 @@
 import webob.exc
 
 from sqlalchemy.sql import and_
+from sqlalchemy.orm import joinedload
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.orm.exc import MultipleResultsFound
 
@@ -57,6 +58,8 @@ class EntityReuest(BaseContorller):
         session = get_session(readonly=True)
         query = model_query(session, AgentEntity, filter=and_(AgentEntity.endpoint == endpoint,
                                                               AgentEntity.agent_id == agent_id))
+        if show_ports:
+            query = query.options(joinedload(AgentEntity.ports))
         entitys = query.all()
         if not entitys:
             return resultutils.results(result='no entity found', resultcode=manager_common.RESULT_ERROR)
@@ -109,6 +112,8 @@ class EntityReuest(BaseContorller):
         session = get_session(readonly=True)
         query = model_query(session, AgentEntity, filter=and_(AgentEntity.endpoint == endpoint,
                                                               AgentEntity.entity.in_(entitys)))
+        if show_ports:
+            query = query.options(joinedload(AgentEntity.ports))
         entitys = query.all()
         if not entitys:
             return resultutils.results(result='no entity found', resultcode=manager_common.RESULT_ERROR)
