@@ -16,8 +16,11 @@ def bulk_results(session,
                  counter=None,
                  order=None, desc=None,
                  filter=None,
+                 option=None,
                  page_num=0):
     query = model_query(session, model, filter=filter)
+    if option:
+        query = query.options(option)
 
     def validator(_column):
         if isinstance(_column, basestring):
@@ -64,24 +67,22 @@ def bulk_results(session,
                                         filter=filter)
     # check page number
     if page_num:
-        if not isinstance(page_num, (int, long)):
-            raise InvalidArgument('Page number type error')
         if page_num*manager_common.ROW_PER_PAGE >= all_rows_num:
             raise InvalidArgument('Page number over size or no data exist')
         query.seek(page_num*manager_common.ROW_PER_PAGE)
     query = query.limit(manager_common.MAX_ROW_PER_REQUEST)
-    request_list = []
+    row_list = []
     for result in query:
-        data = dict()
-        for column in column_name_list:
-            data[column] = result.__dict__[column]
-        request_list.append(data)
+        column = dict()
+        for column_name in column_name_list:
+            column[column_name] = result.__dict__[column_name]
+        row_list.append(column)
     result = 'Get results success'
-    if len(request_list) == 0:
+    if len(row_list) == 0:
         result = 'No result found'
     ret_dict = results(total=all_rows_num,
                        pagenum=page_num,
-                       data=request_list, result=result)
+                       data=row_list, result=result)
     return ret_dict
 
 
