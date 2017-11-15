@@ -4,6 +4,7 @@ from sqlalchemy.sql import and_
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.orm.exc import MultipleResultsFound
 
+from simpleutil.utils import singleton
 from simpleutil.common.exceptions import InvalidArgument
 from simpleutil.common.exceptions import InvalidInput
 from simpleutil.log import log as logging
@@ -41,6 +42,7 @@ FAULT_MAP = {InvalidArgument: webob.exc.HTTPClientError,
              }
 
 
+@singleton.singleton
 class CacheReuest(BaseContorller):
 
     def flush(self, req, body=None):

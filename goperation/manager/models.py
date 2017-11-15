@@ -231,7 +231,8 @@ class DownFile(PluginTableBase):
 class AgentReportLog(PluginTableBase):
     """Table for recode agent status"""
     # build by Gprimarykey
-    report_time = sa.Column(BIGINT(unsigned=True), nullable=False, default=0, primary_key=True)
+    report_time = sa.Column(BIGINT(unsigned=True), nullable=False,
+                            default=uuidutils.Gkey, primary_key=True)
     agent_id = sa.Column(sa.ForeignKey('agents.agent_id'),
                          nullable=False)
     # psutil.process_iter()
@@ -293,7 +294,7 @@ class JobStep(PluginTableBase):
 
 
 class ScheduleJob(PluginTableBase):
-    job_id = sa.Column(CHAR(36), default=uuidutils.Gkey, nullable=False, primary_key=True)
+    job_id = sa.Column(BIGINT(unsigned=True), default=uuidutils.Gkey, nullable=False, primary_key=True)
     times = sa.Column(TINYINT(unsigned=True),  nullable=True, default=1)
     interval = sa.Column(INTEGER(unsigned=True),  nullable=False, default=300)
     schedule = sa.Column(sa.ForeignKey('agents.agent_id'), nullable=False)

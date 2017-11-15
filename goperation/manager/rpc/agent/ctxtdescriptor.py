@@ -133,7 +133,6 @@ class CheckEndpointRpcCtxt(CheckRpcCtxt):
         return self.func(*args, **kwargs)
 
 
-
 class CheckThreadPoolRpcCtxt(CheckRpcCtxt):
 
     def __call__(self, *args, **kwargs):
@@ -141,4 +140,3 @@ class CheckThreadPoolRpcCtxt(CheckRpcCtxt):
         self.check_status(ctxt)
         self.check_pool(ctxt)
         return self.func(*args, **kwargs)
-

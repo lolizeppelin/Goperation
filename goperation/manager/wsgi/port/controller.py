@@ -5,6 +5,7 @@ from sqlalchemy.sql import and_
 from simpleutil.common.exceptions import InvalidArgument
 from simpleutil.log import log as logging
 from simpleutil.utils import argutils
+from simpleutil.utils import singleton
 from simpleutil.utils.attributes import validators
 
 from simpleservice.ormdb.api import model_query
@@ -34,6 +35,7 @@ FAULT_MAP = {InvalidArgument: webob.exc.HTTPClientError,
              }
 
 
+@singleton.singleton
 class PortReuest(BaseContorller):
 
     def index(self, req, agent_id, endpoint, entity):

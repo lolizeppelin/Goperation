@@ -5,6 +5,7 @@ from sqlalchemy.orm import joinedload
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.orm.exc import MultipleResultsFound
 
+from simpleutil.utils import singleton
 from simpleutil.log import log as logging
 from simpleutil.common.exceptions import InvalidArgument
 
@@ -44,6 +45,7 @@ FAULT_MAP = {InvalidArgument: webob.exc.HTTPClientError,
              }
 
 
+@singleton.singleton
 class EndpointReuest(BaseContorller):
 
     @BaseContorller.AgentIdformater

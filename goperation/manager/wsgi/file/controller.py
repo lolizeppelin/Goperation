@@ -7,6 +7,7 @@ from simpleutil.log import log as logging
 from simpleutil.utils import jsonutils
 from simpleutil.utils import uuidutils
 from simpleutil.utils import timeutils
+from simpleutil.utils import singleton
 
 from simpleservice.ormdb.api import model_query
 from simpleservice.rpc.exceptions import AMQPDestinationNotFound
@@ -36,6 +37,7 @@ FAULT_MAP = {InvalidArgument: webob.exc.HTTPClientError,
              }
 
 
+@singleton.singleton
 class FileReuest(BaseContorller):
 
 

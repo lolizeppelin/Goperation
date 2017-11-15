@@ -6,6 +6,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.orm.exc import MultipleResultsFound
 
 from simpleutil.utils import argutils
+from simpleutil.utils import singleton
 from simpleutil.utils.attributes import validators
 from simpleutil.log import log as logging
 from simpleutil.common.exceptions import InvalidArgument
@@ -47,7 +48,7 @@ FAULT_MAP = {InvalidArgument: webob.exc.HTTPClientError,
              MultipleResultsFound: webob.exc.HTTPInternalServerError,
              }
 
-
+@singleton.singleton
 class EntityReuest(BaseContorller):
 
     @BaseContorller.AgentIdformater
@@ -120,24 +121,33 @@ class EntityReuest(BaseContorller):
                                               ports=[x.port for x in entity.ports] if show_ports else [])
                                          for e in entitys])
 
-    def delete(self, req, endpoint, entity, body):
+    def delete(self, req, endpoint, entity, body=None):
         body = body or {}
-        strict = body.get('strict')
+        force = body.get('force', False)
         endpoint = utils.validate_endpoint(endpoint)
         entitys = argutils.map_to_int(entity)
         session = get_session()
         glock = get_global().lock('entitys')
         elock = get_global().lock('endpoint')
+        agent_id = None
         with glock(entitys):
             with elock(endpoint):
-                with session.begin(subtransactions=True):
+                with session.begin():
                     query = model_query(session, AgentEntity,
                                         filter=and_(AgentEntity.endpoint == endpoint,
                                                     AgentEntity.entity.in_(entitys)))
+                    if not force:
+                        for entity in query:
+                            if agent_id is None:
+                                agent_id = entity.agent_id
+                                continue
+                            if entity.agent_id != agent_id:
+                                raise InvalidArgument('Delete entity fail, entity not in same agent')
                     delete_count = query.delete()
                     need_to_delete = len(entitys)
                     if delete_count != len(entitys):
                         LOG.warning('Delete %d entitys, but expect count is %d' % (delete_count, need_to_delete))
-                        if strict:
-                            raise DeleteCountNotSame('Need delete %d, but match %d' % (need_to_delete, delete_count))
+                    if not force:
+                        pass
+
         return resultutils.results(result='delete endpoints success')

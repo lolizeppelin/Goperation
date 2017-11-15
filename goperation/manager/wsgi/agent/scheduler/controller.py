@@ -5,6 +5,7 @@ import datetime
 from simpleutil.common.exceptions import InvalidArgument
 from simpleutil.utils import jsonutils
 from simpleutil.utils import uuidutils
+from simpleutil.utils import singleton
 
 
 from goperation.manager import common as manager_common
@@ -53,6 +54,7 @@ SCHEDULEJOBSCHEMA = {
 }
 
 
+@singleton.singleton
 class SchedulerRequest(BaseContorller):
 
     def __init__(self):
