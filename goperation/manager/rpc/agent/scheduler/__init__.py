@@ -34,12 +34,9 @@ from goperation.manager.rpc.agent.scheduler.taskflow import factory
 
 CONF = cfg.CONF
 
-LOG = logging.getLogger(__name__)
+safe_dumps = jsonutils.safe_dumps_as_bytes
 
-def safe_dumps(var):
-    if var is None:
-        return None
-    return jsonutils.dumps_as_bytes(var)
+LOG = logging.getLogger(__name__)
 
 
 class SchedulerLoopinTask(loopingcall.IntervalLoopinTask):
