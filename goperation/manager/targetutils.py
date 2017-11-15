@@ -55,4 +55,4 @@ def target_agent(agent):
 
 
 def target_endpoint(endpoint):
-    return Target(fanout=endpoint, server=CONF.host)
+    return Target(fanout=endpoint, namespace=endpoint)

@@ -135,7 +135,7 @@ class RpcAgentManager(RpcManagerBase):
                                               title='endpopint of %s' % endpoint)
                 CONF.register_group(endpoint_group)
                 CONF.register_opts(rpc_endpoint_opts, endpoint_group)
-                endpoint_class = '%s.%s' % (CONF[endpoint_group].module,
+                endpoint_class = '%s.%s' % (CONF[endpoint_group.name].module,
                                             self.agent_type.capitalize())
                 try:
                     cls = importutils.import_class(endpoint_class)
