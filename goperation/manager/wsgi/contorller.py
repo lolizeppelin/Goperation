@@ -1,6 +1,5 @@
 import contextlib
 
-
 from redis.exceptions import WatchError
 
 from simpleutil.utils import timeutils
@@ -147,6 +146,10 @@ class BaseContorller(MiddlewareContorller):
                           rpc_ctxt, rpc_method, rpc_args=None):
         rpc = get_client()
         session = get_session()
+        timeout = asyncrequest.finishtime - int(timeutils.realnow()) - 2
+        if timeout <= 1:
+            raise InvalidArgument('Not enough time for asynrequest')
+        timeout = min(timeout, 5)
         try:
             async_ret = rpc.call(targetutils.target_anyone(manager_common.SCHEDULER),
                                  ctxt={'finishtime': asyncrequest.finishtime-2},
@@ -155,7 +158,7 @@ class BaseContorller(MiddlewareContorller):
                                                'rpc_target': rpc_target.to_dict(),
                                                'rpc_method': rpc_method,
                                                'rpc_ctxt': rpc_ctxt,
-                                               'rpc_args': rpc_args}})
+                                               'rpc_args': rpc_args}}, timemout=timeout)
             if not async_ret:
                 raise RpcResultError('Async request rpc call result is None')
             LOG.debug(async_ret.get('result', 'Async request %s call scheduler result unkonwn'))
