@@ -10,7 +10,7 @@ regx_endpoint = re.compile('^[a-z][a-z0-9]+$', re.IGNORECASE)
 
 def validate_endpoint(value):
     if not value:
-        raise ValueError('Entpoint iname is empty')
+        raise ValueError('Entpoint name is empty')
     if not isinstance(value, basestring):
         raise ValueError('Entpoint name is not basestring')
     if len(value) > manager_common.MAX_ENDPOINT_NAME_SIZE:
