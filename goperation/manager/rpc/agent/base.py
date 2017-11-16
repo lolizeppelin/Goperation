@@ -105,6 +105,12 @@ class RpcAgentEndpointBase(EndpointBase):
         self.manager = manager
         self.conf = CONF[name]
 
+    def rpc_create_entitys(self, entitys, **kwargs):
+        raise NotImplementedError
+
+    def rpc_delete_entitys(self, entitys, **kwargs):
+        raise NotImplementedError
+
 
 class RpcAgentManager(RpcManagerBase):
 
