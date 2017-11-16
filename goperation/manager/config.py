@@ -16,7 +16,7 @@ goperation_opts = [
                help=''
                ),
     cfg.FloatOpt('glock_alloctime',
-                 default=1.5,
+                 default=3,
                  help='Timeout for allocate glock'),
     cfg.HostnameOrIPOpt('gcenter',
                         help='Hostname or IP address of gcenter wsgi service'
