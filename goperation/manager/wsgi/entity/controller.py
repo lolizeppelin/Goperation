@@ -27,6 +27,7 @@ from goperation.manager.api import get_global
 from goperation.manager.api import get_session
 from goperation.manager.api import get_client
 from goperation.manager.api import rpcfinishtime
+from goperation.manager.models import Agent
 from goperation.manager.models import AgentEntity
 from goperation.manager.models import AllocatedPort
 
@@ -78,6 +79,7 @@ class EntityReuest(BaseContorller):
         body = body or {}
         endpoint = utils.validate_endpoint(endpoint)
         ports = body.get('ports')
+        rpc = get_client()
         session = get_session()
         if ports:
             ports = argutils.map_with(ports, validators['type:port'])
@@ -92,6 +94,9 @@ class EntityReuest(BaseContorller):
         with elock(endpoint):
             with glock([agent_id, ]):
                 with session.begin(subtransactions=True):
+                    agent = model_query(session, Agent, filter=Agent.agent_id == agent_id).one()
+                    if agent.status != manager_common.ACTIVE:
+                        raise
                     entity = model_autoincrement_id(session, AgentEntity.entity,
                                                     filter=AgentEntity.endpoint == endpoint)
                     session.add(AgentEntity(entity=entity,
@@ -102,6 +107,16 @@ class EntityReuest(BaseContorller):
                             session.add(AllocatedPort(port=port, agent_id=agent_id,
                                                       endpoint=endpoint, entity=entity))
                             session.flush()
+                    target = targetutils.target_agent(agent)
+                    target.namespace = endpoint
+                    body.setdefault('entitys', entity)
+                    create_ret = rpc.call(target, ctxt={'finishtime': rpcfinishtime()},
+                                           msg={'method': 'delete_entitys', 'args': body})
+                    if not create_ret:
+                        raise RpcResultError('create entitys result is None')
+                    if create_ret.get('resultcode') != manager_common.RESULT_SUCCESS:
+                        return resultutils.results(result=create_ret.get('result'))
+
         return resultutils.results(result='add entity success', data=[dict(entity=entity, agent_id=agent_id,
                                                                            endpoint=endpoint, port=ports or [])])
 
