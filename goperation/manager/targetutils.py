@@ -13,6 +13,7 @@ prefix = CONF[manager_group.name].redis_key_prefix
 def schedule_job():
     return '%s-schedule-job-limit' % prefix
 
+
 def agent_all_id():
     return '%s-%s-id-all' % (prefix, AGENT)
 
