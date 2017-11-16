@@ -94,8 +94,9 @@ class EntityReuest(BaseContorller):
         with elock(endpoint):
             with glock([agent_id, ]):
                 with session.begin(subtransactions=True):
-                    agent = model_query(session, Agent, filter=and_(Agent.agent_id == agent_id,
-                                                                    Agent.status == manager_common.ACTIVE)).one()
+                    agent = model_query(session, Agent, filter=Agent.agent_id == agent_id).one()
+                    if agent.status != manager_common.ACTIVE:
+                        raise InvalidArgument('Create entity fail, agent status is not active,')
                     entity = model_autoincrement_id(session, AgentEntity.entity,
                                                     filter=AgentEntity.endpoint == endpoint)
                     session.add(AgentEntity(entity=entity,
