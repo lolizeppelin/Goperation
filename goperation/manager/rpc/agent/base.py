@@ -1,10 +1,13 @@
 import time
+import eventlet
 import six
 import random
+import contextlib
 import psutil
 
 from simpleutil.config import cfg
 from simpleutil.utils import jsonutils
+from simpleutil.utils import lockutils
 from simpleutil.utils import importutils
 from simpleutil.utils.lockutils import Semaphores
 
@@ -22,11 +25,13 @@ from goperation.manager.utils import validate_endpoint
 from goperation.manager.targetutils import target_server
 from goperation.manager.targetutils import target_endpoint
 from goperation.manager.rpc.base import RpcManagerBase
+from goperation.manager.rpc.exceptions import RpcCtxtTargetLockException
 from goperation.manager.rpc.agent.config import agent_group
 from goperation.manager.rpc.agent.config import rpc_agent_opts
 from goperation.manager.rpc.agent.ctxtdescriptor import CheckManagerRpcCtxt
 from goperation.manager.rpc.agent.ctxtdescriptor import CheckThreadPoolRpcCtxt
 from goperation.manager.rpc.agent.config import rpc_endpoint_opts
+
 
 CONF = cfg.CONF
 
@@ -98,14 +103,35 @@ class OnlinTaskReporter(IntervalLoopinTask):
 
 class RpcAgentEndpointBase(EndpointBase):
 
+    semaphores = lockutils.Semaphores()
+
     def __init__(self, manager, name):
         if not isinstance(manager, RpcAgentManager):
             raise TypeError('Manager for rpc endpoint is not RpcAgentManager')
         super(EndpointBase, self).__init__(target=target_endpoint(name))
         self.manager = manager
         self.conf = CONF[name]
+        self.frozen = False
 
-    def rpc_create_entitys(self, entitys, **kwargs):
+    @contextlib.contextmanager
+    def lock(self, entity, timeout=3):
+        while self.frozen:
+            if timeout < 1:
+                raise RpcCtxtTargetLockException(self.namespace, entity, 'endpoint frozen')
+            eventlet.sleep(1)
+            timeout -= 1
+        if timeout < 0:
+            timeout = 0
+        if len(self.semaphores) > self.conf.max_lock:
+            raise RpcCtxtTargetLockException(self.namespace, entity, 'over max lock')
+        lock = self.semaphores.get(entity)
+        if lock.acquire(blocking=True, timeout=timeout):
+            yield
+            lock.release()
+        else:
+            raise RpcCtxtTargetLockException(self.namespace, entity)
+
+    def rpc_create_entity(self, entity, **kwargs):
         raise NotImplementedError
 
     def rpc_delete_entitys(self, entitys, **kwargs):
@@ -304,6 +330,12 @@ class RpcAgentManager(RpcManagerBase):
     @CheckManagerRpcCtxt
     def rpc_delete_agent_precommit(self, ctxt, **kwargs):
         with self.work_lock.priority(0):
+            if threadpool.threads:
+                return BaseRpcResult(self.agent_id, ctxt,
+                                     resultcode=manager_common.RESULT_ERROR,
+                                     result='Thread pool is not empty')
+            for endpont in self.endpoints:
+                endpont.frozen = True
             if self.status <= manager_common.SOFTBUSY:
                 return BaseRpcResult(self.agent_id, ctxt,
                                      resultcode=manager_common.RESULT_ERROR,
@@ -353,10 +385,12 @@ class RpcAgentManager(RpcManagerBase):
                 return BaseRpcResult(self.agent_id, ctxt,
                                      resultcode=manager_common.RESULT_ERROR,
                                      result='upgrade fail public thread pool not empty or status error')
+            for endpont in self.endpoints:
+                endpont.frozen = True
             last_status = self.status
             self.status = manager_common.HARDBUSY
             # TODO call rpm Uvh then restart self
-            self.force_status(last_status)
+            self.status = last_status
             return BaseRpcResult(self.agent_id, ctxt, resultcode=manager_common.RESULT_SUCCESS,
                                  result='upgrade call rpm Uvh success')
 

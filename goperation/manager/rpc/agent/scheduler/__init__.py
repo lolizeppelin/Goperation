@@ -106,9 +106,9 @@ class SchedulerManager(base.RpcAgentManager):
 
     @CheckManagerRpcCtxt
     @CheckThreadPoolRpcCtxt
-    def asyncrequest(self, ctxt,
-                     asyncrequest, rpc_target, rpc_method,
-                     rpc_ctxt, rpc_args):
+    def rpc_asyncrequest(self, ctxt,
+                         asyncrequest, rpc_target, rpc_method,
+                         rpc_ctxt, rpc_args):
         session = get_session()
         if rpc_ctxt.get('agents') is None:
             wait_agents = set([x[0] for x in model_query(session, Agent.agent_id,
@@ -119,22 +119,29 @@ class SchedulerManager(base.RpcAgentManager):
             rpc_ctxt.setdefaut('expire', 60)
         asyncrequest = AsyncRequest(**asyncrequest)
         asyncrequest.scheduler = self.agent_id
-        target = Target(**rpc_target)
-        with self.work_lock:
-            rpc = get_client()
-            try:
-                rpc.cast(target, ctxt=rpc_ctxt, msg={'method': rpc_method, 'args': rpc_args})
-            except AMQPDestinationNotFound:
-                asyncrequest.resultcode = manager_common.SEND_FAIL
-                asyncrequest.result = 'Async %s request send fail, AMQPDestinationNotFound' % rpc_method
-                asyncrequest.status = manager_common.FINISH
-                session.add(asyncrequest)
-                session.flush()
-                return BaseRpcResult(self.agent_id, resultcode=manager_common.RESULT_ERROR,
-                                     result=asyncrequest.result)
-            asyncrequest.result = 'Async request %s cast success' % rpc_method
+        if not self.is_active:
+            asyncrequest.resultcode = manager_common.SCHEDULER_STATUS_ERROR
+            asyncrequest.result = 'Scheduler not active now'
+            asyncrequest.status = manager_common.FINISH
             session.add(asyncrequest)
             session.flush()
+            return BaseRpcResult(self.agent_id, resultcode=manager_common.RESULT_ERROR,
+                                 result=asyncrequest.result)
+        target = Target(**rpc_target)
+        rpc = get_client()
+        try:
+            rpc.cast(target, ctxt=rpc_ctxt, msg={'method': rpc_method, 'args': rpc_args})
+        except AMQPDestinationNotFound:
+            asyncrequest.resultcode = manager_common.SEND_FAIL
+            asyncrequest.result = 'Async %s request send fail, AMQPDestinationNotFound' % rpc_method
+            asyncrequest.status = manager_common.FINISH
+            session.add(asyncrequest)
+            session.flush()
+            return BaseRpcResult(self.agent_id, resultcode=manager_common.RESULT_ERROR,
+                                 result=asyncrequest.result)
+        asyncrequest.result = 'Async request %s cast success' % rpc_method
+        session.add(asyncrequest)
+        session.flush()
 
         request_id = asyncrequest.request_id
         finishtime = asyncrequest.finishtime
@@ -210,7 +217,10 @@ class SchedulerManager(base.RpcAgentManager):
             task.clean = clean
 
     @CheckManagerRpcCtxt
-    def scheduler(self, ctxt, job_id, jobdata):
+    def rpc_scheduler(self, ctxt, job_id, jobdata):
+        if not self.is_active:
+            return BaseRpcResult(self.agent_id, resultcode=manager_common.RESULT_ERROR,
+                                 result='Scheduler not active now')
         session = get_session()
         # write job to database
         interval = jobdata['interval']

@@ -68,9 +68,8 @@ class RpcManagerBase(ManagerBase):
 
     @property
     def is_active(self):
-        with self.work_lock:
-            if self.status >= manager_common.ACTIVE:
-                return True
+        if not self.work_lock.locked and self.status == manager_common.ACTIVE:
+            return True
         return False
 
     @property

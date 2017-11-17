@@ -2,7 +2,6 @@ import os
 
 from simpleutil.config import cfg
 
-from goperation.manager import targetutils
 from goperation.manager.rpc.agent.base import RpcAgentEndpointBase
 
 
@@ -29,7 +28,7 @@ class AppEndpointBase(RpcAgentEndpointBase):
         raise NotImplementedError
 
     def entity_home(self, entity):
-        raise NotImplementedError
+        return os.path.join(self.endpoint_home, 'entity_%d' % entity)
 
     @property
     def filemanager(self):

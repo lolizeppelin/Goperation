@@ -26,8 +26,9 @@ rpc_agent_opts = [
 ]
 
 rpc_endpoint_opts = [
-    cfg.MultiOpt('module',
-                 item_type=cfg.types.MultiImportString(),
-                 default=[],
-                 help='Manager extend rpc module string'),
+    cfg.ImportStringOpt('module',
+                 help='Manager extend rpc endpoint module string'),
+    cfg.IntOpt('max_lock',
+                default=5,
+                help='Endpoint max lock size'),
 ]
