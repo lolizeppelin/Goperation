@@ -28,7 +28,7 @@ class AppEndpointBase(RpcAgentEndpointBase):
         raise NotImplementedError
 
     def entity_home(self, entity):
-        return os.path.join(self.endpoint_home, 'entity_%d' % entity)
+        return os.path.join(self.endpoint_home, str(entity))
 
     @property
     def filemanager(self):

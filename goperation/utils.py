@@ -4,7 +4,7 @@ import psutil
 import eventlet
 from eventlet import hubs
 
-from simpleutil import system
+from simpleutil.utils import systemutils
 from simpleutil.log import log as logging
 
 from simpleservice.base import SignalHandler
@@ -44,28 +44,9 @@ def nirvana(delay=1):
     pass
 
 
-def find_executable(executable):
-    if os.path.exists(executable):
-        if not os.path.isfile(executable):
-            raise
-        return os.path.abspath(executable)
-    if system.WINDOWS:
-        if not executable.endswith(('.exe', '.EXE')):
-            executable += '.exe'
-    paths = os.environ['PATH'].split(os.pathsep)
-    for path in paths:
-        if not os.path.exists(path):
-            continue
-        for _file in os.listdir(path):
-            if executable.lower() == _file.lower():
-                full_path = os.path.join(path, _file)
-                if os.path.isfile(full_path):
-                    return full_path
-    raise NotImplementedError('executable %s not found' % executable)
 
-
-if system.LINUX:
-    from simpleutil.posix import linux
+if systemutils.LINUX:
+    from simpleutil.utils.systemutils.posix import linux
     import signal
     import errno
 
@@ -147,7 +128,6 @@ if system.LINUX:
                 if exc.errno not in (errno.EINTR, errno.ECHILD):
                     raise OSError('waitpid get errno %d' % exc.errno)
                 continue
-
 else:
 
     def safe_fork(*args):

@@ -2,7 +2,7 @@ import eventlet
 
 from simpleutil.config import cfg
 from simpleutil.utils.lockutils import PriorityLock
-from simpleutil.utils.sysemutils import get_partion_free_bytes
+from simpleutil.utils.systemutils import get_partion_free_bytes
 
 from simpleservice.plugin.base import ManagerBase
 from simpleservice.rpc.config import rpc_service_opts

@@ -2,7 +2,7 @@ import os
 import sys
 import subprocess
 
-from simpleutil import system
+from simpleutil.utils import systemutils
 
 from sqlalchemy.pool import NullPool
 from simpleservice.ormdb.argformater import connformater
@@ -93,7 +93,7 @@ class MysqlDump(StandardTask):
         database = self.middleware.databases[self.index]
         if not database.schema or database.schema.lower() == 'mysql':
             raise RuntimeError('Schema value error')
-        mysqldump = utils.find_executable('mysqldump')
+        mysqldump = systemutils.find_executable('mysqldump')
         args = [mysqldump,
                 '--default-character-set=%s' % (database.character or 'utf8'),
                 '-u%s' % database.user, '-p%s' % database.passwd,
@@ -102,7 +102,7 @@ class MysqlDump(StandardTask):
         LOG.debug(' '.join(args))
         with open(os.devnull, 'wb') as nul:
             with open(database.backup, 'wb') as f:
-                if system.LINUX:
+                if systemutils.LINUX:
                     pid = utils.safe_fork(user=self.middleware.entity_user,
                                           group=self.middleware.entity_group)
                     if pid == 0:
@@ -132,7 +132,7 @@ class MysqlUpdate(StandardTask):
 
     def execute_sql_from_file(self, sql_file):
         database = self.middleware.databases[self.index]
-        mysql = utils.find_executable('mysql')
+        mysql = systemutils.find_executable('mysql')
         args = [mysql,
                 '--default-character-set=%s' % (database.character or 'utf8'),
                 '-u%s' % database.user, '-p%s' % database.passwd,
@@ -144,7 +144,7 @@ class MysqlUpdate(StandardTask):
         with open(os.devnull, 'wb') as nul:
             with open(sql_file, 'rb') as f:
                 self.executed = 1
-                if system.LINUX:
+                if systemutils.LINUX:
                     pid = utils.safe_fork(user=self.middleware.entity_user,
                                           group=self.middleware.entity_group)
                     if pid == 0:

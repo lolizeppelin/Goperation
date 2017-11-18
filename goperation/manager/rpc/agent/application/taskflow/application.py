@@ -2,7 +2,7 @@
 import os
 import functools
 
-from simpleutil import system
+from simpleutil.utils import systemutils
 
 from simpleflow.retry import Retry
 from simpleflow.retry import REVERT
@@ -61,6 +61,13 @@ class Application(object):
         @param backup:              class: string of file path 本地备份文件
         @param startfunc:           class: callable 启动方法
         @param start_kwargs:        class: dict startfunc参数
+        @param stopfunc:            class: callable 关闭方法
+        @param stop_kwargs:         class: dict stopfunc参数
+        @param killfunc:            class: callable 强制关闭方法
+        @param kill_kwargs:         class: dict killfunc参数
+        @param updatefunc:          class: callable 升级方法(有别于upgrade, 一般用于特殊的无文件更新)
+        @param update_kwargs:       class: dict updatefunc参数
+
         """
         self.upgrade = upgrade
         self.backup = backup
@@ -190,15 +197,15 @@ class AppBackUp(StandardTask):
             async_compress(src, dst, exclude=self.exclude,
                            fork=functools.partial(safe_fork,
                                                   user=self.middleware.entity_user,
-                                                  group=self.middleware.entity_group) if system.LINUX else None,
+                                                  group=self.middleware.entity_group) if systemutils.LINUX else None,
                            timeout=timeout)
-        if not system.LINUX:
+        if not systemutils.LINUX:
             os.chdir(self.pwd)
 
     def revert(self, result, *args, **kwargs):
         super(AppBackUp, self).revert(result, *args, **kwargs)
         if isinstance(result, failure.Failure):
-            if not system.LINUX:
+            if not systemutils.LINUX:
                 os.chdir(self.pwd)
             # delete remote backup file
             if self.middleware.application.upgrade.remote_backup:
@@ -225,7 +232,7 @@ class AppFileUpgrade(StandardTask):
         async_extract(src, dst,
                       fork=functools.partial(safe_fork,
                                              user=self.middleware.entity_user,
-                                             group=self.middleware.entity_group) if system.LINUX else None,
+                                             group=self.middleware.entity_group) if systemutils.LINUX else None,
                       timeout=timeout)
 
     def revert(self, result, *args, **kwargs):
