@@ -145,7 +145,7 @@ class RpcAgentManager(RpcManagerBase):
         self.client = AgentManagerClient(httpclient=get_http(),
                                          host=CONF.host, local_ip=self.local_ip, agent_type=self.agent_type)
         super(RpcAgentManager, self).__init__(target=target_server(self.agent_type, CONF.host, fanout=True),
-                                              fget=lambda x: self.client.file_show(x)['data'][0])
+                                              infoget=lambda x: self.client.file_show(x)['data'][0])
         # agent id
         self._agent_id = None
         # port and port and disk space info

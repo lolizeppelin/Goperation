@@ -1,6 +1,7 @@
 import os
 import six
 
+import eventlet
 from eventlet import event
 from eventlet.semaphore import Semaphore
 
@@ -56,10 +57,10 @@ class FileManager(object):
         'required': ['address', 'ext', 'size', 'uploadtime', 'marks']
     }
 
-    def __init__(self, conf, rootpath, threadpool, fget):
+    def __init__(self, conf, rootpath, threadpool, infoget):
         self.threadpool = threadpool
         self.path = os.path.join(rootpath, conf.folder)
-        self.fget = fget
+        self.infoget = infoget
         self.localfiles = {}
         self.downloading = {}
         self.lock = Semaphore()
@@ -164,6 +165,8 @@ class FileManager(object):
                 return target
 
     def get(self, target, download=True, timeout=None):
+        if not self.session:
+            raise exceptions.FileManagerError('File managere closed')
         if isinstance(target, basestring):
             target = TargetFile(target)
         if not isinstance(target, TargetFile):
@@ -181,13 +184,27 @@ class FileManager(object):
                     th = self.downloading[mark]
                 else:
                     th = self.threadpool.add_thread(self._download, mark, timeout)
+                    eventlet.sleep(0)
             th.wait()
             return self.get(target=target, download=False)
         else:
             raise exceptions.NoFileFound('File Manager can not find file of %s' % target.source)
 
+    def asyncget(self, target, timeout):
+        try:
+            self.get(target, download=False)
+        except exceptions.NoFileFound:
+            mark = target.source
+            with self.lock:
+                if not self.session:
+                    raise RuntimeError('FileManager closed')
+                if mark not in self.downloading:
+                    self.threadpool.add_thread(self._download, mark, timeout)
+                    eventlet.sleep(0)
+
+
     def _download(self, mark, timeout):
-        file_info = self.fget(mark)
+        file_info = self.infoget(mark)
         jsonutils.schema_validate(file_info, FileManager.SCHEMA)
         for mark in six.itervalues(file_info['marks']):
             if mark in self.downloading:
