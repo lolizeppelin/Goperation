@@ -27,11 +27,12 @@ def entity_factory(session, middleware, store, db_flow_factory):
         entity_flow.add(prepare_flow)
 
     uflow = uf.Flow('update_%d' % middleware.entity)
-    if middleware.application and middleware.application.upgrade:
+    if middleware.application and middleware.application.upgradefunc:
         # upgrade app file
-        rebind = ['upgrade_timeout']
-        format_store_rebind(store, rebind)
-        uflow.add(application.AppFileUpgrade(middleware, rebind=rebind))
+        requires = 'upgradefile'
+        revert_requires = 'backupfile' if store.get('backupfile') else None
+        uflow.add(application.AppFileUpgrade(middleware, requires=requires,
+                                             revert_requires=revert_requires))
     # backup and update app database
     database_flow = db_flow_factory(middleware, store)
     if database_flow:
@@ -46,11 +47,14 @@ def entity_factory(session, middleware, store, db_flow_factory):
     # start appserver
     if middleware.application and middleware.application.startfunc:
         entity_flow.add(application.AppStart(middleware))
-
+    # entity task is independent event
     return EntityTask(session, entity_flow, store)
 
 
-def flow_factory(session, middlewares, store=None,
+def flow_factory(session, middlewares,
+                 upgradefile=None,
+                 backupfile=None,
+                 store=None,
                  db_flow_factory=database.mysql_flow_factory):
     """
     @param session:                 class: sqlalchemy:session
@@ -68,18 +72,24 @@ def flow_factory(session, middlewares, store=None,
 
     # prepare file for app update and database
     prepare_uflow = uf.Flow('prepare')
-    if middleware.application:
-        if middleware.application.backup or \
-                (middleware.application.upgrade and middleware.application.upgrade.remote_backup):
-            # backup app file, all middlewares use same app backup file
-            rebind = ['download_timeout']
-            format_store_rebind(store, rebind)
-            prepare_uflow.add(application.AppBackUp(middleware, rebind=rebind))
-        if middleware.application.upgrade:
-            rebind = ['download_timeout']
-            format_store_rebind(store, rebind)
-            #  get app update file, all middlewares use same app upload file
-            prepare_uflow.add(application.AppUpgradeFileGet(middleware, rebind=rebind))
+    if upgradefile:
+        rebind = ['download_timeout']
+        format_store_rebind(store, rebind)
+        #  get app update file, all middlewares use same app upload file
+        prepare_uflow.add(application.AppUpgradeFileGet(middleware, upgradefile, rebind=rebind))
+    else:
+        if middleware.application.upgradefunc:
+            raise RuntimeError('Application upgrade need upgradefile')
+    if backupfile:
+        store.pop('backupfile', None)
+        rebind = ['download_timeout']
+        format_store_rebind(store, rebind)
+        prepare_uflow.add(application.AppBackUp(middleware, backupfile, rebind=rebind))
+    else:
+        if not store.get('backupfile'):
+            if middleware.application.upgradefunc.rollback:
+                raise RuntimeError('upgrade rollback able, but no backupfile found')
+        store.setdefault('backupfile', None)
     if middleware.databases:
         rebind = ['download_timeout']
         format_store_rebind(store, rebind)

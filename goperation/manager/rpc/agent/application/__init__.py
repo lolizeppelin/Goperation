@@ -1,11 +1,9 @@
 from simpleutil.config import cfg
 from simpleutil.log import log as logging
 from simpleutil.utils import singleton
-from simpleutil.utils import importutils
 
 from goperation.manager import common as manager_common
 from goperation.manager.rpc.agent import base
-from goperation.manager.rpc.agent.config import rpc_endpoint_opts
 from goperation.manager.rpc.agent.ctxtdescriptor import CheckEndpointRpcCtxt
 from goperation.manager.rpc.agent.ctxtdescriptor import CheckManagerRpcCtxt
 

@@ -4,7 +4,19 @@ class RpcCtxtException(Exception):
         self.result = result
 
 
-class RpcCtxtTargetLockException(Exception):
+class RpcBaseException(Exception):
+
+    def __init__(self, endpoint, entity, reason):
+        self.message = 'Rpc target %s:%d %s' % (endpoint, entity, reason)
+
+
+class RpcTargetLockException(RpcBaseException):
 
     def __init__(self, endpoint, entity, reason='allocate lock timeout'):
-        self.message = 'Rpc target %s:%d %s' % (endpoint, entity, reason)
+        super(RpcCtxtException).__init__(endpoint, entity, reason)
+
+
+class RpcEntityError(RpcBaseException):
+
+    def __init__(self, endpoint, entity, reason):
+        super(RpcCtxtException).__init__(endpoint, entity, 'create entity %s' % reason)

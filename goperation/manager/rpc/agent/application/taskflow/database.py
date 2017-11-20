@@ -253,6 +253,8 @@ def mysql_flow_factory(middleware, store):
             format_store_rebind(store, rebind)
             lfow.add(MysqlDump(middleware, index, rebind=rebind))
         if database.update:
+            if database.update.rollback and not database.backup:
+                raise ValueError('Database rollback need backup')
             rebind = ['db_update_timeout']
             format_store_rebind(store, rebind)
             lfow.add(MysqlUpdate(middleware, index, rebind=rebind))

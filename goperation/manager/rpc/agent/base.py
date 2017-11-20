@@ -25,7 +25,7 @@ from goperation.manager.utils import validate_endpoint
 from goperation.manager.targetutils import target_server
 from goperation.manager.targetutils import target_endpoint
 from goperation.manager.rpc.base import RpcManagerBase
-from goperation.manager.rpc.exceptions import RpcCtxtTargetLockException
+from goperation.manager.rpc.exceptions import RpcTargetLockException
 from goperation.manager.rpc.agent.config import agent_group
 from goperation.manager.rpc.agent.config import rpc_agent_opts
 from goperation.manager.rpc.agent.ctxtdescriptor import CheckManagerRpcCtxt
@@ -103,6 +103,7 @@ class OnlinTaskReporter(IntervalLoopinTask):
 
 class RpcAgentEndpointBase(EndpointBase):
 
+    UMASK = 022
     semaphores = lockutils.Semaphores()
 
     def __init__(self, manager, name):
@@ -117,25 +118,29 @@ class RpcAgentEndpointBase(EndpointBase):
     def lock(self, entity, timeout=3):
         while self.frozen:
             if timeout < 1:
-                raise RpcCtxtTargetLockException(self.namespace, entity, 'endpoint frozen')
+                raise RpcTargetLockException(self.namespace, entity, 'endpoint frozen')
             eventlet.sleep(1)
             timeout -= 1
         if timeout < 0:
             timeout = 0
         if len(self.semaphores) > self.conf.max_lock:
-            raise RpcCtxtTargetLockException(self.namespace, entity, 'over max lock')
+            raise RpcTargetLockException(self.namespace, entity, 'over max lock')
         lock = self.semaphores.get(entity)
         if lock.acquire(blocking=True, timeout=timeout):
             yield
             lock.release()
         else:
-            raise RpcCtxtTargetLockException(self.namespace, entity)
+            raise RpcTargetLockException(self.namespace, entity)
 
     def rpc_create_entity(self, entity, **kwargs):
         raise NotImplementedError
 
     def rpc_delete_entitys(self, entitys, **kwargs):
         raise NotImplementedError
+
+    @property
+    def filemanager(self):
+        return self.manager.filemanager
 
 
 class RpcAgentManager(RpcManagerBase):

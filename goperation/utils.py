@@ -37,7 +37,7 @@ def nirvana(delay=1):
 if systemutils.LINUX:
     from simpleutil.utils.systemutils.posix import linux
 
-    def safe_fork(user=None, group=None):
+    def safe_fork(user=None, group=None, umask=022):
         # Disable gc to avoid bug where gc -> file_dealloc ->
         # write to stderr -> hang.  http://bugs.python.org/issue1336
         # copy from subprocess.py
@@ -51,7 +51,7 @@ if systemutils.LINUX:
             raise
         if pid == 0:
             linux.drop_privileges(group, user)
-            os.umask(002)
+            os.umask(umask)
             # set close exec for loggin
             logging.set_filehandler_close_exec()
             logging.set_syslog_handler_close_exec()

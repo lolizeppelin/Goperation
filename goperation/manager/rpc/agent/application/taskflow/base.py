@@ -12,11 +12,12 @@ LOG = taskflow.LOG
 
 class StandardTask(Task):
 
-    def __init__(self, middleware, provides=None, rebind=None):
+    def __init__(self, middleware, provides=None, rebind=None,
+                 requires=None, revert_requires=None):
         super(StandardTask, self).__init__(name='%s_%d' % (self.__class__.__name__,  middleware.entity),
                                            provides=provides,
-                                           requires=None, auto_extract=True, rebind=rebind, inject=None,
-                                           ignore_list=None, revert_rebind=None, revert_requires=None)
+                                           requires=requires, auto_extract=True, rebind=rebind, inject=None,
+                                           ignore_list=None, revert_rebind=revert_requires, revert_requires=None)
         self.middleware = middleware
         middleware.set_return(self.__class__.__name__)
 
