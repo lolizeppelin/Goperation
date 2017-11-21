@@ -6,20 +6,42 @@ from goperation.manager.rpc.agent.application.base import AppEndpointBase
 
 class EntityMiddleware(object):
 
-    def __init__(self, endpoint, entity,
+    def __init__(self, entity, endpoint,
                  application=None, databases=None):
         if not isinstance(endpoint, AppEndpointBase):
             raise RuntimeError('endpoint not AppEndpointBase')
         self.entity = entity
-        self.entity_home = endpoint.entity_home(entity)
-        self.entity_appname = endpoint.appname(entity)
-        self.entity_user = endpoint.entity_user(entity)
-        self.entity_group = endpoint.entity_group(entity)
-        self.endpoint = endpoint.namespace
-        self.filemanager = endpoint.filemanager
+        self._endpoint = endpoint
         self.application = application
         self.databases = databases
         self.results = collections.OrderedDict()
+
+    @property
+    def entity_home(self):
+        return self._endpoint.entity_home(self.entity)
+
+    @property
+    def entity_appname(self):
+        return self._endpoint.appname(self.entity)
+
+    @property
+    def entity_user(self):
+        return self._endpoint.entity_user(self.entity)
+
+    @property
+    def entity_group(self):
+        return self._endpoint.entity_group(self.entity)
+
+    @property
+    def endpoint(self):
+        return self._endpoint.namespace
+
+    @property
+    def filemanager(self):
+        return self._endpoint.filemanager
+
+    def reflection(self):
+        return self._endpoint
 
     def set_return(self, name, result=common.NOT_EXECUTED):
         self.results[name] = result

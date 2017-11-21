@@ -20,6 +20,7 @@ from goperation.manager.rpc.agent.application.taskflow.base import StandardTask
 
 LOG = taskflow.LOG
 
+
 class DoNotNeedRevert(Exception):
     """do not need revert"""
 
@@ -67,28 +68,31 @@ class AppKill(Retry):
 
 
 class AppUpgradeFileGet(StandardTask):
-    """app 程序升级文件获取"""
-    def __init__(self, middleware, upgradefile, rebind=None):
-        super(AppUpgradeFileGet, self).__init__(middleware, rebind=rebind, provides='upgradefile')
+    """app 程序升级文件获取, 默认提供参数upgradefile"""
+    def __init__(self, middleware, upgradefile, rebind=None, provides='upgradefile'):
+        super(AppUpgradeFileGet, self).__init__(middleware, rebind=rebind, provides=provides)
+        self.upgradefile = upgradefile
 
     def execute(self, timeout):
         if self.middleware.is_success(self.__class__.__name__):
             return
-        if not self.middleware.application.upgrade.realpath:
-            self.middleware.filemanager.get(self.middleware.application.upgrade, download=True, timeout=timeout)
+        if not self.upgradefile.realpath:
+            self.middleware.filemanager.get(self.upgradefile, download=True, timeout=timeout)
+        return self.upgradefile.realpath
 
     def revert(self, result, *args, **kwargs):
-        super(AppUpgradeFileGet, self).revert(result, *args, **kwargs)
+        super(AppUpgradeFileGet, self).revert(result, **kwargs)
         if isinstance(result, failure.Failure):
             if self.middleware.application.upgrade.realpath:
+                self.middleware.set_return(self.__class__.__name__, common.REVERT_FAIL)
                 self.middleware.application.upgrade.clean()
             self.middleware.set_return(self.__class__.__name__, common.REVERTED)
 
 
 class AppBackUp(StandardTask):
-    """app 程序文件备份"""
-    def __init__(self, middleware, backupfile, rebind=None):
-        super(AppBackUp, self).__init__(middleware, rebind=rebind, provides='backupfile')
+    """app 程序文件备份, 默认提供参数backupfile"""
+    def __init__(self, middleware, backupfile, rebind=None, provides='backupfile'):
+        super(AppBackUp, self).__init__(middleware, rebind=rebind, provides=provides)
         self.pwd = os.getcwd()
         self.backupfile = backupfile
         self.exclude = lambda x: None
@@ -122,8 +126,8 @@ class AppBackUp(StandardTask):
             os.chdir(self.pwd)
         return backupfile
 
-    def revert(self, result, *args, **kwargs):
-        super(AppBackUp, self).revert(result, *args, **kwargs)
+    def revert(self, result, **kwargs):
+        super(AppBackUp, self).revert(result, **kwargs)
         if isinstance(result, failure.Failure):
             if not systemutils.LINUX:
                 os.chdir(self.pwd)
@@ -137,86 +141,59 @@ class AppBackUp(StandardTask):
             self.middleware.set_return(self.__class__.__name__, common.REVERTED)
 
 
-class AppFunctionWapper(object):
-
-    def __init__(self, execute, kwargs,
-                 revert=None, rollback=False):
-        if rollback and not revert:
-            raise ValueError('AppFunctionWapper rollback need revert')
-        self.execute = execute
-        self.kwargs = kwargs
-        self.revert = revert
+class AppTaskBase(StandardTask):
+    """For Application task"""
+    def __init__(self, middleware, revertable=False, rollback=False,
+                 provides=None,
+                 rebind=None, requires=None,
+                 revert_rebind=None, revert_requires=None):
+        super(AppTaskBase, self).__init__(middleware, provides=provides,
+                                          rebind=rebind, requires=requires,
+                                          revert_rebind=revert_rebind, revert_requires=revert_requires)
+        if self.rollback and not self.revertable:
+            raise RuntimeError('AppTask rollback need revertable')
+        self.revertable = revertable
         self.rollback = rollback
 
 
-class AppTaskBase(StandardTask):
-
-    def __init__(self, middleware, rebind=None, requires=None, revert_requires=None, wapper=None, kwargs=None):
-        super(AppTaskBase, self).__init__(middleware=middleware, rebind=rebind,
-                                          requires=requires, revert_requires=revert_requires)
-        if wapper and not isinstance(wapper, AppFunctionWapper):
-            raise RuntimeError('AppTaskBase need a AppFunctionWapper')
-        self.wapper = wapper
-        self.kwargs = kwargs or {}
-
-    def execute(self, **kwargs):
-        if not self.wapper:
-            raise NotImplementedError('AppTaskBase execute wapper is None')
-        if self.middleware.is_success(self.__class__.__name__):
-            return
-        kwargs.update(self.kwargs)
-        self.wapper.execute(self.middleware, **kwargs)
-
-    def revert(self, result, *args, **kwargs):
-        super(AppTaskBase, self).revert(result, *args, **kwargs)
-        if isinstance(result, failure.Failure) or self.wapper.rollback:
-            if self.wapper.revert:
-                self.middleware.set_return(self.__class__.__name__, common.REVERT_FAIL)
-                try:
-                    self.wapper.revert(self.middleware, result, **kwargs)
-                except DoNotNeedRevert:
-                    self.middleware.set_return(self.__class__.__name__, common.EXECUTE_FAIL)
-                else:
-                    self.middleware.set_return(self.__class__.__name__, common.REVERTED)
-
-
-class AppStop(AppTaskBase):
-    """程序关闭"""
-
-
-class AppUpdate(AppTaskBase):
-    """程序更新,这里的更新一般是非app文件相关的更新
-    app文件更新使用AppFileUpgrade
-    这里一般用于热函数调用,配置刷新等
+class AppCreateBase(AppTaskBase):
+    """创建实体APP
     """
 
 
-class AppStart(AppTaskBase):
+class AppDeleteBase(AppTaskBase):
+    """删除实体APP
+    """
+
+
+class AppStartBase(AppTaskBase):
     """程序启动"""
 
 
-class AppFileUpgrade(AppTaskBase):
+class AppStopBase(AppTaskBase):
+    """程序关闭"""
+
+
+class AppFileUpgradeBase(AppTaskBase):
     """app 程序文件升级"""
 
+    def __init__(self, middleware, revertable=False, rollback=False,
+                 rebind=None, requires='upgradefile',
+                 revert_requires='backupfile'):
+            super(AppFileUpgradeBase, self).__init__(middleware=middleware,
+                                                     revertable=revertable, rollback=rollback,
+                                                     rebind=rebind, requires=requires,
+                                                     revert_requires=revert_requires)
 
-class ExtarctUpgrade(AppFunctionWapper):
-    """解压升级程序"""
-
-    def __init__(self, upgrade, rollback=False):
-        super(ExtarctUpgrade, self).__init__(execute=self._execute, kwargs=None,
-                                             revert=self._revert,
-                                             rollback=rollback)
-
-    def _execute(self, middleware, timeout, upgradefile):
-        self._extract(upgradefile, middleware.entity_home,
-                      middleware.entity_user, middleware.entity_group,
+    def execute(self, upgradefile, timeout, **kwargs):
+        self._extract(upgradefile, self.middleware.entity_home,
+                      self.middleware.entity_user, self.middleware.entity_group,
                       timeout)
 
-    def _revert(self, middleware, result, backupfile, timeout=None):
-        if backupfile is None:
-            raise DoNotNeedRevert
-        self._extract(backupfile, middleware.entity_home,
-                      middleware.entity_user, middleware.entity_group,
+    def revert(self, result, backupfile, timeout, **kwargs):
+        super(AppFileUpgradeBase, self).revert(result, **kwargs)
+        self._extract(backupfile, self.middleware.entity_home,
+                      self.middleware.entity_user, self.middleware.entity_group,
                       timeout)
 
     def _extract(self, src, dst, user, group, timeout):
@@ -224,59 +201,52 @@ class ExtarctUpgrade(AppFunctionWapper):
                       timeout=timeout)
 
 
+class AppUpdateBase(AppTaskBase):
+    """程序更新,这里的更新一般是非app文件相关的更新
+    app文件更新使用AppFileUpgrade
+    这里一般用于热函数调用,配置刷新等
+    """
+
+
 class Application(object):
 
     def __init__(self,
-                 createfunc=None, create_kwargs=None,
-                 deletefunc=None, delete_kwargs=None,
-                 startfunc=None, start_kwargs=None,
-                 stopfunc=None, stop_kwargs=None,
-                 upgradefunc=None, upgrade_kwargs=None,
-                 updatefunc=None, update_kwargs=None):
+                 createtask=None,
+                 deletetask=None,
+                 startstak=None,
+                 stoptask=None,
+                 upgradetask=None,
+                 updatetask=None):
         """
-        @param createfunc:          class: createfunc 创建方法
-        @param create_kwargs:       class: dict createfunc参数
-        @param deletefunc:          class: deletefunc 删除方法
-        @param delete_kwargs:       class: dict deletefunc参数
-        @param startfunc:           class: callable 启动方法
-        @param start_kwargs:        class: dict startfunc参数
-        @param stopfunc:            class: callable 关闭方法
-        @param stop_kwargs:         class: dict stopfunc参数
-        @param killfunc:            class: callable 强制关闭方法
-        @param kill_kwargs:         class: dict killfunc参数
-        @param upgradefunc:         class: callable 文件更新升级
-        @param upgrade_kwargs:      class: dict upgradefunc参数
-        @param updatefunc:          class: callable 升级方法(有别于upgrade, 一般用于特殊的无文件更新)
-        @param update_kwargs:       class: dict updatefunc参数
+        @param createtask:          class: AppTaskBase 创建方法
+        @param deletetask:          class: AppTaskBase 删除方法
+        @param starttask:           class: AppTaskBase 启动方法
+        @param stoptask:            class: AppTaskBase 关闭方法
+        @param upgradetask:         class: AppTaskBase 文件更新升级
+        @param updatetask:          class: AppTaskBase 升级方法(有别于upgrade, 一般用于特殊的无文件更新)
         """
-        if createfunc:
-            if not isinstance(createfunc, AppFunctionWapper):
+        if createtask:
+            if not isinstance(createtask, AppTaskBase):
                 raise RuntimeError('create func type error')
-            if upgradefunc or updatefunc or stopfunc or deletefunc:
-                raise RuntimeError('do not input create with delete,update,upgrade,stop')
-        if deletefunc:
-            if not isinstance(deletefunc, AppFunctionWapper):
+            if stoptask or deletetask:
+                raise RuntimeError('do not input create with delete,stop')
+        if deletetask:
+            if not isinstance(deletetask, AppTaskBase):
                 raise RuntimeError('delete func type error')
-            if upgradefunc or updatefunc or startfunc or createfunc:
+            if upgradetask or updatetask or startstak or createtask:
                 raise RuntimeError('do not input delete with create,update,upgrade,stop')
-        for func in (startfunc, stopfunc, updatefunc, updatefunc):
-            if func and not isinstance(func, AppFunctionWapper):
+        for func in (startstak, stoptask, upgradetask, updatetask):
+            if func and not isinstance(func, AppTaskBase):
                 raise RuntimeError('func type error')
         # 创建
-        self.createfunc = createfunc
-        self.create_kwargs = create_kwargs
+        self.createftask = createtask
         # 删除
-        self.deletefunc = deletefunc
-        self.delete_kwargs = delete_kwargs
+        self.deletetask = deletetask
         # 启动
-        self.startfunc = startfunc
-        self.start_kwargs = start_kwargs
+        self.startstak = startstak
         # 停止
-        self.stopfunc = stopfunc
-        self.stop_kwargs = stop_kwargs
+        self.stoptask = stoptask
         # 更新
-        self.upgradefunc = upgradefunc
-        self.upgrade_kwargs = upgrade_kwargs
+        self.upgradetask = upgradetask
         # 更新
-        self.updatefunc = updatefunc
-        self.update_kwargs = update_kwargs
+        self.updatetask = updatetask

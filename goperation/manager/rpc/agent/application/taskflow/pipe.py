@@ -19,34 +19,38 @@ def entity_factory(session, middleware, store, db_flow_factory):
     """
     entity_flow = lf.Flow('entity_%d' % middleware.entity)
 
-    if middleware.application and middleware.application.stopfunc:
+    if middleware.application and middleware.application.createtask:
+        entity_flow.add(middleware.application.createtask)
+
+    if middleware.application and middleware.application.stoptask:
         # kill if stop fail
-        prepare_flow = uf.Flow('recheck_stop', retry=application.AppKill('kill_%d' % middleware.entity))
+        prepare_flow = uf.Flow('recheck_stop_%d' % middleware.entity,
+                               retry=application.AppKill('kill_%d' % middleware.entity))
         # sure entity stoped
-        prepare_flow.add(application.AppStop(middleware))
+        prepare_flow.add(middleware.application.stoptask)
         entity_flow.add(prepare_flow)
 
-    uflow = uf.Flow('update_%d' % middleware.entity)
-    if middleware.application and middleware.application.upgradefunc:
+    upflow = uf.Flow('up_%d' % middleware.entity)
+    if middleware.application and middleware.application.upgradetask:
         # upgrade app file
-        requires = 'upgradefile'
-        revert_requires = 'backupfile' if store.get('backupfile') else None
-        uflow.add(application.AppFileUpgrade(middleware, requires=requires,
-                                             revert_requires=revert_requires))
+        upflow.add(middleware.application.upgradetask)
     # backup and update app database
     database_flow = db_flow_factory(middleware, store)
     if database_flow:
-        uflow.add(database_flow)
-    if len(uflow):
-        entity_flow.add(uflow)
+        upflow.add(database_flow)
+    if len(upflow):
+        entity_flow.add(upflow)
     else:
-        del uflow
-    # update app (some thing like hot fix or flush config)
-    if middleware.application and middleware.application.updatefunc:
-        entity_flow.add(application.AppUpdate(middleware))
+        del upflow
+    # update app (some thing like hotfix or flush config)
+    if middleware.application and middleware.application.updatetask:
+        entity_flow.add(middleware.application.updatetask)
     # start appserver
-    if middleware.application and middleware.application.startfunc:
-        entity_flow.add(application.AppStart(middleware))
+    if middleware.application and middleware.application.startstak:
+        entity_flow.add(middleware.application.startstak)
+    # start appserver
+    if middleware.application and middleware.application.deletetask:
+        entity_flow.add(middleware.application.deletetask)
     # entity task is independent event
     return EntityTask(session, entity_flow, store)
 
@@ -58,7 +62,9 @@ def flow_factory(session, middlewares,
                  db_flow_factory=database.mysql_flow_factory):
     """
     @param session:                 class: sqlalchemy:session
-    @param middlewares:             class:list EntityMiddleware list
+    @param middlewares:             class:list EntityMiddleware
+    @param upgradefile:             class:list AppUpgradeFile
+    @param backupfile:              class:list basestring or AppRemoteBackupFile
     @param store:                   class:dict
     @param db_flow_factory:         class:function
     """
