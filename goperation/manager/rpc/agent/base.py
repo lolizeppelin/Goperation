@@ -132,10 +132,10 @@ class RpcAgentEndpointBase(EndpointBase):
         else:
             raise RpcTargetLockException(self.namespace, entity)
 
-    def rpc_create_entity(self, entity, **kwargs):
+    def rpc_create_entity(self, ctxt, entity, **kwargs):
         raise NotImplementedError
 
-    def rpc_delete_entitys(self, entitys, **kwargs):
+    def rpc_delete_entitys(self, ctxt, entitys, **kwargs):
         raise NotImplementedError
 
     @property
