@@ -9,7 +9,8 @@ from sqlalchemy.dialects.mysql import INTEGER
 from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy.dialects.mysql import BOOLEAN
-from sqlalchemy.dialects.mysql import LONGBLOB
+from sqlalchemy.dialects.mysql import MEDIUMBLOB
+from sqlalchemy.dialects.mysql import BLOB
 from sqlalchemy.dialects.mysql import DATETIME
 
 from simpleutil.utils import timeutils
@@ -114,8 +115,8 @@ class AgentResponeBackLog(PluginTableBase):
                        nullable=False, default='agent respone rpc request')
     status = sa.Column(BOOLEAN, nullable=False, default=0)
     # will not link to ResponeDetail
-    # save respone detail into LONGBLOB column
-    details = sa.Column(LONGBLOB, nullable=True)
+    # save respone detail into MEDIUMBLOB column
+    details = sa.Column(MEDIUMBLOB, nullable=True)
     __table_args__ = (
             sa.Index('request_id_index', 'request_id'),
             InnoDBTableBase.__table_args__
@@ -215,7 +216,7 @@ class DownFile(PluginTableBase):
     crc32 = sa.Column(CHAR(33), nullable=False)
     md5 = sa.Column(CHAR(32), nullable=False)
     downloader = sa.Column(VARCHAR(12), nullable=False)
-    adapter_args = sa.Column(LONGBLOB, nullable=True)
+    adapter_args = sa.Column(BLOB, nullable=True)
     address = sa.Column(VARCHAR(512), nullable=False)
     ext = sa.Column(VARCHAR(12), nullable=False)
     size = sa.Column(BIGINT, nullable=False)
@@ -281,9 +282,9 @@ class JobStep(PluginTableBase):
     execute = sa.Column(VARCHAR(256), nullable=True)
     revert = sa.Column(VARCHAR(256), nullable=True)
     method = sa.Column(VARCHAR(64), nullable=True)
-    kwargs = sa.Column(LONGBLOB, nullable=True)             # kwargs for executor
-    rebind = sa.Column(LONGBLOB, nullable=True)             # execute rebind  taskflow
-    provides = sa.Column(LONGBLOB, nullable=True)           # execute provides taskflow
+    kwargs = sa.Column(BLOB, nullable=True)             # kwargs for executor
+    rebind = sa.Column(BLOB, nullable=True)             # execute rebind  taskflow
+    provides = sa.Column(BLOB, nullable=True)           # execute provides taskflow
     resultcode = sa.Column(TINYINT, nullable=False, default=manager_common.RESULT_UNKNOWN)
     result = sa.Column(VARCHAR(manager_common.MAX_JOB_RESULT),
                        nullable=False, default='not executed')
@@ -302,7 +303,7 @@ class ScheduleJob(PluginTableBase):
     retry = sa.Column(TINYINT, nullable=False, default=0)
     revertall = sa.Column(BOOLEAN, nullable=False, default=0)
     desc = sa.Column(VARCHAR(512), nullable=False)
-    kwargs = sa.Column(LONGBLOB, nullable=True)
+    kwargs = sa.Column(BLOB, nullable=True)
     steps = orm.relationship(JobStep, backref='schedulejob', lazy='joined',
                              cascade='delete,delete-orphan,save-update')
 
