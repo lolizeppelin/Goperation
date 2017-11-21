@@ -10,32 +10,33 @@ from goperation.manager.rpc.agent.application.taskflow.base import EntityTask
 from goperation.manager.rpc.agent.application.taskflow.base import format_store_rebind
 
 
-def entity_factory(session, middleware, store, db_flow_factory):
+def entity_factory(session, app, store, db_flow_factory):
     """
     @param session:                 class: sqlalchemy:session
     @param middleware:              class: EntityMiddleware
     @param store:                   class: dict
     @param db_flow_factory:         class: function
     """
-    entity_flow = lf.Flow('entity_%d' % middleware.entity)
+    entity = app.middleware.entity
+    entity_flow = lf.Flow('entity_%d' % entity)
 
-    if middleware.application and middleware.application.createtask:
-        entity_flow.add(middleware.application.createtask)
+    if app.createtask:
+        entity_flow.add(app.createtask)
 
-    if middleware.application and middleware.application.stoptask:
+    if app.stoptask:
         # kill if stop fail
-        prepare_flow = uf.Flow('recheck_stop_%d' % middleware.entity,
-                               retry=application.AppKill('kill_%d' % middleware.entity))
+        prepare_flow = uf.Flow('recheck_stop_%d' % entity,
+                               retry=application.AppKill('kill_%d' % entity))
         # sure entity stoped
-        prepare_flow.add(middleware.application.stoptask)
+        prepare_flow.add(app.stoptask)
         entity_flow.add(prepare_flow)
 
-    upflow = uf.Flow('up_%d' % middleware.entity)
-    if middleware.application and middleware.application.upgradetask:
+    upflow = uf.Flow('up_%d' % entity)
+    if app.upgradetask:
         # upgrade app file
-        upflow.add(middleware.application.upgradetask)
+        upflow.add(app.upgradetask)
     # backup and update app database
-    database_flow = db_flow_factory(middleware, store)
+    database_flow = db_flow_factory(app, store)
     if database_flow:
         upflow.add(database_flow)
     if len(upflow):
@@ -43,19 +44,19 @@ def entity_factory(session, middleware, store, db_flow_factory):
     else:
         del upflow
     # update app (some thing like hotfix or flush config)
-    if middleware.application and middleware.application.updatetask:
-        entity_flow.add(middleware.application.updatetask)
+    if app.updatetask:
+        entity_flow.add(app.updatetask)
     # start appserver
-    if middleware.application and middleware.application.startstak:
-        entity_flow.add(middleware.application.startstak)
+    if app.startstak:
+        entity_flow.add(app.startstak)
     # start appserver
-    if middleware.application and middleware.application.deletetask:
-        entity_flow.add(middleware.application.deletetask)
+    if app.deletetask:
+        entity_flow.add(app.deletetask)
     # entity task is independent event
     return EntityTask(session, entity_flow, store)
 
 
-def flow_factory(session, middlewares,
+def flow_factory(session, applications,
                  upgradefile=None,
                  backupfile=None,
                  store=None,
@@ -68,13 +69,13 @@ def flow_factory(session, middlewares,
     @param store:                   class:dict
     @param db_flow_factory:         class:function
     """
-    if not middlewares:
-        raise RuntimeError('No middleware found')
+    if not applications:
+        raise RuntimeError('No application found')
     store = store or {}
-    main_flow = lf.Flow('%s_taskflow' % middlewares[0].endpoint)
+    main_flow = lf.Flow('%s_taskflow' % applications[0].middleware.endpoint)
 
     # choice one entity by randomizing the selection of middlewares
-    middleware = middlewares[random.randint(0, len(middlewares)-1)]
+    app = applications[random.randint(0, len(applications)-1)]
 
     # prepare file for app update and database
     prepare_uflow = uf.Flow('prepare')
@@ -82,34 +83,34 @@ def flow_factory(session, middlewares,
         rebind = ['download_timeout']
         format_store_rebind(store, rebind)
         #  get app update file, all middlewares use same app upload file
-        prepare_uflow.add(application.AppUpgradeFileGet(middleware, upgradefile, rebind=rebind))
+        prepare_uflow.add(application.AppUpgradeFileGet(app.middleware, upgradefile, rebind=rebind))
     else:
-        if middleware.application.upgradefunc:
+        if app.upgradetask:
             raise RuntimeError('Application upgrade need upgradefile')
     if backupfile:
         store.pop('backupfile', None)
         rebind = ['download_timeout']
         format_store_rebind(store, rebind)
-        prepare_uflow.add(application.AppBackUp(middleware, backupfile, rebind=rebind))
+        prepare_uflow.add(application.AppBackUp(app.middleware, backupfile, rebind=rebind))
     else:
         if not store.get('backupfile'):
-            if middleware.application.upgradefunc.rollback:
+            if app.upgradefunc.rollback:
                 raise RuntimeError('upgrade rollback able, but no backupfile found')
         store.setdefault('backupfile', None)
-    if middleware.databases:
+    if app.databases:
         rebind = ['download_timeout']
         format_store_rebind(store, rebind)
         # get database upload file, all middlewares use same database upload file
-        prepare_uflow.add(database.DbUpdateSqlGet(middleware, rebind=rebind))
+        prepare_uflow.add(database.DbUpdateSqlGet(app.middleware, app.databases, rebind=rebind))
     if len(prepare_uflow):
         main_flow.add(prepare_uflow)
     else:
         del prepare_uflow
 
     entitys_taskflow = uf.Flow('entitys_task')
-    for middleware in middlewares:
+    for app in applications:
         # all entity task
-        entitys_taskflow.add(entity_factory(session, middleware, store, db_flow_factory))
+        entitys_taskflow.add(entity_factory(session, app, store, db_flow_factory))
         eventlet.sleep(0)
     main_flow.add(entitys_taskflow)
 

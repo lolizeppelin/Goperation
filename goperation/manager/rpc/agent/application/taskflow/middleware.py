@@ -6,14 +6,11 @@ from goperation.manager.rpc.agent.application.base import AppEndpointBase
 
 class EntityMiddleware(object):
 
-    def __init__(self, entity, endpoint,
-                 application=None, databases=None):
+    def __init__(self, entity, endpoint):
         if not isinstance(endpoint, AppEndpointBase):
             raise RuntimeError('endpoint not AppEndpointBase')
         self.entity = entity
         self._endpoint = endpoint
-        self.application = application
-        self.databases = databases
         self.results = collections.OrderedDict()
 
     @property
@@ -21,8 +18,8 @@ class EntityMiddleware(object):
         return self._endpoint.entity_home(self.entity)
 
     @property
-    def entity_appname(self):
-        return self._endpoint.appname(self.entity)
+    def apppathname(self):
+        return self._endpoint.apppathname
 
     @property
     def entity_user(self):

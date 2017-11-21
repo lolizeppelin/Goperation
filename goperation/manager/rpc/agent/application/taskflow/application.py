@@ -111,7 +111,7 @@ class AppBackUp(StandardTask):
         elif isinstance(self.backupfile, basestring):
             LOG.info('AppBackUp dump local bakcup file from %s %d' % (self.middleware.endpoint,
                                                                       self.middleware.entity))
-            src = os.path.join(self.middleware.entity_home, self.middleware.entity_appname)
+            src = os.path.join(self.middleware.entity_home, self.middleware.apppathname)
             LOG.debug('AppBackUp dump local bakcup from path %s' % src)
             dst = self.backupfile
             async_compress(src, dst, exclude=self.exclude,
@@ -210,7 +210,8 @@ class AppUpdateBase(AppTaskBase):
 
 class Application(object):
 
-    def __init__(self,
+    def __init__(self, middleware,
+                 databases=None,
                  createtask=None,
                  deletetask=None,
                  startstak=None,
@@ -250,3 +251,7 @@ class Application(object):
         self.upgradetask = upgradetask
         # 更新
         self.updatetask = updatetask
+        # 绑定的EntityMiddleware对象
+        self.middleware = middleware
+        # 绑定数据库
+        self.databases = databases
