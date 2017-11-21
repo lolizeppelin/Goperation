@@ -4,6 +4,7 @@ import collections
 from goperation.taskflow import common
 from goperation.manager.rpc.agent.application.base import AppEndpointBase
 
+
 class EntityMiddleware(object):
 
     def __init__(self, entity, endpoint):
@@ -60,8 +61,18 @@ class EntityMiddleware(object):
                 break
         return True
 
+    @property
+    def success(self):
+        for value in self.itervalues():
+            if value is not common.EXECUTE_SUCCESS:
+                return False
+        return True
+
     def iterresults(self):
         return six.iteritems(self.results)
 
     def iterkeys(self):
         return six.iterkeys(self.results)
+
+    def itervalues(self):
+        return six.itervalues(self.results)
