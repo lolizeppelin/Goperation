@@ -72,7 +72,7 @@ class ManagerClient(HttpClientBase):
             raise ServerExecuteRequestError(message='get agent info fail:%d' % results['resultcode'],
                                             code=resp.status_code,
                                             resone=results['result'])
-        return results['data'][0]
+        return results
 
     def agents_update(self, agent_id, body):
         resp, results = self.put(action=self.agent_path % str(agent_id), body=body)

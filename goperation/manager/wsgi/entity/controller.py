@@ -173,7 +173,7 @@ class EntityReuest(BaseContorller):
     def notify_create(target, entity, body):
         rpc = get_client()
         body.setdefault('entity', entity)
-        create_ret = rpc.call(target, ctxt={'finishtime': rpcfinishtime()},
+        create_ret = rpc.call(target, ctxt={'finishtime': body.pop('finishtime', rpcfinishtime())},
                               msg={'method': 'create_entity', 'args': body})
         if not create_ret:
             raise RpcResultError('create entitys result is None')
@@ -184,7 +184,7 @@ class EntityReuest(BaseContorller):
     def notify_delete(target, entitys, body):
         rpc = get_client()
         body.setdefault('entitys', entitys)
-        delete_ret = rpc.call(target, ctxt={'finishtime': rpcfinishtime()},
+        delete_ret = rpc.call(target, ctxt={'finishtime': body.pop('finishtime', rpcfinishtime())},
                               msg={'method': 'delete_entitys', 'args': body})
         if not delete_ret:
             raise RpcResultError('delete entitys result is None')

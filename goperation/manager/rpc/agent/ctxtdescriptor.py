@@ -50,7 +50,7 @@ class CheckManagerRpcCtxt(CheckRpcCtxt):
         finishtime = ctxt.get('finishtime', None)
         agents = ctxt.get('agents', None)
         try:
-            if agents is not None and self.manager.agent_id not in agents:
+            if agents is not None and self.manager.agent_id not in set(agents):
                 # rpc not for this agent
                 raise MessageNotForMe
             if finishtime and int(realnow()) >= finishtime:

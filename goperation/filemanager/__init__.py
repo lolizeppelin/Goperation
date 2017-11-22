@@ -82,6 +82,8 @@ class FileManager(object):
             if self.downloading:
                 raise exceptions.DownLoading('Can not scan when downlonding')
             # files in local disk
+            if not os.path.exists(self.path):
+                os.makedirs(self.path)
             for filename in os.listdir(self.path):
                 full_path = os.path.join(self.path, filename)
                 if os.path.isfile(full_path):

@@ -7,7 +7,7 @@ from simpleservice import config as base_config
 
 CONF = cfg.CONF
 
-goperation_opts = [
+service_base_opts = [
     cfg.MultiOpt('endpoints',
                  default=[],
                  item_type=cfg.types.MultiImportString(),
@@ -33,9 +33,9 @@ def configure(group, config_files, default_log_levels=None):
     # over write state path default value
     CONF.set_default('state_path', default='/var/run/goperation')
     # reg base opts
-    CONF.register_opts(goperation_opts)
+    CONF.register_opts(service_base_opts)
     # set log config
-    logging.setup(CONF,group.name)
+    logging.setup(CONF, group.name)
     defalut_logging.captureWarnings(True)
     if default_log_levels:
         base_config.set_default_for_default_log_levels(default_log_levels)

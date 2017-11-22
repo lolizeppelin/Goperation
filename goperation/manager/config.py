@@ -11,16 +11,12 @@ CONF = cfg.CONF
 
 
 goperation_opts = [
-    cfg.StrOpt('rabbit',
-               default='Manager rabbitmq config group name',
-               help=''
-               ),
     cfg.FloatOpt('glock_alloctime',
                  default=3,
                  help='Timeout for allocate glock'),
     cfg.HostnameOrIPOpt('gcenter',
-                        help='Hostname or IP address of gcenter wsgi service'
-                        ),
+                        default='127.0.0.1',
+                        help='Hostname or IP address of gcenter wsgi service'),
     cfg.PortOpt('gcenter_port',
                 default=7999,
                 help='Http port of gcenter wsgi service'),
@@ -36,6 +32,7 @@ goperation_opts = [
 ]
 
 manager_group = cfg.OptGroup(name='manager', title='Manager base options')
+
 CONF.register_group(manager_group)
 # goperation opts for manager
 CONF.register_opts(goperation_opts, manager_group)
@@ -43,9 +40,11 @@ CONF.register_opts(goperation_opts, manager_group)
 CONF.register_opts(database_opts, manager_group)
 # redis for manager
 CONF.register_opts(redis_opts, manager_group)
+
 # rabbit for manager
-CONF.register_opts(rpc_base_opts, manager_group)
-CONF.register_opts(amqp_opts, manager_group)
-CONF.register_opts(rabbit_opts, manager_group)
+rabbit_group = cfg.OptGroup(name='rabbit', title='Manager RabbitMQ base group')
+CONF.register_opts(rpc_base_opts, rabbit_group)
+CONF.register_opts(amqp_opts, rabbit_group)
+CONF.register_opts(rabbit_opts, rabbit_group)
 # reset default value of rabbit_virtual_host
-CONF.set_default('rabbit_virtual_host', default='goperation', group=manager_group)
+CONF.set_default('rabbit_virtual_host', default='goperation', group=rabbit_group)

@@ -64,7 +64,7 @@ def init_server_id():
                     query = model_query(session, GkeyMap, filter=GkeyMap.host == CONF.host)
                     result = query.one_or_none()
                     if not result:
-                        upquery = model_query(session, GkeyMap, filter=GkeyMap.host is None)
+                        upquery = model_query(session, GkeyMap, filter=GkeyMap.host == None)
                         upquery.update(dict(host=CONF.host),
                                        update_args={'mysql_limit': 1})
                         result = query.one()

@@ -271,63 +271,6 @@ class AgentReuest(BaseContorller):
                                          data=[body, ])
             return result
 
-    def online(self, req, body=None):
-        """call buy agent
-        when a agent start, it will call online to show it's ipaddr
-        and get agent_id from gcenter
-        """
-        body = body or {}
-        try:
-            host = validators['type:hostname'](body.pop('host'))
-            agent_type = body.pop('agent_type', 'nonetype')
-            agent_ipaddr = validators['type:ip_address'](body.pop('agent_ipaddr'))
-        except KeyError as e:
-            raise InvalidArgument('Can not find argument: %s' % e.message)
-        except ValueError as e:
-            raise InvalidArgument('Argument value type error: %s' % e.message)
-        except InvalidInput as e:
-            raise InvalidArgument(e.message)
-        session = get_session(readonly=True)
-        cache_store = get_cache()
-        query = model_query(session, Agent,
-                            filter=(and_(Agent.status > manager_common.DELETED,
-                                         Agent.agent_type == agent_type, Agent.host == host)))
-        agent = query.one_or_none()
-        if not agent:
-            LOG.info('Online called but no Agent found')
-            ret = {'agent_id': None}
-        else:
-            LOG.debug('Agent online called. agent_id:%(agent_id)s, type:%(agent_type)s, '
-                      'host:%(host)s, ipaddr:%(agent_ipaddr)s' %
-                      {'agent_id': agent.agent_id,
-                       'agent_type': agent_type,
-                       'host': host,
-                       'agent_ipaddr': agent_ipaddr})
-            # lock.degrade([targetutils.AgentLock(agent.agent_id)])
-            ret = {'agent_id': agent.agent_id}
-            host_online_key = targetutils.host_online_key(agent.agent_id)
-            exist_host_ipaddr = cache_store.get(host_online_key)
-            if exist_host_ipaddr is not None:
-                if exist_host_ipaddr != agent_ipaddr:
-                    LOG.error('Host call online with %s, but %s alreday exist on redis' %
-                              (agent_ipaddr, exist_host_ipaddr))
-                    raise InvalidArgument('Host %s with ipaddr %s alreday eixst' % (host, exist_host_ipaddr))
-                # key exist, set new expire time
-                if not cache_store.expire(host_online_key,
-                                            manager_common.ONLINE_EXIST_TIME):
-                    if not cache_store.set(host_online_key, agent_ipaddr,
-                                           ex=manager_common.ONLINE_EXIST_TIME, nx=True):
-                        raise InvalidArgument('Another agent login with same '
-                                              'host or someone set key %s' % host_online_key)
-            else:
-                if not cache_store.set(host_online_key, agent_ipaddr,
-                                       ex=manager_common.ONLINE_EXIST_TIME, nx=True):
-                    raise InvalidArgument('Another agent login with same host or '
-                                          'someone set key %s' % host_online_key)
-        result = resultutils.results(result='Online agent function run success')
-        result['data'].append(ret)
-        return result
-
     @BaseContorller.AgentIdformater
     def report(self, req, agent_id, body=None):
         body = body or {}

@@ -2,8 +2,8 @@ from goperation.cmd.server import gcenter
 
 
 def main():
-    a = 'C:\\Users\\loliz_000\\Desktop\\etc\\goperation.conf'
-    b = 'C:\\Users\\loliz_000\\Desktop\\etc\\gcenter.conf'
+    a = 'C:\\Users\\loliz_000\\Desktop\\etc\\goperation\\goperation.conf'
+    b = 'C:\\Users\\loliz_000\\Desktop\\etc\\goperation\\gcenter.conf'
     gcenter.run([a, b])
 
 

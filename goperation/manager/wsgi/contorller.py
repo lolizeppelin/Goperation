@@ -80,7 +80,7 @@ class BaseContorller(MiddlewareContorller):
         if persist not in (0, 1):
             raise InvalidArgument('Async argv persist not in 0, 1')
         try:
-            client_request_time = int(body.get('request_time'))
+            client_request_time = int(body.pop('request_time'))
         except KeyError:
             raise InvalidArgument('Async request need argument request_time')
         except TypeError:
