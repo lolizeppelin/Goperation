@@ -60,7 +60,6 @@ def bulk_results(session,
         except InvalidArgument as e:
             raise ValueError(e.message)
         column_name_list.add(column_name)
-
     # count row number
     all_rows_num = model_count_with_key(session,
                                         counter,
@@ -75,7 +74,7 @@ def bulk_results(session,
     for result in query:
         column = dict()
         for column_name in column_name_list:
-            column[column_name] = result.__dict__[column_name]
+            column[column_name] = getattr(result, column_name)
         row_list.append(column)
     result = 'Get results success'
     if len(row_list) == 0:

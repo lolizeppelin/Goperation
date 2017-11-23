@@ -37,53 +37,98 @@ FAULT_MAP = {InvalidArgument: webob.exc.HTTPClientError,
 Idformater = argutils.Idformater(key='request_id', formatfunc='request_id_check')
 
 
+INDEXSCHEMA = {
+     'type': 'object',
+     'properties':
+         {
+          'order': {'type': 'string'},                                     # short column name
+          'desc': {'type': 'boolean'},                                        # reverse result
+          'start': {'type': 'string', 'format': 'date-time'},              # request start time
+          'end': {'type': 'string', 'format': 'date-time'},                # request end time
+          'page_num': {'type': 'integer', 'minimum': 0},                   # pagen number
+          'status': {'enum': [manager_common.ACTIVE,                       # filter status
+                              manager_common.UNACTIVE]},
+          }
+}
+
+RESPONESCHEMA = {
+     'type': 'object',
+     'required': ['agent_id', 'agent_time', 'resultcode', 'persist'],
+     'properties':
+         {
+          'agent_id': {'type': 'integer', 'minimum': 0},                                   # agent id
+          'agent_time': {'type': 'integer', 'minimum': 0},                                 # agent respone time
+          'resultcode': {'type': 'integer', 'minimum': -127, 'maxmum': 127},               # resultcode
+          'result': {'type': 'string'},                                                    # result message
+          'persist': {'type': 'boolean'},                                                  # persist
+          'expire': {'type': 'integer', 'minimum': 10},                                    # when persist is false
+          'details': {'type': 'array', 'minItems': 1,                                      # details for rpc
+                      'items': {'type': 'object',
+                                'required': ['detail_id', 'resultcode', 'result'],
+                                'properties': {
+                                    'detail_id': {'type': 'integer', 'minimum': 0},
+                                    'resultcode': {'type': 'integer', 'minimum': -127, 'maxmum': 127},
+                                    'result': [{'type': 'string'}, {'type': 'object'}]}
+                                }
+                      }
+         }
+}
+
+OVERTIMESCHEMA = {
+     'type': 'object',
+     'required': ['scheduler', 'agent_time', 'agents', 'persist'],
+     'properties':
+         {
+          'scheduler': {'type': 'integer', 'minimum': 0},                                  # scheduler agent id
+          'agent_time': {'type': 'integer', 'minimum': 0},                                 # scheduler respone time
+          'agents':  {'type': 'array', 'minItems': 1,
+                      'items': {'type': 'integer', 'minimum': 0}},                         # overtime agents list
+          'persist': {'type': 'boolean'},                                                  # persist
+          'expire': {'type': 'integer', 'minimum': 10},                                    # when persist is false
+         }
+}
+
+
 @singleton.singleton
 class AsyncWorkRequest(contorller.BaseContorller):
 
-    def index(self, req, body):
+    def index(self, req, body=None):
+        body = body or {}
+        jsonutils.schema_validate(body, INDEXSCHEMA)
         session = get_session(readonly=True)
         order = body.get('order', None)
         desc = body.get('desc', False)
-        status = body.get('status', 1)
+        status = body.get('status', None)
         page_num = body.pop('page_num', 0)
-        if status not in (0, 1):
-            raise InvalidArgument('Status value error, not 0 or 1')
-        # index in request_time
-        # so first filter is request_time
         filter_list = []
-        start_time = int(body.get('start_time', 0))
-        end_time = int(body.get('start_time', 0))
-        if start_time:
-            filter_list.append(AsyncRequest.request_time >= start_time)
-        if end_time:
-            if end_time < start_time:
+        start = int(body.get('start', 0))
+        end = int(body.get('end', 0))
+        if start:
+            filter_list.append(AsyncRequest.request_time >= end)
+        if end:
+            if end < start:
                 raise InvalidArgument('end time less then start time')
-            filter_list.append(AsyncRequest.request_time < end_time)
-        filter_list.append(AsyncRequest.status == status)
-        sync = body.get('sync', True)
-        async = body.get('async', True)
-        if not sync and async:
-            raise InvalidArgument('No both sync and async mark')
-        if sync and not async:
-            filter_list.append(AsyncRequest.scheduler == 0)
-        elif async and not sync:
-            filter_list.append(AsyncRequest.scheduler != 0)
+            filter_list.append(AsyncRequest.request_time < end)
+        if status is not None:
+            filter_list.append(AsyncRequest.status == status)
         request_filter = and_(*filter_list)
         return resultutils.bulk_results(session,
                                         model=AsyncRequest,
                                         columns=[AsyncRequest.request_id,
+                                                 AsyncRequest.resultcode,
                                                  AsyncRequest.status,
                                                  AsyncRequest.request_time,
+                                                 AsyncRequest.finishtime,
+                                                 AsyncRequest.deadline,
                                                  AsyncRequest.scheduler,
-                                                 AsyncRequest.result
                                                  ],
                                         counter=AsyncRequest.request_id,
                                         order=order, desc=desc,
                                         filter=request_filter, page_num=page_num)
 
     @Idformater
-    def show(self, req, request_id, body):
-        request_id = request_id.pop()
+    def show(self, req, request_id, body=None):
+        body = body or {}
         agents = body.get('agents', True)
         details = body.get('details', False)
         session = get_session(readonly=True)
@@ -117,21 +162,19 @@ class AsyncWorkRequest(contorller.BaseContorller):
     @Idformater
     def respone(self, req, request_id, body):
         """agent report respone api"""
-        try:
-            agent_id = body.pop('agent_id')
-            agent_time = body.pop('agent_time')
-            resultcode = body.pop('resultcode')
-            result = body.pop('result')
-        except KeyError as e:
-            raise InvalidArgument('Agent respone need key %s' % e.message)
-        details=[dict(agent_id=agent_id,
-                      request_id=request_id,
-                      detail_id=detail['detail'],
-                      resultcode=detail['resultcode'],
-                      result=detail['result'] if isinstance(detail['result'], basestring)
-                      else jsonutils.dumps_as_bytes(detail['result'])) for detail in body.pop('details', [])]
-        persist = body.pop('persist', 1)
-        expire = body.pop('expire', 30)
+        jsonutils.schema_validate(RESPONESCHEMA, body)
+        agent_id = body.get('agent_id')
+        agent_time = body.get('agent_time')
+        resultcode = body.get('resultcode')
+        result = body.get('result', 'no result message')
+        persist = body.get('persist', 1)
+        expire = body.get('expire', 60)
+        details = [dict(agent_id=agent_id,
+                        request_id=request_id,
+                        detail_id=detail['detail'],
+                        resultcode=detail['resultcode'],
+                        result=detail['result'] if isinstance(detail['result'], basestring)
+                        else jsonutils.dumps_as_bytes(detail['result'])) for detail in body.get('details', [])]
         cache_store = get_cache()
         session = get_session()
         data = dict(request_id=request_id,
@@ -187,18 +230,18 @@ class AsyncWorkRequest(contorller.BaseContorller):
 
     @Idformater
     def responses(self, req, request_id, body):
-        """"""
+        """Find agents not witch not respone"""
         persist = body.pop('persist', True)
         agents = argutils.map_to_int(body.pop('agents'))
         session = get_session(readonly=True)
         response_agents = set()
         if persist:
-            query = model_query(session, AgentRespone.agent_id, filter=AgentRespone.request_id==request_id)
+            query = model_query(session, AgentRespone.agent_id, filter=AgentRespone.request_id == request_id)
             # get response from database
             for r in query.all():
                 response_agents.add(r[0])
         else:
-            model_query(session, AsyncRequest, filter=AgentRespone.request_id==request_id).one()
+            model_query(session, AsyncRequest, filter=AgentRespone.request_id == request_id).one()
             cache_store = get_cache()
             # get respone from cache redis server
             key_pattern = targetutils.async_request_pattern(request_id)
@@ -211,7 +254,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
     @Idformater
     def details(self, req, request_id, body):
         try:
-            agent_id = body.get('agent_id')
+            agent_id = int(body.get('agent_id'))
         except (KeyError, TypeError):
             raise InvalidArgument('Get agent respone need agent_id value of int')
         session = get_session(readonly=True)
@@ -228,13 +271,12 @@ class AsyncWorkRequest(contorller.BaseContorller):
     @Idformater
     def overtime(self, req, request_id, body):
         """agent not response, async checker send a overtime respone"""
+        jsonutils.schema_validate(OVERTIMESCHEMA, body)
         scheduler = body.get('scheduler')
         agent_time = body.get('agent_time')
         agents = body.get('agents')
-        persist = body.get('persist', 1)
+        persist = body.get('persist')
         expire = body.get('expire', 60)
-        if not agents:
-            raise InvalidArgument('Not agets report overtime?')
         bulk_data = []
         for agent_id in agents:
             data = dict(request_id=request_id,

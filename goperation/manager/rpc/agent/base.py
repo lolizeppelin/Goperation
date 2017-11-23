@@ -55,9 +55,11 @@ class AgentManagerClient(GopHttpClientApi):
                     agent_type=manager.agent_type,
                     cpu=psutil.cpu_count(),
                     # memory available MB
-                    memory=psutil.virtual_memory().available/(1024*1024),
+                    # memory=psutil.virtual_memory().available/(1024*1024),
+                    # memory total MB
+                    memory=psutil.virtual_memory().total/(1024*1024),
                     disk=manager.partion_left_size,
-                    ports_range=jsonutils.dumps_as_bytes(manager.ports_range),
+                    ports_range=manager.ports_range,
                     endpoints=[endpoint.namespace for endpoint in manager.endpoints],
                     )
         results = self.agent_create(body)
@@ -162,12 +164,14 @@ class RpcAgentManager(RpcManagerBase):
                     cls = importutils.import_class(endpoint_class)
                     # if not isinstance(cls, RpcEndpointBase):
                     #     raise TypeError('Endpoint class string %s not RpcEndpointBase' % endpoint_class)
-                except ImportError:
-                    pass
+                except Exception:
+                    LOG.error('Import class of %s faile' % endpoint_group.name)
+                    raise
                 else:
-                    self.endpoints.add(cls(manager=self, name=endpoint_group.name))
-                    if not isinstance(self.endpoints[-1], RpcAgentEndpointBase):
+                    obj = cls(manager=self, name=endpoint_group.name)
+                    if not isinstance(obj, RpcAgentEndpointBase):
                         raise TypeError('Endpoint string %s not base from RpcEndpointBase')
+                    self.endpoints.add(obj)
         self.endpoint_lock = lockutils.Semaphores()
 
     def pre_start(self, external_objects):
@@ -193,7 +197,9 @@ class RpcAgentManager(RpcManagerBase):
                 if entitys:
                     raise RuntimeError('Agent endpoint entity not zero, '
                                        'but not endpoint %s in this agent' % endpoint)
-            for entity, ports in six.iteritems(entitys):
+            for _entity in entitys:
+                entity = _entity['entity']
+                ports = _entity['ports']
                 if ports:
                     if None in ports:
                         raise RuntimeError('None in ports list')
@@ -201,11 +207,11 @@ class RpcAgentManager(RpcManagerBase):
         if delete_endpoints:
             self.client.agents_delete_endpoints(agent_id=self.agent_id, endpoint=list(delete_endpoints))
         if add_endpoints:
-            self.client.agent_add_endpoints(agent_id=self.agent_id, endpoint=list(add_endpoints))
-        remote_ports_range = jsonutils.loads_as_bytes(agent_info['ports_range'])
+            self.client.endpoints_add(agent_id=self.agent_id, endpoints=list(add_endpoints))
+        remote_ports_range = agent_info['ports_range']
         if remote_ports_range != self.ports_range:
             LOG.warning('Agent ports range has been changed at remote database')
-            body = {'ports_range': jsonutils.dumps_as_bytes(self.ports_range)}
+            body = {'ports_range': self.ports_range}
             # call agent change ports_range
             self.client.agent_edit(agent_id=self.agent_id, body=body)
         # agent set status at this moment
@@ -261,11 +267,10 @@ class RpcAgentManager(RpcManagerBase):
 
     def free_ports(self, ports):
         _ports = set()
-        with self.work_lock.priority(2):
-            if isinstance(ports, (int, long)):
-                _ports.add(ports)
-            else:
-                _ports = set(ports)
+        if isinstance(ports, (int, long)):
+            _ports.add(ports)
+        else:
+            _ports = set(ports)
         for entitys in six.itervalues(self.allocked_ports):
             for entity_ports in six.itervalues(entitys):
                 for port in (entity_ports & _ports):

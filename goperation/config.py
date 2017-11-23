@@ -10,8 +10,8 @@ CONF = cfg.CONF
 service_base_opts = [
     cfg.MultiOpt('endpoints',
                  default=[],
-                 item_type=cfg.types.MultiImportString(),
-                 help='The endpoints class'),
+                 item_type=cfg.types.String(),
+                 help='The endpoint group name or namespace'),
     cfg.IPOpt('local_ip',
               version=4,
               help='Goperation local ip address'),

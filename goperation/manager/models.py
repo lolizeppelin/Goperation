@@ -75,7 +75,7 @@ class AsyncRequest(PluginTableBase):
     request_time = sa.Column(INTEGER(unsigned=True),
                              default=realnowint, nullable=False)
     # if request finish
-    status = sa.Column(BOOLEAN, nullable=False, default=manager_common.UNFINISH)
+    status = sa.Column(TINYINT, nullable=False, default=manager_common.UNFINISH)
     # write agent respone into database
     persist = sa.Column(BOOLEAN, nullable=False, default=1)
     # request should finish at finish time

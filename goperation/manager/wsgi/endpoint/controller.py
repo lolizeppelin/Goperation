@@ -6,6 +6,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.orm.exc import MultipleResultsFound
 
 from simpleutil.utils import singleton
+from simpleutil.utils import argutils
 from simpleutil.log import log as logging
 from simpleutil.common.exceptions import InvalidArgument
 
@@ -45,6 +46,8 @@ FAULT_MAP = {InvalidArgument: webob.exc.HTTPClientError,
              }
 
 
+entityjoin = joinedload(AgentEndpoint.entitys,innerjoin=False).joinedload(AgentEntity.ports, innerjoin=False)
+
 @singleton.singleton
 class EndpointReuest(BaseContorller):
 
@@ -52,14 +55,10 @@ class EndpointReuest(BaseContorller):
     def index(self, req, agent_id):
         session = get_session(readonly=True)
         query = model_query(session, AgentEndpoint, filter=AgentEndpoint.agent_id == agent_id)
+        data = [ endpoint for endpoint in
+                 query.options(entityjoin)]
         return resultutils.results(result='list endpoint on success',
-                                   data=[dict(endpoint=endpoint.endpoint,
-                                              entitys=len(endpoint.entitys),
-                                              ports=len(endpoint.ports))
-                                         for endpoint in
-                                         query.options(joinedload(AgentEndpoint.entitys,
-                                                                  AgentEndpoint.ports,
-                                                                  innerjoin=False)).all()])
+                                   data=data)
 
     @BaseContorller.AgentIdformater
     def create(self, req, agent_id, body=None):
@@ -72,7 +71,6 @@ class EndpointReuest(BaseContorller):
                 for endpoint in endpoints:
                     session.add(AgentEndpoint(agent_id=agent_id, endpoint=endpoint))
                     session.flush()
-            session.commit()
         return resultutils.results(result='add endpoints success',
                                    data=endpoints)
 
@@ -82,14 +80,8 @@ class EndpointReuest(BaseContorller):
         endpoints_filter = and_(AgentEndpoint.agent_id == agent_id,
                                 AgentEndpoint.endpoint == endpoint)
         query = model_query(session, AgentEndpoint, filter=endpoints_filter)
-        endpoint = query.options(joinedload(AgentEndpoint.entitys,
-                                            AgentEndpoint.ports,
-                                            innerjoin=False)).one()
-        return resultutils.results(result='show endpoint success',
-                                   data=[dict(endpoint=endpoint.endpoint,
-                                              agent_id=endpoint.agent_id,
-                                              entitys=[x.entitys for x in endpoint.entitys],
-                                              ports=[x.port for x in endpoint.ports])])
+        endpoint = query.options(entityjoin).one()
+        return resultutils.results(result='show endpoint success', data=[endpoint, ])
 
     @BaseContorller.AgentIdformater
     def delete(self, req, agent_id, endpoint):
@@ -143,3 +135,12 @@ class EndpointReuest(BaseContorller):
                                               ports=[port.port for port in entity.ports])
                                          for entity in query.options(joinedload(AgentEntity.ports,
                                                                                 innerjoin=False)).all()])
+
+    def count(self, req, endpoint):
+        session = get_session(readonly=True)
+        data = []
+        for endpoint in argutils.map_with(endpoint, utils.validate_endpoint):
+            count = model_count_with_key(session, AgentEndpoint.endpoint, filter=AgentEndpoint.endpoint == endpoint)
+            data.append(dict(endpoint=endpoint,
+                             count=count))
+        return resultutils.results(result='count endpoint for success', data=data)

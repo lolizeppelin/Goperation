@@ -15,8 +15,9 @@ def safe_func_wrapper(f, logger=None):
         f()
     except Exception as e:
         if logger:
-            logger.error('Safe wrapper cache error: %s' % e.__class__.__name__)
-            logger.debug(str(e))
+            logger.error('Safe wrapper catch error: %s' % e.__class__.__name__)
+            if hasattr(logger, 'exception'):
+                logger.exception('Safe error traceback')
 
 
 def suicide(delay=3):

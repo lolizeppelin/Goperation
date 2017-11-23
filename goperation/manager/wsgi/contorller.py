@@ -65,6 +65,7 @@ class BaseContorller(MiddlewareContorller):
     def request_id_check(request_id):
         if not uuidutils.is_uuid_like(request_id):
             raise InvalidArgument('Request id is not uuid like')
+        return request_id
 
     @staticmethod
     def create_asyncrequest(body):
@@ -87,12 +88,11 @@ class BaseContorller(MiddlewareContorller):
             raise InvalidArgument('request_time is not int of time or no request_time found')
         offset_time = request_time - client_request_time
         if abs(offset_time) > 5:
-            raise InvalidArgument('The diff time between send and receive is %d' % offset_time)
+            raise InvalidArgument('The offset time between send and receive is %d' % offset_time)
         finishtime = body.pop('finishtime', None)
         if finishtime:
             finishtime = int(finishtime) + offset_time
         else:
-            # finishtime = request_time + 4
             finishtime = rpcfinishtime(request_time)
         if finishtime - request_time < 3:
             raise InvalidArgument('Job can not be finished in 3 second')
@@ -146,7 +146,7 @@ class BaseContorller(MiddlewareContorller):
                           rpc_ctxt, rpc_method, rpc_args=None):
         rpc = get_client()
         session = get_session()
-        timeout = asyncrequest.finishtime - int(timeutils.realnow()) - 2
+        timeout = asyncrequest.finishtime - int(timeutils.realnow()) - 3
         if timeout <= 1:
             raise InvalidArgument('Not enough time for asynrequest')
         timeout = min(timeout, 5)
@@ -158,7 +158,7 @@ class BaseContorller(MiddlewareContorller):
                                                'rpc_target': rpc_target.to_dict(),
                                                'rpc_method': rpc_method,
                                                'rpc_ctxt': rpc_ctxt,
-                                               'rpc_args': rpc_args}}, timemout=timeout)
+                                               'rpc_args': rpc_args}}, timeout=timeout)
             if not async_ret:
                 raise RpcResultError('Async request rpc call result is None')
             LOG.debug(async_ret.get('result', 'Async request %s call scheduler result unkonwn'))
@@ -171,9 +171,20 @@ class BaseContorller(MiddlewareContorller):
                     session.flush()
                 except DBDuplicateEntry:
                     LOG.warning('Async request rpc call result over finishtime, but recode found')
-        except (RpcResultError, MessagingTimeout, AMQPDestinationNotFound) as e:
+        except (MessagingTimeout, AMQPDestinationNotFound) as e:
+            LOG.error('Send async request to scheduler fail %s' % e.__class__.__name__)
             asyncrequest.status = manager_common.FINISH
             asyncrequest.result = e.message
+            asyncrequest.resultcode = manager_common.SCHEDULER_NOTIFY_ERROR
+            try:
+                session.add(asyncrequest)
+                session.flush()
+            except DBDuplicateEntry:
+                LOG.warning('Async request rpc call result is None, but recode found')
+        except RpcResultError:
+            LOG.error('Async request rpc call result is None')
+            asyncrequest.status = manager_common.FINISH
+            asyncrequest.result = 'Async request rpc call result is None'
             asyncrequest.resultcode = manager_common.RESULT_IS_NONE
             try:
                 session.add(asyncrequest)

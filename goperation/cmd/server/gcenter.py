@@ -45,10 +45,9 @@ def configure(config_files=None):
             CONF.register_group(endpoint_group)
             CONF.register_opts(route_opts, endpoint_group)
             # add endpoint route
-            for route in CONF[endpoint_group.name].routes:
-                route_class = '%s.Route' % route
-                EXTEND_ROUTES.append(importutils.import_class(route_class))
-                LOG.info('Add endpoint route %s success' % route)
+            for cls in CONF[endpoint_group.name].routes:
+                EXTEND_ROUTES.append(importutils.import_module(cls))
+                LOG.info('Add endpoint route %s success' % cls)
 
     paste_file_path = find_paste_abs(CONF[gcenter_group.name])
     return gcenter_group.name, paste_file_path

@@ -9,12 +9,12 @@ from simpleservice.plugin.models import GkeyMap
 from simpleservice.ormdb.api import model_query
 from simpleservice.ormdb.api import MysqlDriver
 from simpleservice.plugin.rpcclient import RPCClientBase
-from simpleservice.rpc.config import rpc_client_opts
 
 from goperation import lock
 from goperation.redis import GRedisPool
 from goperation.api.client import ManagerClient
 from goperation.manager.config import manager_group
+from goperation.manager.config import rabbit_conf
 from goperation.manager.gdata import GlobalData
 
 
@@ -33,17 +33,16 @@ GlobalDataClient = None
 class ManagerRpcClient(RPCClientBase):
     """singleton Rpc client"""
     def __init__(self):
-        CONF.register_opts(rpc_client_opts, manager_group)
-        super(ManagerRpcClient, self).__init__(CONF[manager_group.name])
+        super(ManagerRpcClient, self).__init__(rabbit_conf)
         self.rpcdriver.init_timeout_record(session=get_session(readonly=False))
 
 
 def rpcfinishtime(starttime=None):
-    rpc_conf = CONF[manager_group.name]
+    rpc_conf = rabbit_conf
     if not starttime:
         starttime = int(timeutils.realnow())
     offset_time = rpc_conf.rpc_send_timeout * (rpc_conf.rpc_send_retry + 1)
-    return starttime + offset_time + 4
+    return starttime + offset_time + 5
 
 
 def init_server_id():
@@ -78,7 +77,7 @@ def init_mysql_session():
     if DbDriver is None:
         with lock.get('mysql'):
             if DbDriver is None:
-                LOG.info("Try connect database for manager")
+                LOG.info("Try connect database for manager, lazy load")
                 mysql_driver = MysqlDriver(manager_group.name,
                                            CONF[manager_group.name])
                 mysql_driver.start()

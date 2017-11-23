@@ -88,6 +88,7 @@ class AgentReuest(BaseContorller):
                                                      Agent.create_time],
                                             counter=Agent.agent_id,
                                             order=order, desc=desc,
+                                            option=joinedload(Agent.endpoints, innerjoin=False),
                                             filter=agent_filter, page_num=page_num)
         return ret_dict
 
@@ -107,13 +108,14 @@ class AgentReuest(BaseContorller):
         result = resultutils.results(total=1, pagenum=0, result='Show agent success')
         endpoints = {}
         for endpoint in agent.endpoints:
-            endpoints[endpoint] = dict()
+            endpoints[endpoint.endpoint] = []
             if show_entitys:
-                for entity in endpoint.entity:
-                    endpoints[endpoint][entity.entity] = []
+                for entity in endpoint.entitys:
+                    _entity = {'entity': entity.entity, 'ports': []}
+                    endpoints[endpoint.endpoint].append(_entity)
                     if show_ports:
                         for port in entity.ports:
-                            endpoints[endpoint][entity.entity].append(port)
+                           _entity['ports'].append(port)
         result_data = dict(agent_id=agent.agent_id, host=agent.host,
                            status=agent.status,
                            ports_range=jsonutils.loads_as_bytes(agent.ports_range),

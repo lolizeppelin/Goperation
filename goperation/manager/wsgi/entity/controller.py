@@ -26,6 +26,7 @@ from goperation.manager import targetutils
 from goperation.manager.api import get_global
 from goperation.manager.api import get_session
 from goperation.manager.api import get_client
+from goperation.manager.api import get_cache
 from goperation.manager.api import rpcfinishtime
 from goperation.manager.models import Agent
 from goperation.manager.models import AgentEntity
@@ -67,8 +68,6 @@ class EntityReuest(BaseContorller):
         if show_ports:
             query = query.options(joinedload(AgentEntity.ports, innerjoin=False))
         entitys = query.all()
-        if not entitys:
-            return resultutils.results(result='no entity found', resultcode=manager_common.RESULT_ERROR)
         return resultutils.results(result='show endpoint entitys success',
                                    data=[dict(entity=entity.entity,
                                               ports=[port.port for port in entity.ports] if show_ports else [])
@@ -80,6 +79,7 @@ class EntityReuest(BaseContorller):
         endpoint = utils.validate_endpoint(endpoint)
         ports = body.get('ports')
         notify = body.get('notify', True)
+        desc = body.get('desc')
         session = get_session()
         if ports:
             ports = argutils.map_with(ports, validators['type:port'])
@@ -87,11 +87,18 @@ class EntityReuest(BaseContorller):
                                               filter=and_(AllocatedPort.port.in_(ports),
                                                           AllocatedPort.agent_id == agent_id))
             if used_ports:
-                raise InvalidArgument('Ports has been used %d' % used_ports)
-        desc = body.get('desc')
+                raise InvalidArgument('Ports has been used count %d' % used_ports)
+
+        if notify:
+            cache_store = get_cache()
+            host_online_key = targetutils.host_online_key(agent_id)
+            # make sure agent is online
+            if not cache_store.get(host_online_key):
+                raise RpcPrepareError('Can create entity on a offline agent %d' % agent_id)
+
+        entity = 0
         glock = get_global().lock('agents')
         elock = get_global().lock('endpoint')
-        entity = 0
         with elock(endpoint):
             with glock([agent_id, ]):
                 with session.begin(subtransactions=True):
@@ -118,7 +125,7 @@ class EntityReuest(BaseContorller):
 
     def show(self, req, endpoint, entity, body=None):
         body = body or {}
-        show_ports = body.get('ports')
+        show_ports = body.get('ports', False)
         endpoint = utils.validate_endpoint(endpoint)
         entitys = argutils.map_to_int(entity)
         session = get_session(readonly=True)
@@ -128,7 +135,8 @@ class EntityReuest(BaseContorller):
             query = query.options(joinedload(AgentEntity.ports, innerjoin=False))
         entitys = query.all()
         if not entitys:
-            return resultutils.results(result='no entity found', resultcode=manager_common.RESULT_ERROR)
+            raise InvalidArgument('no entity found')
+            # return resultutils.results(result='no entity found', resultcode=manager_common.RESULT_ERROR)
         return resultutils.results(result='show entity success',
                                    data=[dict(endpoint=e.endpoint,
                                               agent_id=e.agent_id,

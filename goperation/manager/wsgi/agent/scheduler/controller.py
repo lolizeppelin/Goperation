@@ -38,7 +38,7 @@ SCHEDULEJOBSCHEMA = {
                                  'execute': {'type': 'string'},
                                  'revert': {'type': 'string'},
                                  'method': {'type': 'string'},
-                                 'rebind': {'type': 'array', 'minItems': 1,'items': {'type': 'string'}},
+                                 'rebind': {'type': 'array', 'minItems': 1, 'items': {'type': 'string'}},
                                  'provides': {'type': 'array', 'minItems': 1, 'items': {'type': 'string'}}
                              }
                    },
@@ -47,7 +47,7 @@ SCHEDULEJOBSCHEMA = {
           'times': [{'type': 'integer', 'minimum': 1}, {'type': 'null'}],   # jobs run times, null means nolimit
           'interval': {'type': 'integer', 'minimum': 0},                    # jobs run interval
           'retry': {'type': 'integer', 'minimum': 0},                                         # jobs retry times
-          'revertall': {'type': 'blob'},                                    # revert all jobs when job fail
+          'revertall': {'type': 'boolean'},                                    # revert all jobs when job fail
           'desc': {'type': 'string'}                                        # job infomation
           }
      }

@@ -189,6 +189,14 @@ class ManagerClient(HttpClientBase):
                                             resone=results['result'])
         return results
 
+    def endpoint_count(self, endpoints):
+        resp, results = self.get(action=self.endpoints_ex_path % (endpoints, 'count'))
+        if results['resultcode'] != common.RESULT_SUCCESS:
+            raise ServerExecuteRequestError(message='count endpoints fail:%d' % results['resultcode'],
+                                            code=resp.status_code,
+                                            resone=results['result'])
+        return results
+
     # -- entity path --
     entitys_index = endpoint_entitys
 
@@ -260,7 +268,7 @@ class ManagerClient(HttpClientBase):
         return results
 
     # -- asyncrequest path --
-    def asyncs_index(self, body):
+    def asyncs_index(self, body=None):
         resp, results = self.get(action=self.asyncs_path, body=body)
         if results['resultcode'] != common.RESULT_SUCCESS:
             raise ServerExecuteRequestError(message='list asyncrequest info fail:%d' % results['resultcode'],
@@ -268,7 +276,7 @@ class ManagerClient(HttpClientBase):
                                             resone=results['result'])
         return results
 
-    def async_show(self, request_id, body):
+    def async_show(self, request_id, body=None):
         resp, results = self.get(action=self.async_path % request_id, body=body)
         if results['resultcode'] != common.RESULT_SUCCESS:
             raise ServerExecuteRequestError(message='show asyncrequest info fail:%d' % results['resultcode'],
