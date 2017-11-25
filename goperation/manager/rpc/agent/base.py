@@ -19,13 +19,13 @@ from goperation import threadpool
 from goperation.utils import suicide
 from goperation.api.client import GopHttpClientApi
 from goperation.filemanager import FileManager
+from goperation.filemanager.config import filemanager_opts
 from goperation.manager.api import get_http
 from goperation.manager import common as manager_common
 from goperation.manager.utils.validateutils import validate_endpoint
 from goperation.manager.utils.targetutils import target_server
 from goperation.manager.utils.targetutils import target_endpoint
 from goperation.manager.rpc.base import RpcManagerBase
-from goperation.manager.rpc.config import filemanager_group
 from goperation.manager.rpc.exceptions import RpcTargetLockException
 from goperation.manager.rpc.agent.config import agent_group
 from goperation.manager.rpc.agent.config import rpc_agent_opts
@@ -39,6 +39,7 @@ CONF = cfg.CONF
 LOG = None
 
 CONF.register_opts(rpc_agent_opts, agent_group)
+CONF.register_opts(filemanager_opts, agent_group)
 
 
 class AgentManagerClient(GopHttpClientApi):
@@ -138,7 +139,7 @@ class RpcAgentManager(RpcManagerBase):
         self.client = AgentManagerClient(httpclient=get_http())
         super(RpcAgentManager, self).__init__(target=target_server(self.agent_type, CONF.host, fanout=True))
 
-        self.filemanager = FileManager(conf=CONF[filemanager_group.name],
+        self.filemanager = FileManager(conf=CONF[agent_group.name],
                                        rootpath=self.work_path,
                                        threadpool=threadpool, infoget=lambda x: self.client.file_show(x)['data'][0])
         # agent id

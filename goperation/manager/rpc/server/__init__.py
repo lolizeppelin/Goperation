@@ -1,5 +1,4 @@
 import time
-import copy
 import eventlet
 
 
@@ -155,5 +154,15 @@ class RpcServerManager(RpcManagerBase):
                 asyncrequest.resultcode = manager_common.RESULT_SUCCESS
                 asyncrequest.result = 'all agent respone result' % count
             session.commit()
+            session.close()
 
         threadpool.add_thread(safe_func_wrapper, check_respone, LOG)
+
+    def rpc_respone(self, ctxt, request_id, body):
+        """agent report respone api"""
+        session = get_session()
+        asyncrequest = model_query(session, AsyncRequest, filter=AsyncRequest.request_id == request_id).one()
+        if not asyncrequest.expire:
+            return responeutils.agentrespone(session, request_id, body)
+        else:
+            return responeutils.agentrespone(get_cache(), request_id, body)

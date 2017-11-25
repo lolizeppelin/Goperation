@@ -1,6 +1,8 @@
 from simpleutil.config import cfg
 
+
 from goperation.manager import common as manager_common
+
 
 CONF = cfg.CONF
 

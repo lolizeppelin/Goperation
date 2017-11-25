@@ -32,7 +32,7 @@ def async_request_pattern(request_id):
 
 
 def target_rpcserver(host=None):
-    return Target(topic='%s.*' % SERVER, server=host,
+    return Target(topic='%s' % SERVER, server=host,
                   namespace=manager_group.name)
 
 

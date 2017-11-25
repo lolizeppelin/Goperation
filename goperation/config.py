@@ -24,8 +24,18 @@ service_base_opts = [
 ]
 
 
-def configure(group, config_files, default_log_levels=None):
-    CONF(project=group.name,
+def configure(group, config_files, config_dirs=None, default_log_levels=None):
+    args = None
+    if config_dirs is not None:
+        args = []
+        if isinstance(config_dirs, basestring):
+            config_dirs = [config_dirs, ]
+        for _dir in config_dirs:
+            args.extend(['--config-dir', _dir])
+    if isinstance(config_files, basestring):
+        config_files = [config_files, ]
+    CONF(args=args,
+         project=group.name,
          default_config_files=config_files)
     CONF.register_group(group)
     # set base config

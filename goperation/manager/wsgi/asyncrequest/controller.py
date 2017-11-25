@@ -137,10 +137,10 @@ class AsyncWorkRequest(contorller.BaseContorller):
     @Idformater
     def respone(self, req, request_id, body):
         """agent report respone api"""
-        session = get_session(readonly=True)
+        session = get_session()
         asyncrequest = model_query(session, AsyncRequest, filter=AsyncRequest.request_id == request_id).one()
         if not asyncrequest.expire:
-            return responeutils.agentrespone(get_session(), request_id, body)
+            return responeutils.agentrespone(session, request_id, body)
         else:
             return responeutils.agentrespone(get_cache(), request_id, body)
 
@@ -207,6 +207,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
                              'resultcode': manager_common.RESULT_SUCCESS,
                              'result': 'all agent respone result' % count})
             session.commit()
+            session.close()
 
         threadpool.add_thread(bluk)
         return resultutils.results(result='Post agent overtime success')

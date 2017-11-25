@@ -5,7 +5,7 @@ from simpleutil.utils import importutils
 from simpleservice.server import LaunchWrapper
 from simpleservice.server import launch
 from simpleservice.wsgi.config import find_paste_abs
-from simpleservice.wsgi.config import wsgi_options
+from simpleservice.wsgi.config import wsgi_server_options
 from simpleservice.wsgi.service import LauncheWsgiServiceBase
 from simpleservice.wsgi.service import load_paste_app
 
@@ -20,13 +20,13 @@ CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 
 
-def configure(config_files=None):
+def configure(config_files=None, config_dirs=None):
     # create a new project and group named gcenter
     gcenter_group = cfg.OptGroup(name='gcenter', title='group of goperation center')
     # init goperation config
-    goperation_config.configure(gcenter_group, config_files)
+    goperation_config.configure(gcenter_group, config_files, config_dirs)
     # set wsgi config
-    CONF.register_opts(wsgi_options, group=gcenter_group)
+    CONF.register_opts(wsgi_server_options, group=gcenter_group)
     # set default of paste config
     CONF.set_default('paste_config', default='gcenter-paste.ini',
                      group=gcenter_group)
@@ -53,8 +53,8 @@ def configure(config_files=None):
     return gcenter_group.name, paste_file_path
 
 
-def run(config_files):
-    name, paste_config = configure(config_files=config_files)
+def run(config_files, config_dirs=None):
+    name, paste_config = configure(config_files=config_files, config_dirs=config_dirs)
     LOG.info('Paste config file is %s' % paste_config)
     app = load_paste_app(name, paste_config)
     wrappers = []
