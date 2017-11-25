@@ -93,13 +93,13 @@ def async_request(_request, agents=False, details=False):
                 'deadline': _request.deadline,
                 'scheduler': _request.scheduler,
                 'status': _request.status,
-                'persist': _request.persist,
+                'expire': _request.expire,
                 'resultcode': _request.resultcode,
                 'result': _request.result,
                 'respones': []
                 }
     ret_dict = results(data=[res_dict, ], result='Get async request data finish')
-    if not _request.persist:
+    if _request.get_cache():
         ret_dict['result'] += ',Data in cache,May miss some respone'
     if agents:
         for agent_data in _request.respones:

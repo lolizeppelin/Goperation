@@ -13,8 +13,8 @@ from simpleservice.ormdb.exceptions import DBDuplicateEntry
 from simpleservice.rpc.exceptions import AMQPDestinationNotFound
 from simpleservice.rpc.exceptions import MessagingTimeout
 
-from goperation.manager import targetutils
-from goperation.manager import common as manager_common
+from goperation.manager.utils import targetutils
+from goperation.manager.utils import common as manager_common
 from goperation.manager.api import get_client
 from goperation.manager.api import get_session
 from goperation.manager.api import get_global
@@ -74,12 +74,12 @@ class BaseContorller(MiddlewareContorller):
         request_time:  unix time in seconds that client send async request
         finishtime:  unix time in seconds that work shoud be finished after this time
         deadline:  unix time in seconds that work will igonre after this time
-        persist: 0 or 1, if zero, respone will store into redis else store into database
+        expire: respone expire time
         """
         request_time = int(timeutils.realnow())
-        persist = body.pop('persist', 1)
-        if persist not in (0, 1):
-            raise InvalidArgument('Async argv persist not in 0, 1')
+        expire = body.pop('expire', 0)
+        if expire < 0:
+            raise InvalidArgument('Async argv expire less thne 0')
         try:
             client_request_time = int(body.pop('request_time'))
         except KeyError:
@@ -110,7 +110,7 @@ class BaseContorller(MiddlewareContorller):
                                    request_time=request_time,
                                    finishtime=finishtime,
                                    deadline=deadline,
-                                   persist=persist)
+                                   expire=expire)
         return new_request
 
     @staticmethod
@@ -151,26 +151,14 @@ class BaseContorller(MiddlewareContorller):
             raise InvalidArgument('Not enough time for asynrequest')
         timeout = min(timeout, 5)
         try:
-            async_ret = rpc.call(targetutils.target_anyone(manager_common.SCHEDULER),
-                                 ctxt={'finishtime': asyncrequest.finishtime-2},
-                                 msg={'method': 'asyncrequest',
-                                      'args': {'asyncrequest': asyncrequest.to_dict(),
-                                               'rpc_target': rpc_target.to_dict(),
-                                               'rpc_method': rpc_method,
-                                               'rpc_ctxt': rpc_ctxt,
-                                               'rpc_args': rpc_args}}, timeout=timeout)
-            if not async_ret:
-                raise RpcResultError('Async request rpc call result is None')
-            LOG.debug(async_ret.get('result', 'Async request %s call scheduler result unkonwn'))
-            if async_ret.get('resultcode') == manager_common.RESULT_OVER_FINISHTIME:
-                asyncrequest.status = manager_common.FINISH
-                asyncrequest.resultcode = manager_common.RESULT_OVER_FINISHTIME
-                asyncrequest.result = 'Async request call scheduler faile, over finishtime'
-                try:
-                    session.add(asyncrequest)
-                    session.flush()
-                except DBDuplicateEntry:
-                    LOG.warning('Async request rpc call result over finishtime, but recode found')
+            rpc.cast(targetutils.target_rpcserver(),
+                     ctxt={'finishtime': asyncrequest.finishtime-2},
+                     msg={'method': 'asyncrequest',
+                          'args': {'asyncrequest': asyncrequest.to_dict(),
+                                   'rpc_target': rpc_target.to_dict(),
+                                   'rpc_method': rpc_method,
+                                   'rpc_ctxt': rpc_ctxt,
+                                   'rpc_args': rpc_args}}, timeout=timeout)
         except (MessagingTimeout, AMQPDestinationNotFound) as e:
             LOG.error('Send async request to scheduler fail %s' % e.__class__.__name__)
             asyncrequest.status = manager_common.FINISH
@@ -181,13 +169,14 @@ class BaseContorller(MiddlewareContorller):
                 session.flush()
             except DBDuplicateEntry:
                 LOG.warning('Async request rpc call result is None, but recode found')
-        except RpcResultError:
-            LOG.error('Async request rpc call result is None')
+        except Exception as e:
+            LOG.exception('Async request rpc cast unkonw error')
             asyncrequest.status = manager_common.FINISH
-            asyncrequest.result = 'Async request rpc call result is None'
-            asyncrequest.resultcode = manager_common.RESULT_IS_NONE
+            asyncrequest.result = 'Async request rpc cast error: %s' % e.__class__.__name__
+            asyncrequest.resultcode = manager_common.RESULT_ERROR
             try:
                 session.add(asyncrequest)
                 session.flush()
+                raise
             except DBDuplicateEntry:
                 LOG.warning('Async request rpc call result is None, but recode found')

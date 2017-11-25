@@ -76,8 +76,8 @@ class AsyncRequest(PluginTableBase):
                              default=realnowint, nullable=False)
     # if request finish
     status = sa.Column(TINYINT, nullable=False, default=manager_common.UNFINISH)
-    # write agent respone into database
-    persist = sa.Column(BOOLEAN, nullable=False, default=1)
+    # write agent respone into database or just expire "expire" seconds
+    expire = sa.Column(INTEGER, nullable=False, default=0)
     # request should finish at finish time
     # when agent get a rpc came, if cur time > finishtime
     # agent will drop the package
@@ -85,9 +85,6 @@ class AsyncRequest(PluginTableBase):
     # request should finish before deadline time
     # if task scheduler find cur time > deadline, it will not check return any more
     deadline = sa.Column(INTEGER(unsigned=True), default=realnowint(10), nullable=False)
-    # async response checker id, means scheduled timer server id
-    # 0 means no checker now
-    scheduler = sa.Column(INTEGER(unsigned=True), default=0, nullable=False)
     resultcode = sa.Column(TINYINT, nullable=False, default=manager_common.RESULT_UNKNOWN)
     result = sa.Column(VARCHAR(manager_common.MAX_REQUEST_RESULT),
                        nullable=False, default='waiting respone')

@@ -19,9 +19,9 @@ from simpleservice.rpc.exceptions import MessagingTimeout
 from simpleservice.rpc.exceptions import NoSuchMethod
 
 from goperation.manager import common as manager_common
-from goperation.manager import utils
-from goperation.manager import resultutils
-from goperation.manager import targetutils
+from goperation.manager.utils import validateutils
+from goperation.manager.utils import resultutils
+from goperation.manager.utils import targetutils
 
 from goperation.manager.api import get_global
 from goperation.manager.api import get_session
@@ -61,7 +61,7 @@ class EntityReuest(BaseContorller):
     def index(self, req, agent_id, endpoint, body=None):
         body = body or {}
         show_ports = body.get('ports')
-        endpoint = utils.validate_endpoint(endpoint)
+        endpoint = validateutils.validate_endpoint(endpoint)
         session = get_session(readonly=True)
         query = model_query(session, AgentEntity, filter=and_(AgentEntity.endpoint == endpoint,
                                                               AgentEntity.agent_id == agent_id))
@@ -76,7 +76,7 @@ class EntityReuest(BaseContorller):
     @BaseContorller.AgentIdformater
     def create(self, req, agent_id, endpoint, body=None):
         body = body or {}
-        endpoint = utils.validate_endpoint(endpoint)
+        endpoint = validateutils.validate_endpoint(endpoint)
         ports = body.get('ports')
         notify = body.get('notify', True)
         desc = body.get('desc')
@@ -94,7 +94,7 @@ class EntityReuest(BaseContorller):
             host_online_key = targetutils.host_online_key(agent_id)
             # make sure agent is online
             if not cache_store.get(host_online_key):
-                raise RpcPrepareError('Can create entity on a offline agent %d' % agent_id)
+                raise RpcPrepareError('Can not create entity on a offline agent %d' % agent_id)
 
         entity = 0
         glock = get_global().lock('agents')
@@ -126,7 +126,7 @@ class EntityReuest(BaseContorller):
     def show(self, req, endpoint, entity, body=None):
         body = body or {}
         show_ports = body.get('ports', False)
-        endpoint = utils.validate_endpoint(endpoint)
+        endpoint = validateutils.validate_endpoint(endpoint)
         entitys = argutils.map_to_int(entity)
         session = get_session(readonly=True)
         query = model_query(session, AgentEntity, filter=and_(AgentEntity.endpoint == endpoint,
@@ -147,7 +147,7 @@ class EntityReuest(BaseContorller):
     def delete(self, req, endpoint, entity, body=None):
         body = body or {}
         force = body.pop('force', False)
-        endpoint = utils.validate_endpoint(endpoint)
+        endpoint = validateutils.validate_endpoint(endpoint)
         entitys = argutils.map_to_int(entity)
         session = get_session()
         glock = get_global().lock('entitys')

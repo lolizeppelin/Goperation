@@ -5,6 +5,8 @@ MAX_HOST_NAME_SIZE = 128
 
 ENV_REQUEST_ID = 'goperation.request_id'
 
+# server name
+SERVER = 'server'
 
 ALL_AGENTS = object()
 # agent name

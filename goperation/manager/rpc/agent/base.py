@@ -6,7 +6,6 @@ import contextlib
 import psutil
 
 from simpleutil.config import cfg
-from simpleutil.utils import jsonutils
 from simpleutil.utils import lockutils
 from simpleutil.utils import importutils
 from simpleutil.utils.attributes import validators
@@ -19,12 +18,14 @@ from simpleservice.plugin.base import EndpointBase
 from goperation import threadpool
 from goperation.utils import suicide
 from goperation.api.client import GopHttpClientApi
+from goperation.filemanager import FileManager
 from goperation.manager.api import get_http
 from goperation.manager import common as manager_common
-from goperation.manager.utils import validate_endpoint
-from goperation.manager.targetutils import target_server
-from goperation.manager.targetutils import target_endpoint
+from goperation.manager.utils.validateutils import validate_endpoint
+from goperation.manager.utils.targetutils import target_server
+from goperation.manager.utils.targetutils import target_endpoint
 from goperation.manager.rpc.base import RpcManagerBase
+from goperation.manager.rpc.config import filemanager_group
 from goperation.manager.rpc.exceptions import RpcTargetLockException
 from goperation.manager.rpc.agent.config import agent_group
 from goperation.manager.rpc.agent.config import rpc_agent_opts
@@ -135,8 +136,11 @@ class RpcAgentManager(RpcManagerBase):
     def __init__(self):
         # init httpclient
         self.client = AgentManagerClient(httpclient=get_http())
-        super(RpcAgentManager, self).__init__(target=target_server(self.agent_type, CONF.host, fanout=True),
-                                              infoget=lambda x: self.client.file_show(x)['data'][0])
+        super(RpcAgentManager, self).__init__(target=target_server(self.agent_type, CONF.host, fanout=True))
+
+        self.filemanager = FileManager(conf=CONF[filemanager_group.name],
+                                       rootpath=self.work_path,
+                                       threadpool=threadpool, infoget=lambda x: self.client.file_show(x)['data'][0])
         # agent id
         self._agent_id = None
         # port and port and disk space info
@@ -176,6 +180,7 @@ class RpcAgentManager(RpcManagerBase):
 
     def pre_start(self, external_objects):
         super(RpcAgentManager, self).pre_start(external_objects)
+        self.filemanager.scanning(strict=True)
         # get agent id of this agent
         # if agent not exist,call create
         self.client.agent_init_self(manager=self)
@@ -226,6 +231,7 @@ class RpcAgentManager(RpcManagerBase):
         """close all endpoint here"""
         for endpoint in self.endpoints:
             endpoint.post_stop()
+        self.filemanager.stop()
         super(RpcAgentManager, self).post_stop()
 
     def initialize_service_hook(self):
@@ -280,6 +286,21 @@ class RpcAgentManager(RpcManagerBase):
         if _ports:
             LOG.error('%d port can not be found after free ports' % len(_ports))
         return _ports
+
+    def full(self):
+        with self.work_lock.priority(0):
+            if self.status == manager_common.PERDELETE:
+                return False
+            if self.status > manager_common.SOFTBUSY:
+                return False
+            if manager_common < manager_common.SOFTBUSY:
+                return True
+        eventlet.sleep(0.5)
+        # soft busy can wait 0.5 to recheck
+        with self.work_lock.priority(0):
+            if self.status <= manager_common.SOFTBUSY:
+                return True
+            return False
 
     @property
     def agent_id(self):

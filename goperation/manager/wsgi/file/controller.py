@@ -17,8 +17,8 @@ from simpleservice.rpc.exceptions import NoSuchMethod
 from goperation import threadpool
 from goperation.utils import safe_func_wrapper
 from goperation.manager import common as manager_common
-from goperation.manager import resultutils
-from goperation.manager import targetutils
+from goperation.manager.utils import resultutils
+from goperation.manager.utils import targetutils
 from goperation.manager.api import get_session
 from goperation.manager.models import DownFile
 from goperation.manager.wsgi.contorller import BaseContorller

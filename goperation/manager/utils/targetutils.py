@@ -3,6 +3,7 @@ from simpleutil.config import cfg
 from simpleservice.rpc.target import Target
 
 from goperation.manager.common import AGENT
+from goperation.manager.common import SERVER
 from goperation.manager.config import manager_group
 
 CONF = cfg.CONF
@@ -28,6 +29,11 @@ def async_request_key(request_id, agent_id):
 
 def async_request_pattern(request_id):
     return '%s-async-%s-*' % (prefix, request_id)
+
+
+def target_rpcserver(host=None):
+    return Target(topic='%s.*' % SERVER, server=host,
+                  namespace=manager_group.name)
 
 
 def target_all(fanout=False):

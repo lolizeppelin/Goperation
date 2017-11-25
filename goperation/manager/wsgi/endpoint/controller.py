@@ -17,13 +17,12 @@ from simpleservice.rpc.exceptions import MessagingTimeout
 from simpleservice.rpc.exceptions import NoSuchMethod
 
 from goperation.manager import common as manager_common
-from goperation.manager import utils
-from goperation.manager import resultutils
+from goperation.manager.utils import validateutils
+from goperation.manager.utils import resultutils
 from goperation.manager.api import get_global
 from goperation.manager.api import get_session
 from goperation.manager.models import AgentEndpoint
 from goperation.manager.models import AgentEntity
-from goperation.manager.models import AllocatedPort
 from goperation.manager.models import Agent
 
 from goperation.manager.wsgi.contorller import BaseContorller
@@ -63,7 +62,7 @@ class EndpointReuest(BaseContorller):
     @BaseContorller.AgentIdformater
     def create(self, req, agent_id, body=None):
         body = body or {}
-        endpoints = utils.validate_endpoints(body.get('endpoints'))
+        endpoints = validateutils.validate_endpoints(body.get('endpoints'))
         session = get_session()
         glock = get_global().lock('agents')
         with glock([agent_id, ]):
@@ -85,10 +84,10 @@ class EndpointReuest(BaseContorller):
 
     @BaseContorller.AgentIdformater
     def delete(self, req, agent_id, endpoint):
-        endpoints = utils.validate_endpoints(endpoint)
+        endpoints = validateutils.validate_endpoints(endpoint)
         if not endpoints:
             raise InvalidArgument('Endpoints is None for add endpoints')
-        endpoints = utils.validate_endpoints(endpoints)
+        endpoints = validateutils.validate_endpoints(endpoints)
         session = get_session()
         glock = get_global().lock('agents')
         with glock([agent_id, ]):
@@ -109,7 +108,7 @@ class EndpointReuest(BaseContorller):
 
     def agents(self, req, endpoint):
         session = get_session(readonly=True)
-        endpoint = utils.validate_endpoint(endpoint)
+        endpoint = validateutils.validate_endpoint(endpoint)
         query = model_query(session, AgentEndpoint, filter=AgentEndpoint.endpoint == endpoint)
         agents = set()
         for endpoint in query.all():
@@ -127,7 +126,7 @@ class EndpointReuest(BaseContorller):
 
     def entitys(self, req, endpoint):
         session = get_session(readonly=True)
-        endpoint = utils.validate_endpoint(endpoint)
+        endpoint = validateutils.validate_endpoint(endpoint)
         query = model_query(session, AgentEntity, filter=AgentEntity.endpoint == endpoint)
         return resultutils.results(result='get endpoint %s entitys success' % endpoint,
                                    data=[dict(agent_id=entity.agent_id,
@@ -139,7 +138,7 @@ class EndpointReuest(BaseContorller):
     def count(self, req, endpoint):
         session = get_session(readonly=True)
         data = []
-        for endpoint in argutils.map_with(endpoint, utils.validate_endpoint):
+        for endpoint in argutils.map_with(endpoint, validateutils.validate_endpoint):
             count = model_count_with_key(session, AgentEndpoint.endpoint, filter=AgentEndpoint.endpoint == endpoint)
             data.append(dict(endpoint=endpoint,
                              count=count))

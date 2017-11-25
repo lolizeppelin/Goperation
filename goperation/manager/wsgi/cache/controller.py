@@ -16,8 +16,8 @@ from simpleservice.rpc.exceptions import MessagingTimeout
 from simpleservice.rpc.exceptions import NoSuchMethod
 
 from goperation.manager import common as manager_common
-from goperation.manager import resultutils
-from goperation.manager import targetutils
+from goperation.manager.utils import resultutils
+from goperation.manager.utils import targetutils
 from goperation.manager.api import get_cache
 from goperation.manager.api import get_global
 from goperation.manager.api import get_session

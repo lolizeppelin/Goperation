@@ -20,13 +20,14 @@ from simpleservice.ormdb.api import model_query
 from simpleservice.ormdb.api import model_count_with_key
 from simpleservice.ormdb.api import model_autoincrement_id
 
-from goperation.manager import utils
+
 from goperation.manager import exceptions
 from goperation.manager import common as manager_common
 from goperation.manager.config import manager_group
 from goperation.manager.models import Agent
 from goperation.manager.models import AgentEndpoint
 from goperation.manager.models import AgentEntity
+from goperation.manager.utils import validateutils
 
 
 LOG = logging.getLogger(__name__)
@@ -264,7 +265,7 @@ class GlobalData(object):
             agent.memory = int(body.pop('memory'))
             agent.cpu = int(body.pop('cpu'))
             agent.disk = int(body.pop('disk'))
-            endpoints = utils.validate_endpoints(body.pop('endpoints', []))
+            endpoints = validateutils.validate_endpoints(body.pop('endpoints', []))
         except KeyError as e:
             raise InvalidArgument('Can not find argument: %s' % e.message)
         except ValueError as e:

@@ -1,5 +1,3 @@
-import eventlet
-
 from simpleutil.config import cfg
 from simpleutil.utils.lockutils import PriorityLock
 from simpleutil.utils.systemutils import get_partion_free_bytes
@@ -7,18 +5,15 @@ from simpleutil.utils.systemutils import get_partion_free_bytes
 from simpleservice.plugin.base import ManagerBase
 from simpleservice.rpc.config import rpc_service_opts
 
-from goperation import threadpool
-from goperation.filemanager import FileManager
 from goperation.manager import common as manager_common
 from goperation.manager import config as manager_config
-from goperation.manager.rpc import config as rpc_config
 
 CONF = cfg.CONF
 
 
 class RpcManagerBase(ManagerBase):
 
-    def __init__(self, target, infoget):
+    def __init__(self, target):
         super(RpcManagerBase, self).__init__(target=target)
 
         self.rpcservice = None
@@ -28,38 +23,21 @@ class RpcManagerBase(ManagerBase):
         self.work_path = CONF.work_path
         self.local_ip = CONF.local_ip
         self.external_ips = CONF.external_ips
-
-        self.filemanager = FileManager(conf=CONF[rpc_config.filemanager_group.name],
-                                       rootpath=self.work_path,
-                                       threadpool=threadpool, infoget=infoget)
         self.work_lock = PriorityLock()
         self.work_lock.set_defalut_priority(priority=5)
-
         self.status = manager_common.INITIALIZING
 
-
     def pre_start(self, external_objects):
-        self.filemanager.scanning(strict=True)
         self.rpcservice = external_objects
 
     def post_stop(self):
-        self.filemanager.stop()
         self.rpcservice = None
 
-    def full(self):
-        with self.work_lock.priority(0):
-            if self.status == manager_common.PERDELETE:
-                return False
-            if self.status > manager_common.SOFTBUSY:
-                return False
-            if manager_common < manager_common.SOFTBUSY:
-                return True
-        eventlet.sleep(0.5)
-        # soft busy can wait 0.5 to recheck
-        with self.work_lock.priority(0):
-            if self.status <= manager_common.SOFTBUSY:
-                return True
-            return False
+    @property
+    def is_active(self):
+        if not self.work_lock.locked and self.status == manager_common.ACTIVE:
+            return True
+        return False
 
     def set_status(self, status):
         with self.work_lock.priority(1):
@@ -71,12 +49,6 @@ class RpcManagerBase(ManagerBase):
     def force_status(self, status):
         with self.work_lock.priority(0):
             self.status = status
-
-    @property
-    def is_active(self):
-        if not self.work_lock.locked and self.status == manager_common.ACTIVE:
-            return True
-        return False
 
     @property
     def partion_left_size(self):
