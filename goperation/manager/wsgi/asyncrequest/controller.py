@@ -39,26 +39,25 @@ Idformater = argutils.Idformater(key='request_id', formatfunc='request_id_check'
 
 
 INDEXSCHEMA = {
-     'type': 'object',
-     'properties':
-         {
-          'order': {'type': 'string'},                                     # short column name
-          'desc': {'type': 'boolean'},                                        # reverse result
-          'start': {'type': 'string', 'format': 'date-time'},              # request start time
-          'end': {'type': 'string', 'format': 'date-time'},                # request end time
-          'page_num': {'type': 'integer', 'minimum': 0},                   # pagen number
-          'status': {'enum': [manager_common.ACTIVE,                       # filter status
-                              manager_common.UNACTIVE]},
-          }
+    'type': 'object',
+    'properties':
+        {
+             'order': {'type': 'string'},                                     # short column name
+             'desc': {'type': 'boolean'},                                     # reverse result
+             'start': {'type': 'string', 'format': 'date-time'},              # request start time
+             'end': {'type': 'string', 'format': 'date-time'},                # request end time
+             'page_num': {'type': 'integer', 'minimum': 0},                   # pagen number
+             'status': {'type': 'integer',                                    # filter status
+                        'enum': [manager_common.ACTIVE, manager_common.UNACTIVE]},
+         }
 }
 
 
 OVERTIMESCHEMA = {
      'type': 'object',
      'required': ['agent_time', 'agents'],
-     'properties':
-         {
-             'agent_time': {'type': 'integer', 'minimum': 0},               #  respone time
+     'properties': {
+             'agent_time': {'type': 'integer', 'minimum': 0},               # respone time
              'agents':  {'type': 'array', 'minItems': 1,                    # overtime agents list
                          'items': {'type': 'integer', 'minimum': 0}}
          }
@@ -197,16 +196,16 @@ class AsyncWorkRequest(contorller.BaseContorller):
                             result='Agent respone overtime')
                 bulk_data.append(data)
             count = responeutils.bluk_insert(storage=get_cache() if asynecrequest.expire else session,
-                                              bulk_data=bulk_data, expire=asynecrequest.expire)
+                                             bulk_data=bulk_data, expire=asynecrequest.expire)
 
             if count:
                 query.update({'status': manager_common.FINISH,
                               'resultcode': manager_common.RESULT_NOT_ALL_SUCCESS,
                               'result': '%d agent not respone' % count})
             else:
-              query.update({'status': manager_common.FINISH,
-                             'resultcode': manager_common.RESULT_SUCCESS,
-                             'result': 'all agent respone result' % count})
+                query.update({'status': manager_common.FINISH,
+                              'resultcode': manager_common.RESULT_SUCCESS,
+                              'result': 'all agent respone result' % count})
             session.flush()
             session.close()
 
