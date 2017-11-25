@@ -30,7 +30,7 @@ RESPONESCHEMA = {
                                   'properties': {
                                       'detail_id': {'type': 'integer', 'minimum': 0},
                                       'resultcode': {'type': 'integer', 'minimum': -127, 'maxmum': 127},
-                                      'result': {'anyOf': [{'type': 'string'}, {'type': 'object'}]}}
+                                      'result': {'oneOf': [{'type': 'string'}, {'type': 'object'}]}}
                                   }
                         }
         }

@@ -44,7 +44,7 @@ SCHEDULEJOBSCHEMA = {
                    },
           'kwargs': {'type': 'object'},                                     # for taskflow args:stone
           'start': {'type': 'string', 'format': 'date-time'},               # jobs start time
-          'times': {'anyOf': [{'type': 'integer', 'minimum': 1},            # jobs run times, null means nolimit
+          'times': {'oneOf': [{'type': 'integer', 'minimum': 1},            # jobs run times, null means nolimit
                               {'type': 'null'}]},
           'interval': {'type': 'integer', 'minimum': 0},                    # jobs run interval
           'retry': {'type': 'integer', 'minimum': 0},                                         # jobs retry times
