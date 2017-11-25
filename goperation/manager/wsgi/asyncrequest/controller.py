@@ -178,7 +178,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
     @Idformater
     def overtime(self, req, request_id, body):
         """agent not response, async checker send a overtime respone"""
-        jsonutils.schema_validate(OVERTIMESCHEMA, body)
+        jsonutils.schema_validate(body, OVERTIMESCHEMA)
         agent_time = body.get('agent_time')
         agents = body.get('agents')
         session = get_session()

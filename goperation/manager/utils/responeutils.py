@@ -30,7 +30,7 @@ RESPONESCHEMA = {
                                   'properties': {
                                       'detail_id': {'type': 'integer', 'minimum': 0},
                                       'resultcode': {'type': 'integer', 'minimum': -127, 'maxmum': 127},
-                                      'result': [{'type': 'string'}, {'type': 'object'}]}
+                                      'result': {'anyOf': [{'type': 'string'}, {'type': 'object'}]}}
                                   }
                         }
         }
@@ -57,7 +57,7 @@ def norespones(storage, request_id, agents):
 
 def agentrespone(storage, request_id, data):
     """agent report respone api"""
-    jsonutils.schema_validate(RESPONESCHEMA, data)
+    jsonutils.schema_validate(data, RESPONESCHEMA)
     agent_id = data.get('agent_id')
     agent_time = data.get('agent_time')
     resultcode = data.get('resultcode')
