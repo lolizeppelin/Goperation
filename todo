@@ -13,6 +13,7 @@ http 下载方式编写                                                         
 filemanager测试                                                                             完成
 全局锁更新锁定和使用方式                                                                    完成
 路由拆分                                                                                    完成
+调度器拆分异步请求结果检查代码                                                              完成
 编写调度器                                                                                  差调度器载入任务
 调度器taskflow编写                                                                          完成
 调度器RPC测试, RPC descriptor 测试  -- 基本完成,剩余部分需要endpoint调试                    准备中

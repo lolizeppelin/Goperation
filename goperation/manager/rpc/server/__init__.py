@@ -45,7 +45,7 @@ class RpcServerManager(RpcManagerBase):
         # self._periodic_tasks.insert(0, OnlinTaskReporter(self))
 
     def post_start(self):
-        self.set_status(manager_common.ACTIVE)
+        self.force_status(manager_common.ACTIVE)
 
     def full(self):
         if not self.is_active:
@@ -90,6 +90,8 @@ class RpcServerManager(RpcManagerBase):
                                                      filter=Agent.status > manager_common.DELETED).all()]
         else:
             wait_agents = rpc_ctxt.get('agents')
+        rpc_ctxt.setdefault('request_id', asyncrequest.request_id)
+        rpc_ctxt.setdefault('expire', asyncrequest.expire)
 
         target = Target(**rpc_target)
         rpc = get_client()
@@ -103,6 +105,7 @@ class RpcServerManager(RpcManagerBase):
             session.flush()
             return
 
+        LOG.debug('Cast %s to %s' % (asyncrequest.request_id, target.to_dict()))
         asyncrequest.result = 'Async request %s cast success' % rpc_method
         session.add(asyncrequest)
         session.flush()
@@ -128,7 +131,7 @@ class RpcServerManager(RpcManagerBase):
                                                               request_id=request_id,
                                                               agents=not_response_agents)
                 if not not_response_agents:
-                    return
+                    break
                 if int(time.time()) > deadline:
                     not_overtime -= 1
                     if not not_overtime:
@@ -145,17 +148,15 @@ class RpcServerManager(RpcManagerBase):
                             result='Agent respone overtime')
                 bulk_data.append(data)
             count = responeutils.bluk_insert(storage, bulk_data, expire)
+            asyncrequest.status = manager_common.FINISH
             if count:
-                asyncrequest.status = manager_common.FINISH
                 asyncrequest.resultcode = manager_common.RESULT_NOT_ALL_SUCCESS
                 asyncrequest.result = '%d agent not respone' % count
             else:
-                asyncrequest.status = manager_common.FINISH
                 asyncrequest.resultcode = manager_common.RESULT_SUCCESS
-                asyncrequest.result = 'all agent respone result' % count
-            session.commit()
+                asyncrequest.result = 'all agent respone result'
+            session.flush()
             session.close()
-
         threadpool.add_thread(safe_func_wrapper, check_respone, LOG)
 
     def rpc_respone(self, ctxt, request_id, body):

@@ -1,6 +1,7 @@
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 
 from simpleutil.utils import jsonutils
+from simpleutil.utils import timeutils
 from simpleutil.common.exceptions import InvalidArgument
 
 from simpleservice.ormdb.api import model_query
@@ -127,3 +128,26 @@ def detail(_detail):
                 'result': jsonutils.loads(_detail.result)
                 }
     return ret_dict
+
+
+class BaseRpcResult(object):
+
+    def __init__(self, agent_id, ctxt=None,
+                 resultcode=0, result=None, details=None):
+        self.agent_id = agent_id
+        self.resultcode = resultcode
+        self.result = result
+        self.details = details
+        self.agent_time = int(timeutils.realnow())
+        self.expire = ctxt.get('expire', 0)
+
+    def to_dict(self):
+        ret_dict = {'agent_id': self.agent_id,
+                    'resultcode': self.resultcode,
+                    'result': self.result if self.result else 'unkonwn result',
+                    'agent_time': self.agent_time,
+                    'expire': self.expire
+                    }
+        if self.details:
+            ret_dict['details'] = self.details
+        return ret_dict

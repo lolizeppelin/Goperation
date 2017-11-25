@@ -1,6 +1,5 @@
 import time
 import datetime
-import eventlet
 
 from eventlet.semaphore import Semaphore
 
@@ -11,20 +10,15 @@ from simpleutil.utils import singleton
 
 from simpleservice import loopingcall
 from simpleservice.ormdb.api import model_query
-from simpleservice.rpc.driver.exceptions import AMQPDestinationNotFound
-from simpleservice.rpc.result import BaseRpcResult
-from simpleservice.rpc.target import Target
 
-from goperation import threadpool
-from goperation.utils import safe_func_wrapper
+
 from goperation.manager import common as manager_common
 from goperation.manager.rpc.agent import base
-from goperation.manager.api import get_client
+
 from goperation.manager.api import get_session
-from goperation.manager.models import Agent
-from goperation.manager.models import AsyncRequest
 from goperation.manager.models import ScheduleJob
 from goperation.manager.models import JobStep
+from goperation.manager.utils.resultutils import BaseRpcResult
 from goperation.manager.rpc.agent.ctxtdescriptor import CheckManagerRpcCtxt
 from goperation.manager.rpc.agent.ctxtdescriptor import CheckThreadPoolRpcCtxt
 from goperation.manager.rpc.agent.scheduler.taskflow import executor
@@ -123,7 +117,7 @@ class SchedulerManager(base.RpcAgentManager):
                 factory.start_taskflow(job)
                 if job.times is not None:
                     job.times -= 1
-                session.commit()
+                session.flush()
                 session.close()
                 if job.times is not None:
                     if job.times == 0:

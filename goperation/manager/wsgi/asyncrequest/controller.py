@@ -52,14 +52,15 @@ INDEXSCHEMA = {
           }
 }
 
+
 OVERTIMESCHEMA = {
      'type': 'object',
      'required': ['agent_time', 'agents'],
      'properties':
          {
-          'agent_time': {'type': 'integer', 'minimum': 0},                                 # scheduler respone time
-          'agents':  {'type': 'array', 'minItems': 1,
-                      'items': {'type': 'integer', 'minimum': 0}}                          # overtime agents list
+             'agent_time': {'type': 'integer', 'minimum': 0},               #  respone time
+             'agents':  {'type': 'array', 'minItems': 1,                    # overtime agents list
+                         'items': {'type': 'integer', 'minimum': 0}}
          }
 }
 
@@ -135,7 +136,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
         raise NotImplementedError('update asynecrequest not implemented')
 
     @Idformater
-    def respone(self, req, request_id, body):
+    def response(self, req, request_id, body):
         """agent report respone api"""
         session = get_session()
         asyncrequest = model_query(session, AsyncRequest, filter=AsyncRequest.request_id == request_id).one()
@@ -206,7 +207,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
               query.update({'status': manager_common.FINISH,
                              'resultcode': manager_common.RESULT_SUCCESS,
                              'result': 'all agent respone result' % count})
-            session.commit()
+            session.flush()
             session.close()
 
         threadpool.add_thread(bluk)

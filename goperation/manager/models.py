@@ -83,7 +83,7 @@ class AsyncRequest(PluginTableBase):
     # agent will drop the package
     finishtime = sa.Column(INTEGER(unsigned=True), default=realnowint(5), nullable=False)
     # request should finish before deadline time
-    # if task scheduler find cur time > deadline, it will not check return any more
+    # if find cur time > deadline, it will not check return any more
     deadline = sa.Column(INTEGER(unsigned=True), default=realnowint(10), nullable=False)
     resultcode = sa.Column(TINYINT, nullable=False, default=manager_common.RESULT_UNKNOWN)
     result = sa.Column(VARCHAR(manager_common.MAX_REQUEST_RESULT),

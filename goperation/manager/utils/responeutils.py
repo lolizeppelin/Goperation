@@ -1,11 +1,9 @@
 from redis import StrictRedis
 from redis.exceptions import RedisError
 from sqlalchemy.sql import and_
-from sqlalchemy.sql import or_
 from sqlalchemy.orm.session import Session
 
 from simpleservice.ormdb.exceptions import DBDuplicateEntry
-from simpleservice.ormdb.exceptions import DBError
 
 from simpleutil.utils import jsonutils
 from simpleservice.ormdb.api import model_query
@@ -67,7 +65,7 @@ def agentrespone(storage, request_id, data):
     expire = data.get('expire', 60)
     details = [dict(agent_id=agent_id,
                     request_id=request_id,
-                    detail_id=detail['detail'],
+                    detail_id=detail['detail_id'],
                     resultcode=detail['resultcode'],
                     result=detail['result'] if isinstance(detail['result'], basestring)
                     else jsonutils.dumps_as_bytes(detail['result'])) for detail in data.get('details', [])]

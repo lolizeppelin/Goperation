@@ -119,7 +119,7 @@ class ManagerClient(HttpClientBase):
         return results
 
     def agent_report(self, agent_id, body):
-        resp, results = self.patch(action=self.agent_ext_path % (str(agent_id), 'report'),
+        resp, results = self.post(action=self.agent_ext_path % (str(agent_id), 'report'),
                                    body=body)
         if results['resultcode'] != common.RESULT_SUCCESS:
             raise ServerExecuteRequestError(message='agent report fail:%d' % results['resultcode'],

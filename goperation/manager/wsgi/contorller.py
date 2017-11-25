@@ -11,17 +11,14 @@ from simpleutil.common.exceptions import InvalidArgument
 from simpleservice.wsgi.middleware import MiddlewareContorller
 from simpleservice.ormdb.exceptions import DBDuplicateEntry
 from simpleservice.rpc.exceptions import AMQPDestinationNotFound
-from simpleservice.rpc.exceptions import MessagingTimeout
 
 from goperation.manager.utils import targetutils
-from goperation.manager.utils import common as manager_common
+from goperation.manager import common as manager_common
 from goperation.manager.api import get_client
 from goperation.manager.api import get_session
 from goperation.manager.api import get_global
 from goperation.manager.api import rpcfinishtime
 from goperation.manager.models import AsyncRequest
-from goperation.manager.wsgi.exceptions import AsyncRpcPrepareError
-from goperation.manager.wsgi.exceptions import RpcResultError
 
 
 LOG = logging.getLogger(__name__)
@@ -146,10 +143,6 @@ class BaseContorller(MiddlewareContorller):
                           rpc_ctxt, rpc_method, rpc_args=None):
         rpc = get_client()
         session = get_session()
-        timeout = asyncrequest.finishtime - int(timeutils.realnow()) - 3
-        if timeout <= 1:
-            raise InvalidArgument('Not enough time for asynrequest')
-        timeout = min(timeout, 5)
         try:
             rpc.cast(targetutils.target_rpcserver(),
                      ctxt={'finishtime': asyncrequest.finishtime-2},
@@ -158,7 +151,7 @@ class BaseContorller(MiddlewareContorller):
                                    'rpc_target': rpc_target.to_dict(),
                                    'rpc_method': rpc_method,
                                    'rpc_ctxt': rpc_ctxt,
-                                   'rpc_args': rpc_args}}, timeout=timeout)
+                                   'rpc_args': rpc_args}})
         except AMQPDestinationNotFound as e:
             LOG.error('Send async request to scheduler fail %s' % e.__class__.__name__)
             asyncrequest.status = manager_common.FINISH

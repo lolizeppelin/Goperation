@@ -11,7 +11,6 @@ from simpleutil.utils import importutils
 from simpleutil.utils.attributes import validators
 
 from simpleservice.loopingcall import IntervalLoopinTask
-from simpleservice.rpc.result import BaseRpcResult
 from simpleservice.plugin.base import EndpointBase
 
 
@@ -25,6 +24,7 @@ from goperation.manager import common as manager_common
 from goperation.manager.utils.validateutils import validate_endpoint
 from goperation.manager.utils.targetutils import target_server
 from goperation.manager.utils.targetutils import target_endpoint
+from goperation.manager.utils.resultutils import BaseRpcResult
 from goperation.manager.rpc.base import RpcManagerBase
 from goperation.manager.rpc.exceptions import RpcTargetLockException
 from goperation.manager.rpc.agent.config import agent_group
@@ -81,7 +81,8 @@ class OnlinTaskReporter(IntervalLoopinTask):
                                                 stop_on_exception=False)
 
     def __call__(self, *args, **kwargs):
-        self.manager.client.agent_report_online(self.performance_snapshot())
+        self.manager.client.agent_report(self.manager.agent_id,
+                                         self.performance_snapshot())
 
     def performance_snapshot(self):
         if not self.with_performance:
@@ -130,6 +131,13 @@ class RpcAgentEndpointBase(EndpointBase):
     @property
     def filemanager(self):
         return self.manager.filemanager
+
+    def post_start(self):
+        self.entitys_map = self.manager.allocked_ports[self.namespace]
+
+    @property
+    def entitys(self):
+        return len(self.entitys_map)
 
 
 class RpcAgentManager(RpcManagerBase):
@@ -198,11 +206,15 @@ class RpcAgentManager(RpcManagerBase):
         # get port allocked
         remote_endpoints = agent_info['endpoints']
         add_endpoints, delete_endpoints = self.validate_endpoint(remote_endpoints)
+        for endpoint in add_endpoints:
+            self.allocked_ports.setdefault(endpoint, dict())
         for endpoint, entitys in six.iteritems(remote_endpoints):
+            self.allocked_ports.setdefault(endpoint, dict())
             if endpoint in delete_endpoints:
                 if entitys:
                     raise RuntimeError('Agent endpoint entity not zero, '
                                        'but not endpoint %s in this agent' % endpoint)
+
             for _entity in entitys:
                 entity = _entity['entity']
                 ports = _entity['ports']
@@ -250,8 +262,6 @@ class RpcAgentManager(RpcManagerBase):
         return add_endpoints, delete_endpoints
 
     def frozen_port(self, endpoint, entity, ports):
-        if endpoint not in self.allocked_ports:
-            self.allocked_ports[endpoint] = dict()
         allocked_port = set()
         if not isinstance(ports, (list, tuple, set, frozenset)):
             raise TypeError('ports must be a list')
@@ -345,8 +355,12 @@ class RpcAgentManager(RpcManagerBase):
                              resultcode=manager_common.RESULT_SUCCESS,
                              result='Get status from %s success' % self.local_ip,
                              # TODO more info of endpoint
-                             details=[dict(name=endpoint.name, entitys=endpoint.entitys)
-                                      for endpoint in self.endpoints])
+                             details=[dict(detail_id=index, resultcode=manager_common.RESULT_SUCCESS,
+                                           result=dict(endpoint=endpoint.namespace,
+                                                       entitys=endpoint.entitys,
+                                                       locked=len(endpoint.semaphores),
+                                                       frozen=endpoint.frozen))
+                                      for index, endpoint in enumerate(self.endpoints)])
 
     @CheckManagerRpcCtxt
     def rpc_delete_agent_precommit(self, ctxt, **kwargs):

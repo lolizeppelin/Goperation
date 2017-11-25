@@ -13,7 +13,7 @@ from simpleservice.rpc.exceptions import AMQPDestinationNotFound
 from simpleservice.rpc.exceptions import MessagingTimeout
 from simpleservice.rpc.exceptions import NoSuchMethod
 
-from goperation.manager import resultutils
+from goperation.manager.utils import resultutils
 from goperation.manager.api import get_global
 from goperation.manager.api import get_session
 from goperation.manager.models import AllocatedPort

@@ -280,13 +280,14 @@ class AgentReuest(BaseContorller):
         if body.get('agent_ipaddr'):
             agent_ipaddr = validators['type:ip_address'](body.pop('agent_ipaddr'))
             BaseContorller.agent_ipaddr_cache_flush(cache_store, agent_id, agent_ipaddr)
-        pass
+        return resultutils.results(result='report success')
 
     def status(self, req, agent_id, body=None):
         """get status from agent, not from database
         do not need Idsformater, check it in send_asyncrequest
         """
         body = body or {}
+        body.setdefault('expire', 60)
         asyncrequest = self.create_asyncrequest(body)
         target = targetutils.target_all(fanout=True)
         rpc_ctxt = {}

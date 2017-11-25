@@ -26,7 +26,7 @@ class Routers(router.RoutersBase):
         # get details of agent response
         collection.member.link('details', method='GET')
         # agent send respone data
-        collection.member.link('respone', method='POST')
+        collection.member.link('response', method='POST')
         # scheduler add overtime recode for overtime agent
         collection.member.link('overtime', method='PUT')
         return collection

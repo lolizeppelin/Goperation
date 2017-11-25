@@ -1,11 +1,11 @@
 from simpleutil.utils.timeutils import realnow
 
 from simpleservice.rpc.exceptions import MessageNotForMe
-from simpleservice.rpc.result import BaseRpcResult
 
 from goperation import threadpool
 from goperation.manager import common as manager_common
 from goperation.manager.rpc import exceptions
+from goperation.manager.utils.resultutils import BaseRpcResult
 
 
 class CheckRpcCtxt(object):
@@ -92,13 +92,13 @@ class CheckManagerRpcCtxt(CheckRpcCtxt):
                 # del exc_info
                 http_result = BaseRpcResult(self.manager.agent_id, ctxt,
                                             resultcode=manager_common.RESULT_ERROR,
-                                            result=msg)
+                                            result=msg).to_dict()
             elif isinstance(result, dict):
                 http_result = result
             else:
                 http_result = BaseRpcResult(self.manager.agent_id, ctxt,
                                             resultcode=manager_common.RESULT_ERROR,
-                                            result='Rpc result value type error: %s' % str(result))
+                                            result='Rpc result value type error: %s' % str(result)).to_dict()
             self.manager.client.async_response(request_id, http_result)
         # raise Exception to dispatch
         if isinstance(result, Exception):
