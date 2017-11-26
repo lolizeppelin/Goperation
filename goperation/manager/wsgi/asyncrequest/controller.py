@@ -1,10 +1,8 @@
 import webob.exc
 from sqlalchemy.sql import and_
-from sqlalchemy.sql import or_
+from sqlalchemy.orm import joinedload
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.orm.exc import MultipleResultsFound
-
-from redis.exceptions import RedisError
 
 from simpleutil.log import log as logging
 from simpleutil.utils import argutils
@@ -12,8 +10,6 @@ from simpleutil.utils import jsonutils
 from simpleutil.utils import singleton
 
 from simpleservice.ormdb.api import model_query
-from simpleservice.ormdb.exceptions import DBDuplicateEntry
-from simpleservice.ormdb.exceptions import DBError
 from simpleutil.common.exceptions import InvalidArgument
 
 from goperation import threadpool
@@ -95,7 +91,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
                                                  AsyncRequest.request_time,
                                                  AsyncRequest.finishtime,
                                                  AsyncRequest.deadline,
-                                                 AsyncRequest.scheduler,
+                                                 AsyncRequest.expire,
                                                  ],
                                         counter=AsyncRequest.request_id,
                                         order=order, desc=desc,
@@ -107,27 +103,34 @@ class AsyncWorkRequest(contorller.BaseContorller):
         agents = body.get('agents', True)
         details = body.get('details', False)
         session = get_session(readonly=True)
-        query = model_query(session, AsyncRequest)
-        request = query.filter_by(request_id=request_id).one()
+        query = model_query(session, AsyncRequest, filter=AsyncRequest.request_id == request_id)
+        if agents:
+            join = joinedload(AsyncRequest.respones)
+            if details:
+                join = join.joinedload(AgentRespone.details)
+            query = query.options(join)
+        request = query.one()
         if not request.expire:
             # get response from database
             return resultutils.async_request(request, agents, details)
         else:
             ret_dict = resultutils.async_request(request,
                                                  agents=False, details=False)
+            respones = ret_dict['data'][0]['respones']
             cache_store = get_cache()
             # get respone from cache redis server
             key_pattern = targetutils.async_request_pattern(request_id)
             respone_keys = cache_store.keys(key_pattern)
-            agent_respones = cache_store.mget(respone_keys)
-            if agent_respones:
-                for agent_respone in agent_respones:
-                    if agent_respone:
-                        try:
-                            agent_respone_data = jsonutils.loads_as_bytes(agent_respone)
-                        except (TypeError, ValueError):
-                            continue
-                        ret_dict['respones'].append(agent_respone_data)
+            if respone_keys:
+                agent_respones = cache_store.mget(*respone_keys)
+                if agent_respones:
+                    for agent_respone in agent_respones:
+                        if agent_respone:
+                            try:
+                                agent_respone_data = jsonutils.loads_as_bytes(agent_respone)
+                            except (TypeError, ValueError):
+                                continue
+                            respones.append(agent_respone_data)
             return ret_dict
 
     @Idformater

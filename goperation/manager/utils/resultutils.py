@@ -88,24 +88,22 @@ def bulk_results(session,
 
 def async_request(_request, agents=False, details=False):
     """this function just for route asynrequest show"""
-    res_dict = {'request_id': _request.request_id,
+    req_dict = {'request_id': _request.request_id,
                 'request_time': _request.request_time,
                 'finishtime': _request.finishtime,
                 'deadline': _request.deadline,
-                'scheduler': _request.scheduler,
                 'status': _request.status,
                 'expire': _request.expire,
                 'resultcode': _request.resultcode,
                 'result': _request.result,
                 'respones': []
                 }
-    ret_dict = results(data=[res_dict, ], result='Get async request data finish')
-    if _request.get_cache():
+    ret_dict = results(data=[req_dict, ], result='Get async request data finish')
+    if _request.expire:
         ret_dict['result'] += ',Data in cache,May miss some respone'
     if agents:
         for agent_data in _request.respones:
-            ret_dict['data'][0]['respones'].append(agent(agent_data),
-                                                   details=details)
+            req_dict['respones'].append(agent(agent_data), details=details)
     return ret_dict
 
 
@@ -125,7 +123,7 @@ def agent(_agent, details=False):
 def detail(_detail):
     ret_dict = {'detail_id': _detail.detail_id,
                 'resultcode': _detail.resultcode,
-                'result': jsonutils.loads(_detail.result)
+                'result': jsonutils.loads_as_bytes(_detail.result)
                 }
     return ret_dict
 
