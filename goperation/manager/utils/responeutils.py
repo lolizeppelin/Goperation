@@ -1,3 +1,4 @@
+import time
 from redis import StrictRedis
 from redis.exceptions import RedisError
 from sqlalchemy.sql import and_
@@ -63,24 +64,24 @@ def agentrespone(storage, request_id, data):
     resultcode = data.get('resultcode')
     result = data.get('result', 'no result message')
     expire = data.get('expire', 60)
-    details = [dict(agent_id=agent_id,
-                    request_id=request_id,
-                    detail_id=detail['detail_id'],
+    details = [dict(detail_id=detail['detail_id'],
                     resultcode=detail['resultcode'],
                     result=detail['result'] if isinstance(detail['result'], basestring)
                     else jsonutils.dumps_as_bytes(detail['result'])) for detail in data.get('details', [])]
-    data = dict(request_id=request_id,
-                agent_id=agent_id,
+    data = dict(agent_id=agent_id,
                 agent_time=agent_time,
+                server_time=int(time.time()),
                 resultcode=resultcode,
                 result=result,
                 )
     if isinstance(storage, Session):
         try:
             with storage.begin():
+                data.setdefault('request_id', request_id)
                 storage.add(AgentRespone(**data))
                 storage.flush()
                 for detail in details:
+                    detail.update(dict(agent_id=agent_id, request_id=request_id))
                     storage.add(ResponeDetail(**detail))
                     storage.flush()
         except DBDuplicateEntry:
@@ -118,7 +119,7 @@ def agentrespone(storage, request_id, data):
 
 
 def bluk_insert(storage, bulk_data, expire=60):
-    insert = 0
+    insert = len(bulk_data)
     if bulk_data:
         request_id = bulk_data[0]['request_id']
         agent_id = bulk_data[0]['agent_id']
@@ -130,13 +131,13 @@ def bluk_insert(storage, bulk_data, expire=60):
                         storage.add(resp)
                         storage.flush()
                     except DBDuplicateEntry:
-                        insert += 1
+                        insert -= 1
                         continue
         elif isinstance(storage, StrictRedis):
             for data in bulk_data:
                 respone_key = targetutils.async_request_key(request_id, agent_id)
                 if not storage.set(respone_key, jsonutils.dumps_as_bytes(data), ex=expire, nx=True):
-                    insert += 1
+                    insert -= 1
         else:
             raise NotImplementedError('bluk insert storage type error')
     return insert

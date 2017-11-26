@@ -137,7 +137,7 @@ class RpcServerManager(RpcManagerBase):
                     if not not_overtime:
                         break
                 eventlet.sleep(1)
-
+            LOG.debug('Not response agents count %d' % len(not_response_agents))
             bulk_data = []
             agent_time = int(time.time())
             for agent_id in not_response_agents:
@@ -151,7 +151,7 @@ class RpcServerManager(RpcManagerBase):
             asyncrequest.status = manager_common.FINISH
             if count:
                 asyncrequest.resultcode = manager_common.RESULT_NOT_ALL_SUCCESS
-                asyncrequest.result = '%d agent not respone' % count
+                asyncrequest.result = 'agents not respone, count:%d' % count
             else:
                 asyncrequest.resultcode = manager_common.RESULT_SUCCESS
                 asyncrequest.result = 'all agent respone result'
