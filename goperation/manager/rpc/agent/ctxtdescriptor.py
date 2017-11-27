@@ -81,29 +81,26 @@ class CheckManagerRpcCtxt(CheckRpcCtxt):
             result = e
         # get a request_id means the asyncrequest need to post data to gcenter
         request_id = ctxt.get('request_id', None)
-        if request_id:
-            if isinstance(result, BaseRpcResult):
-                http_result = result.to_dict()
-            elif isinstance(result, Exception):
-                # TODO should get more details for exception like
-                # simpleservic.rpc.driver.common.serialize_remote_exception dose
-                msg = 'Call rpc function catch %s' % result.__class__.__name__
-                # exc_info = sys.exc_info()
-                # del exc_info
-                http_result = BaseRpcResult(self.manager.agent_id, ctxt,
-                                            resultcode=manager_common.RESULT_ERROR,
-                                            result=msg).to_dict()
-            elif isinstance(result, dict):
-                http_result = result
-            else:
-                http_result = BaseRpcResult(self.manager.agent_id, ctxt,
-                                            resultcode=manager_common.RESULT_ERROR,
-                                            result='Rpc result value type error: %s' % str(result)).to_dict()
-            self.manager.client.async_response(request_id, http_result)
-        # raise Exception to dispatch
-        if isinstance(result, Exception):
-            raise result
-        return result
+        if not request_id:
+            return result
+        if isinstance(result, BaseRpcResult):
+            http_result = result.to_dict()
+        elif isinstance(result, Exception):
+            # TODO should get more details for exception like
+            # simpleservic.rpc.driver.common.serialize_remote_exception dose
+            msg = 'Call rpc function catch %s' % result.__class__.__name__
+            # exc_info = sys.exc_info()
+            # del exc_info
+            http_result = BaseRpcResult(self.manager.agent_id, ctxt,
+                                        resultcode=manager_common.RESULT_ERROR,
+                                        result=msg).to_dict()
+        elif isinstance(result, dict):
+            http_result = result
+        else:
+            http_result = BaseRpcResult(self.manager.agent_id, ctxt,
+                                        resultcode=manager_common.RESULT_ERROR,
+                                        result='Rpc result value type error: %s' % str(result)).to_dict()
+        self.manager.client.async_response(request_id, http_result)
 
 
 class CheckEndpointRpcCtxt(CheckRpcCtxt):
@@ -115,20 +112,20 @@ class CheckEndpointRpcCtxt(CheckRpcCtxt):
         self.check_pool(ctxt)
         # destination entitys count
         # if not set, means all entitys of endpoint in this agent
-        entitys = ctxt.get('entitys', len(endpoint.entitys))
-        if not isinstance(entitys, (int, long)):
+        entitys = ctxt.get('entitys', endpoint.entitys)
+        if not isinstance(entitys, list):
             result = BaseRpcResult(self.manager.agent_id, ctxt,
                                    resultcode=manager_common.RESULT_ERROR,
-                                   result='entitys value type error')
+                                   result='ctxt entitys type error')
             raise exceptions.RpcCtxtException(result=result)
         if entitys:
             # check space for entitys
             target_file = ctxt.pop('file', None)
             if target_file:
-                if target_file.size * entitys > self.manager.partion_left_size - 100:
+                if target_file.size * len(entitys) > self.manager.partion_left_size - 100:
                     result = BaseRpcResult(self.manager.agent_id, ctxt,
                                            resultcode=manager_common.RESULT_ERROR,
-                                           result='Not enough space for %d entitys' % entitys)
+                                           result='Not enough space for %d entitys' % len(entitys))
                     raise exceptions.RpcCtxtException(result=result)
         return self.func(*args, **kwargs)
 
