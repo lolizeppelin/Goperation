@@ -1,3 +1,4 @@
+import os
 from simpleutil.config import cfg
 from simpleutil.utils.lockutils import PriorityLock
 from simpleutil.utils.systemutils import get_partion_free_bytes
@@ -28,6 +29,8 @@ class RpcManagerBase(ManagerBase):
         self.status = manager_common.INITIALIZING
 
     def pre_start(self, external_objects):
+        if not os.path.exists(self.work_path):
+            raise RuntimeError('Work path not exist')
         self.rpcservice = external_objects
 
     def post_stop(self):

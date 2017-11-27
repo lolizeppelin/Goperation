@@ -14,11 +14,6 @@ class AppEndpointBase(RpcAgentEndpointBase):
 
     def __init__(self, manager, name):
         super(AppEndpointBase, self).__init__(manager, name)
-        self._home_path = os.path.join(manager.work_path, self.namespace)
-
-    @property
-    def endpoint_home(self):
-        return self._home_path
 
     @property
     def apppathname(self):

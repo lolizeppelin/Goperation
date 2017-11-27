@@ -49,6 +49,8 @@ class CheckManagerRpcCtxt(CheckRpcCtxt):
         ctxt = args[0] if len(args) == 1 else args[2]
         finishtime = ctxt.get('finishtime', None)
         agents = ctxt.get('agents', None)
+        # get a request_id means the asyncrequest need to post data to gcenter
+        request_id = ctxt.get('request_id', None)
         try:
             if agents is not None and self.manager.agent_id not in set(agents):
                 # rpc not for this agent
@@ -78,9 +80,9 @@ class CheckManagerRpcCtxt(CheckRpcCtxt):
             # cache rpc function Exception so we can
             # respone fail infomation to wsgi server for rpc cast
             # witch ctxt include key request_id
+            if not request_id:
+                raise
             result = e
-        # get a request_id means the asyncrequest need to post data to gcenter
-        request_id = ctxt.get('request_id', None)
         if not request_id:
             return result
         if isinstance(result, BaseRpcResult):
@@ -88,9 +90,11 @@ class CheckManagerRpcCtxt(CheckRpcCtxt):
         elif isinstance(result, Exception):
             # TODO should get more details for exception like
             # simpleservic.rpc.driver.common.serialize_remote_exception dose
-            msg = 'Call rpc function catch %s' % result.__class__.__name__
-            # exc_info = sys.exc_info()
-            # del exc_info
+            msg = 'Call rpc function catch %s:' % result.__class__.__name__
+            if hasattr(result, 'message'):
+                msg += str(getattr(result, 'message'))
+            else:
+                msg += 'unkonwn msg'
             http_result = BaseRpcResult(self.manager.agent_id, ctxt,
                                         resultcode=manager_common.RESULT_ERROR,
                                         result=msg).to_dict()

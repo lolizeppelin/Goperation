@@ -100,7 +100,7 @@ def async_request(_request, agents=False, details=False):
                 }
     ret_dict = results(data=[req_dict, ], result='Get async request data finish')
     if _request.expire:
-        ret_dict['result'] += ',Data in cache,May miss some respone'
+        req_dict['result'] += ',Data in cache,May miss some respone'
     if agents:
         for agent_data in _request.respones:
             req_dict['respones'].append(agent(agent_data), details=details)

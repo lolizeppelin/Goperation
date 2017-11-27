@@ -94,7 +94,7 @@ def flow_factory(session, applications,
         prepare_uflow.add(application.AppBackUp(app.middleware, backupfile, rebind=rebind))
     else:
         if not store.get('backupfile'):
-            if app.upgradefunc.rollback:
+            if app.upgradetask and app.upgradetask.rollback:
                 raise RuntimeError('upgrade rollback able, but no backupfile found')
         store.setdefault('backupfile', None)
     if app.databases:

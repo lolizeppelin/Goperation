@@ -128,7 +128,7 @@ class BaseContorller(MiddlewareContorller):
             if exist_agent_ipaddr != agent_ipaddr:
                 LOG.error('Host call online with %s, but %s alreday exist with same key' %
                           (agent_ipaddr, exist_agent_ipaddr))
-                if ttl > 2:
+                if ttl > 3:
                     if not cache_store.expire(host_online_key, ttl):
                         LOG.error('Revet ttl of %s fail' % host_online_key)
                 raise InvalidArgument('Agent %d with ipaddr %s alreday eixst' % (agent_id, exist_agent_ipaddr))

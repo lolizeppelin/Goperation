@@ -23,7 +23,7 @@ class StandardTask(Task):
         middleware.set_return(self.__class__.__name__)
 
     def revert(self, *args, **kwargs):
-        result = kwargs.get('result')
+        result = kwargs.get('result') or args[0]
         if isinstance(result, failure.Failure):
             if LOG:
                 LOG.error(result.pformat())

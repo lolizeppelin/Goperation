@@ -181,20 +181,22 @@ class EntityReuest(BaseContorller):
     def notify_create(target, entity, body):
         rpc = get_client()
         body.setdefault('entity', entity)
-        create_ret = rpc.call(target, ctxt={'finishtime': body.pop('finishtime', rpcfinishtime())},
+        create_ret = rpc.call(target, ctxt={'finishtime': body.pop('finishtime', rpcfinishtime()),
+                                            'entitys': [entity, ]},
                               msg={'method': 'create_entity', 'args': body})
         if not create_ret:
             raise RpcResultError('create entitys result is None')
         if create_ret.get('resultcode') != manager_common.RESULT_SUCCESS:
-            return resultutils.results(result=create_ret.get('result'))
+            raise RpcResultError('create entitys fail %s' % create_ret.get('result'))
 
     @staticmethod
     def notify_delete(target, entitys, body):
         rpc = get_client()
         body.setdefault('entitys', entitys)
-        delete_ret = rpc.call(target, ctxt={'finishtime': body.pop('finishtime', rpcfinishtime())},
+        delete_ret = rpc.call(target, ctxt={'finishtime': body.pop('finishtime', rpcfinishtime()),
+                                            'entitys': list(entitys)},
                               msg={'method': 'delete_entitys', 'args': body})
         if not delete_ret:
             raise RpcResultError('delete entitys result is None')
         if delete_ret.get('resultcode') != manager_common.RESULT_SUCCESS:
-            return resultutils.results(result=delete_ret.get('result'))
+            raise RpcResultError('delete entitys fail %s' % delete_ret.get('result'))

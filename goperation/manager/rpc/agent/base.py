@@ -1,3 +1,4 @@
+import os
 import time
 import eventlet
 import six
@@ -76,13 +77,15 @@ class OnlinTaskReporter(IntervalLoopinTask):
         self.manager = manager
         self.with_performance = CONF[manager_common.AGENT].report_performance
         interval = CONF[manager_common.AGENT].online_report_interval*60
+        # TODO delay time
         super(OnlinTaskReporter, self).__init__(periodic_interval=interval,
-                                                initial_delay=interval+random.randint(-30, 30),
+                                                initial_delay=random.randint(0, 10),
                                                 stop_on_exception=False)
 
     def __call__(self, *args, **kwargs):
-        self.manager.client.agent_report(self.manager.agent_id,
-                                         self.performance_snapshot())
+        body = {'agent_ipaddr': self.manager.local_ip,
+                'snapshot': self.performance_snapshot()}
+        self.manager.client.agent_report(self.manager.agent_id, body)
 
     def performance_snapshot(self):
         if not self.with_performance:
@@ -101,8 +104,20 @@ class RpcAgentEndpointBase(EndpointBase):
             raise TypeError('Manager for rpc endpoint is not RpcAgentManager')
         super(EndpointBase, self).__init__(target=target_endpoint(name))
         self.manager = manager
+        self.entitys_map = None
         self.conf = CONF[name]
         self.frozen = False
+        self._home_path = os.path.join(manager.work_path, self.namespace)
+
+    @property
+    def endpoint_home(self):
+        return self._home_path
+
+    home = endpoint_home
+
+    def pre_start(self, external_objects):
+        if not os.path.exists(self.home):
+            os.makedirs(self.home)
 
     @contextlib.contextmanager
     def lock(self, entity, timeout=3):
@@ -137,7 +152,7 @@ class RpcAgentEndpointBase(EndpointBase):
 
     @property
     def entitys(self):
-        return len(self.entitys_map)
+        return self.entitys_map.keys()
 
 
 class RpcAgentManager(RpcManagerBase):
@@ -214,7 +229,6 @@ class RpcAgentManager(RpcManagerBase):
                 if entitys:
                     raise RuntimeError('Agent endpoint entity not zero, '
                                        'but not endpoint %s in this agent' % endpoint)
-
             for _entity in entitys:
                 entity = _entity['entity']
                 ports = _entity['ports']

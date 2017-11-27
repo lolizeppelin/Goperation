@@ -42,7 +42,7 @@ class ManagerClient(HttpClientBase):
 
     # -- agent path --
     def agent_create(self, body):
-        resp, results = self.retryable_post(self.agents_path, body=body)
+        resp, results = self.post(self.agents_path, body=body)
         if results['resultcode'] != common.RESULT_SUCCESS:
             LOG.error('Agent create self fail: %s' % results['result'])
             raise ServerExecuteRequestError(message='agent create self fail:%d' % results['resultcode'],
@@ -210,7 +210,7 @@ class ManagerClient(HttpClientBase):
         return results
 
     def entitys_add(self, agent_id, endpoint, body):
-        resp, results = self.retryable_post(action=self.entitys_agent_path % (str(agent_id), endpoint),
+        resp, results = self.post(action=self.entitys_agent_path % (str(agent_id), endpoint),
                                             body=body)
         if results['resultcode'] != common.RESULT_SUCCESS:
             raise ServerExecuteRequestError(message='add entitys fail:%d' % results['resultcode'],

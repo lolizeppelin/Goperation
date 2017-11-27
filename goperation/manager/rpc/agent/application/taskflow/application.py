@@ -150,7 +150,7 @@ class AppTaskBase(StandardTask):
         super(AppTaskBase, self).__init__(middleware, provides=provides,
                                           rebind=rebind, requires=requires,
                                           revert_rebind=revert_rebind, revert_requires=revert_requires)
-        if self.rollback and not self.revertable:
+        if rollback and not revertable:
             raise RuntimeError('AppTask rollback need revertable')
         self.revertable = revertable
         self.rollback = rollback
@@ -240,7 +240,7 @@ class Application(object):
             if func and not isinstance(func, AppTaskBase):
                 raise RuntimeError('func type error')
         # 创建
-        self.createftask = createtask
+        self.createtask = createtask
         # 删除
         self.deletetask = deletetask
         # 启动
