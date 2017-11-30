@@ -41,5 +41,5 @@ redis_opts = [
                default='goper',
                max_length=12,
                regex='^[a-zA-Z0-9]+$',
-               help='')
+               help='redis key prefix value')
 ]

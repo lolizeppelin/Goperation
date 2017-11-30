@@ -19,4 +19,5 @@ class RpcTargetLockException(RpcBaseException):
 class RpcEntityError(RpcBaseException):
 
     def __init__(self, endpoint, entity, reason):
-        super(RpcCtxtException).__init__(endpoint, entity, 'create entity %s' % reason)
+        reason='create entity %s' % reason
+        super(RpcEntityError, self).__init__(endpoint, entity, reason)

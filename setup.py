@@ -5,7 +5,7 @@ import sys
 from goperation import __version__
 
 try:
-    from setuptools import setup
+    from setuptools import setup, find_packages
     from setuptools.command.test import test as TestCommand
 
     class PyTest(TestCommand):
@@ -35,8 +35,13 @@ setup(
     install_requires=('eventlet>=0.15.2',
                       'sqlalchemy>=1.0.11',
                       'six>=1.9.0',
-                      'simpleutil>=1.0.0', 'simpleservice>=1.0.0', 'simpleflow>=1.0.0',
-                      'glockredis>=1.0.0'),
+                      'simpleutil>=1.0',
+                      'simpleutil<1.1',
+                      'simpleservice>=1.0',
+                      'simpleservice<1.0',
+                      'simpleflow>=1.0',
+                      'simpleflow<1.1',
+                      ),
     name='goperation',
     version=__version__,
     description='python game operation tool',
@@ -48,7 +53,7 @@ setup(
     maintainer_email='lolizeppelin@gmail.com',
     keywords=['Goperation', 'goperation'],
     license='MIT',
-    packages=['goperation'],
+    packages=find_packages(include=['goperation*']),
     tests_require=['pytest>=2.5.0'],
     cmdclass={'test': PyTest},
     classifiers=[

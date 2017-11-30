@@ -8,23 +8,37 @@ from simpleservice import config as base_config
 CONF = cfg.CONF
 
 service_base_opts = [
-    cfg.MultiOpt('endpoints',
-                 default=[],
-                 item_type=cfg.types.String(),
-                 help='The endpoint group name or namespace'),
+    cfg.MultiStrOpt('endpoints',
+                    help='The endpoint group name or namespace'),
     cfg.IPOpt('local_ip',
               version=4,
               help='Goperation local ip address'),
     cfg.ListOpt('external_ips',
-                default=[],
                 item_type=cfg.types.IPAddress(version=4),
                 help='Goperation external network IP addresses'),
     cfg.FolderPathOpt('work_path',
                       help='Goperation work in this path'),
 ]
 
+def set_all_default():
+    # over write state path default value
+    from simpleservice.config import default_opts
+    cfg.set_defaults(default_opts, state_path='/var/run/goperation')
 
-def configure(group, config_files, config_dirs=None, default_log_levels=None):
+
+def set_wsgi_default():
+    # set default of paste config
+    from simpleservice.wsgi.config import wsgi_server_options
+    cfg.set_defaults(wsgi_server_options, paste_config='gcenter-paste.ini')
+
+def set_rabbitmq_vhost_default():
+    # set default of paste config
+    from simpleservice.rpc.driver.config import rabbit_opts
+    cfg.set_defaults(rabbit_opts, rabbit_virtual_host='goperation')
+
+
+def configure(name, config_files, config_dirs=None):
+    group = cfg.OptGroup(name=name, title='group of goperation %s' % name)
     args = None
     if config_dirs is not None:
         args = []
@@ -40,12 +54,14 @@ def configure(group, config_files, config_dirs=None, default_log_levels=None):
     CONF.register_group(group)
     # set base config
     base_config.configure()
-    # over write state path default value
-    CONF.set_default('state_path', default='/var/run/goperation')
     # reg base opts
     CONF.register_opts(service_base_opts)
     # set log config
     logging.setup(CONF, group.name)
     defalut_logging.captureWarnings(True)
-    if default_log_levels:
-        base_config.set_default_for_default_log_levels(default_log_levels)
+    set_all_default()
+    return group
+
+
+def list_opts():
+    return service_base_opts

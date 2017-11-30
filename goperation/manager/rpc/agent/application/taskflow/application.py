@@ -2,15 +2,18 @@
 import os
 import functools
 
+from simpleutil.log import log as logging
 from simpleutil.utils import systemutils
+
+from simpleutil.utils import zlibutils
 
 from simpleflow.retry import Retry
 from simpleflow.retry import REVERT
 from simpleflow.retry import RETRY
 from simpleflow.types import failure
 
-from zlibstream.tobuffer import async_compress
-from zlibstream.tofile import async_extract
+# from zlibstream.tobuffer import async_compress
+# from zlibstream.tofile import async_extract
 
 from goperation.utils import safe_fork
 from goperation.filemanager import TargetFile
@@ -18,7 +21,7 @@ from goperation.taskflow import common
 from goperation.manager.rpc.agent.application import taskflow
 from goperation.manager.rpc.agent.application.taskflow.base import StandardTask
 
-LOG = taskflow.LOG
+LOG = logging.getLogger(__name__)
 
 
 class DoNotNeedRevert(Exception):
@@ -95,9 +98,8 @@ class AppBackUp(StandardTask):
         super(AppBackUp, self).__init__(middleware, rebind=rebind, provides=provides)
         self.pwd = os.getcwd()
         self.backupfile = backupfile
-        self.exclude = lambda x: None
 
-    def execute(self, timeout):
+    def execute(self, timeout, native=True):
         if self.middleware.is_success(self.__class__.__name__):
             return
         # download remote backup file and check it
@@ -105,7 +107,7 @@ class AppBackUp(StandardTask):
             LOG.info('AppBackUp get remote backup file')
             self.middleware.filemanager.get(self.backupfile,
                                             download=True, timeout=timeout)
-            self.backupfiles.post_check()
+            self.backupfile.post_check()
             backupfile = self.backupfile.realpath
         # dump from local application path
         elif isinstance(self.backupfile, basestring):
@@ -114,11 +116,12 @@ class AppBackUp(StandardTask):
             src = os.path.join(self.middleware.entity_home, self.middleware.apppathname)
             LOG.debug('AppBackUp dump local bakcup from path %s' % src)
             dst = self.backupfile
-            async_compress(src, dst, exclude=self.exclude,
-                           fork=functools.partial(safe_fork,
-                                                  user=self.middleware.entity_user,
-                                                  group=self.middleware.entity_group) if systemutils.LINUX else None,
-                           timeout=timeout)
+            zlibutils.async_compress(src, dst, exclude=None,
+                                     native=native,
+                                     fork=functools.partial(safe_fork,
+                                                            user=self.middleware.entity_user,
+                                                            group=self.middleware.entity_group)
+                                     if systemutils.LINUX else None, timeout=timeout)
             backupfile = self.backupfile
         else:
             raise TypeError('AppBackUp find backupfile type error')
@@ -185,21 +188,23 @@ class AppFileUpgradeBase(AppTaskBase):
                                                      rebind=rebind, requires=requires,
                                                      revert_requires=revert_requires)
 
-    def execute(self, upgradefile, timeout, **kwargs):
+    def execute(self, upgradefile, timeout, native=True):
         self._extract(upgradefile, self.middleware.entity_home,
                       self.middleware.entity_user, self.middleware.entity_group,
-                      timeout)
+                      native, timeout)
 
-    def revert(self, result, backupfile, timeout, **kwargs):
-        super(AppFileUpgradeBase, self).revert(result, **kwargs)
-        self._extract(backupfile, self.middleware.entity_home,
-                      self.middleware.entity_user, self.middleware.entity_group,
-                      timeout)
+    def revert(self, result, backupfile, timeout, native=True):
+        super(AppFileUpgradeBase, self).revert(result)
+        if isinstance(result, failure.Failure) or self.rollback:
+            self._extract(backupfile, self.middleware.entity_home,
+                          self.middleware.entity_user, self.middleware.entity_group,
+                          timeout=timeout)
 
-    def _extract(self, src, dst, user, group, timeout):
-        async_extract(src, dst, fork=functools.partial(safe_fork, user, group) if systemutils.LINUX else None,
-                      timeout=timeout)
-
+    def _extract(self, src, dst, user, group, native=True, timeout=None):
+        zlibutils.async_extract(src, dst, exclude=self.middleware.exteclude, native=native,
+                                timeout=timeout,
+                                fork=functools.partial(safe_fork, user, group)
+                                if systemutils.LINUX else None)
 
 class AppUpdateBase(AppTaskBase):
     """程序更新,这里的更新一般是非app文件相关的更新

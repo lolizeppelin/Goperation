@@ -1,0 +1,29 @@
+[DEFAULT]
+
+
+[agent]
+
+#
+# From agent
+#
+
+# Rpc agent can alloc port from this range (port_ranges value)
+#ports_range = <None>
+
+# Rpc agent online report interval time in minute (integer value)
+# Minimum value: 1
+# Maximum value: 10
+#online_report_interval = 5
+
+# Rpc agent online report with system performance (boolean value)
+#report_performance = false
+
+# simpleflow storage connection url (string value)
+#taskflow_storage = sqlite:///:memory:
+
+# The SQLAlchemy connection string to use to connect to the database. (string
+# value)
+#sqlite = $state_path/filemanager.db
+
+# File Manager save file folder (string value)
+#folder = <None>

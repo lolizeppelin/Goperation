@@ -23,7 +23,6 @@ fmclient_group = cfg.OptGroup(name='fmclient', title='test filemanager api wsgi 
 
 def configure(version=None, config_files=None):
     base_config.configure()
-    base_config.set_default_for_default_log_levels(['routes=INFO', ])
     CONF(project=fmclient_group.name, version=version,
          default_config_files=config_files)
     CONF.register_group(fmclient_group)

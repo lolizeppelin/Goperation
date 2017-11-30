@@ -36,6 +36,8 @@ def nirvana(delay=1):
 
 
 if systemutils.LINUX:
+
+    from simpleutil.utils.systemutils import posix
     from simpleutil.utils.systemutils.posix import linux
 
     def safe_fork(user=None, group=None, umask=022):
@@ -51,7 +53,7 @@ if systemutils.LINUX:
                 gc.enable()
             raise
         if pid == 0:
-            linux.drop_privileges(group, user)
+            posix.linux.drop_privileges(group, user)
             os.umask(umask)
             # set close exec for loggin
             logging.set_filehandler_close_exec()
@@ -72,7 +74,7 @@ if systemutils.LINUX:
             # force stop eventlet loop
             try:
                 hub.abort(wait=False)
-            except:
+            except Exception:
                 sysexit()
             # start new eventlet hub
             hubs.use_hub()
@@ -83,7 +85,7 @@ if systemutils.LINUX:
                 gc.enable()
         return pid
 
-    wait = linux.wait
+    wait = posix.wait
 else:
     def safe_fork(*args):
         raise NotImplementedError

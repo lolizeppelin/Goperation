@@ -62,33 +62,35 @@ RPC调用规范
 ---
 
 Manager work_lock调用
-优先级  方法                         说明
-0       rpc_delete_agent_precommit   锁定后检查状态必须大于SOFTBUSY,之后设置状态PERDELETE
-                                     调用endpoint.entitys判断entitys数量,确保endpoint.entitys无阻塞无IO且能
-0       rpc_delete_agent_postcommit  无IO,无阻塞  锁定后检查状态必须等于PERDELETE
-                                     会调用suicide, suicide中有schedule_call_global调用,执行时间短
 
-0       agent_id                     无IO,无阻塞, 初始设置agent_id
-1       post_start                   无IO,无阻塞  初始设置状态 调用force_status
-3       frozen_port                  无IO,无阻塞  申请端口
-2       free_ports                   无IO,无阻塞  释放端口
+    优先级  方法                         说明
+    0       rpc_delete_agent_precommit   锁定后检查状态必须大于SOFTBUSY,之后设置状态PERDELETE
+                                         调用endpoint.entitys判断entitys数量,确保endpoint.entitys无阻塞无IO且能
+    0       rpc_delete_agent_postcommit  无IO,无阻塞  锁定后检查状态必须等于PERDELETE
+                                         会调用suicide, suicide中有schedule_call_global调用,执行时间短
 
-5       is_active                    无IO,无阻塞, 返回是否在ACTIVE状态
-0       force_status                 无IO,无阻塞  无视当前状态的情况下修改状态
-1       set_status                   无IO,无阻塞  修改状态,当前状态必须大于等于SOFTBUSY
+    0       agent_id                     无IO,无阻塞, 初始设置agent_id
+    1       post_start                   无IO,无阻塞  初始设置状态 调用force_status
+    3       frozen_port                  无IO,无阻塞  申请端口
+    2       free_ports                   无IO,无阻塞  释放端口
 
-1       rpc_active_agent             无IO,无阻塞  服务端rpc设置状态,  调用set_status
+    5       is_active                    无IO,无阻塞, 返回是否在ACTIVE状态
+    0       force_status                 无IO,无阻塞  无视当前状态的情况下修改状态
+    1       set_status                   无IO,无阻塞  修改状态,当前状态必须大于等于SOFTBUSY
 
-1       rpc_upgrade_agent            有IO,有阻塞  转换为HARDBUSY状态, rabbit message会被直接退回
-                                     阻塞时间取决于rpm -Uvh用时
+    1       rpc_active_agent             无IO,无阻塞  服务端rpc设置状态,  调用set_status
+
+    1       rpc_upgrade_agent            有IO,有阻塞  转换为HARDBUSY状态, rabbit message会被直接退回
+                                         阻塞时间取决于rpm -Uvh用时
 
 
 Manager 状态说明
-ACTIVE = 1                           激活状态,endpoint的rpc调用必须大于等于这个状态中才能执行
-UNACTIVE = 0                         为激活状态,刚注册的服务默认这个状态
-SOFTBUSY = -10                       软忙状态, 小于这个状态会直接要求rpc重发（PERDELETE除外）
-                                     等于这个状态会延迟0.5秒重新检查,如果还是小于等于这个状态,通知rpc重发
-INITIALIZING = -20                   Agent启动完毕之前属于这个状态
-HARDBUSY = -30                       硬忙状态,目前用于Agent端rpm升级
-DELETED = -127                       已经删除状态,在收到系统信号退出前,Agent是这个状态
-PERDELETE = -128                     等待删除状态,特殊状态,唯一小于软忙状态不需要rpc重发的状态
+
+    ACTIVE = 1                           激活状态,endpoint的rpc调用必须大于等于这个状态中才能执行
+    UNACTIVE = 0                         为激活状态,刚注册的服务默认这个状态
+    SOFTBUSY = -10                       软忙状态, 小于这个状态会直接要求rpc重发（PERDELETE除外）
+                                         等于这个状态会延迟0.5秒重新检查,如果还是小于等于这个状态,通知rpc重发
+    INITIALIZING = -20                   Agent启动完毕之前属于这个状态
+    HARDBUSY = -30                       硬忙状态,目前用于Agent端rpm升级
+    DELETED = -127                       已经删除状态,在收到系统信号退出前,Agent是这个状态
+    PERDELETE = -128                     等待删除状态,特殊状态,唯一小于软忙状态不需要rpc重发的状态

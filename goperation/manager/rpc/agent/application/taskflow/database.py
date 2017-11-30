@@ -2,6 +2,7 @@ import os
 import sys
 import subprocess
 
+from simpleutil.log import log as logging
 from simpleutil.utils import systemutils
 
 from sqlalchemy.pool import NullPool
@@ -23,7 +24,7 @@ from goperation.manager.rpc.agent.application.taskflow.base import format_store_
 
 from goperation.manager.rpc.agent.application import taskflow
 
-LOG = taskflow.LOG
+LOG = logging.getLogger(__name__)
 
 
 class DbUpdateFile(TargetFile):

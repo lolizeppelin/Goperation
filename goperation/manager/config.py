@@ -6,6 +6,7 @@ from simpleservice.rpc.driver.config import rabbit_opts
 from simpleservice.rpc.driver.config import amqp_opts
 from simpleservice.rpc.config import rpc_client_opts
 
+from goperation import config as goperation_config
 from goperation.redis.config import redis_opts
 
 CONF = cfg.CONF
@@ -50,5 +51,8 @@ CONF.register_opts(amqp_opts, rabbit_group)
 CONF.register_opts(rabbit_opts, rabbit_group)
 CONF.register_opts(rpc_client_opts, rabbit_group)
 # reset default value of rabbit_virtual_host
-CONF.set_default('rabbit_virtual_host', default='goperation', group=rabbit_group)
+goperation_config.set_rabbitmq_vhost_default()
 rabbit_conf = CONF[rabbit_group.name]
+
+def list_manager_opts():
+    return goperation_opts + database_opts + redis_opts

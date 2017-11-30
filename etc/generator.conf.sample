@@ -1,0 +1,380 @@
+[DEFAULT]
+
+#
+# From DEFAULT
+#
+
+# The endpoint group name or namespace (multi valued)
+#endpoints =
+
+# Goperation local ip address (IP address value)
+#local_ip = <None>
+
+# Goperation external network IP addresses (list value)
+#external_ips = <None>
+
+# Goperation work in this path (folder path)
+#work_path = <None>
+
+# Hostname to be used by the server, agents and services running on this
+# machine. All the agents and services running on this machine must use the
+# same host value. (hostname value)
+#host = surfac
+
+# Where to store simpleservice state files. This directory must be writable by
+# the agent.  (string value)
+#state_path = /var/run/goperation
+
+# Enables or disables logging values of all registered options when starting a
+# service (at DEBUG level). (boolean value)
+#log_options = true
+
+# Specify a timeout after which a gracefully shutdown server will exit. Zero
+# value means endless wait. (integer value)
+#graceful_shutdown_timeout = 60
+
+# Specify server ip address of ntp request (IP address value)
+#ntp_server = <None>
+
+# Specify port of ntp request (port value)
+# Minimum value: 0
+# Maximum value: 65535
+#ntp_port = 123
+
+# Specify the version of ntp request (integer value)
+# Minimum value: 1
+# Maximum value: 4
+#ntp_version = 4
+
+# Specify a timeout for ntp request (integer value)
+# Minimum value: 1
+# Maximum value: 5
+#ntp_timeout = 1
+
+# set the default logging level (string value)
+#loglevel = WARNING
+
+# The name of a logging configuration file. This file is appended to any
+# existing logging configuration files. For details about logging configuration
+# files, see the Python logging module documentation. Note that when logging
+# configuration files are used then all logging configuration is set in the
+# configuration file and other logging configuration options are ignored (for
+# example, logging_context_format_string). (string value)
+#log_config_append = <None>
+
+# Defines the format string for %%(asctime)s in log records. Default:
+# %(default)s . This option is ignored if log_config_append is set. (string
+# value)
+#log_date_format = %Y-%m-%d %H:%M:%S
+
+# (Optional) Name of log file to send logging output to. If no default is set,
+# logging will go to stderr as defined by use_stderr. This option is ignored if
+# log_config_append is set. (string value)
+#log_file = <None>
+
+# (Optional) The base directory used for relative log_file  paths. This option
+# is ignored if log_config_append is set. (string value)
+#log_dir = <None>
+
+# Uses logging handler designed to watch file system. When log file is moved or
+# removed this handler will open a new log file with specified path
+# instantaneously. It makes sense only if log_file option is specified and
+# Linux platform is used. This option is ignored if log_config_append is set.
+# (boolean value)
+#watch_log_file = false
+
+# Use syslog for logging. Existing syslog format is DEPRECATED and will be
+# changed later to honor RFC5424. This option is ignored if log_config_append
+# is set. (boolean value)
+#use_syslog = false
+
+# Syslog facility to receive log lines. This option is ignored if
+# log_config_append is set. (string value)
+#syslog_log_facility = LOG_USER
+
+# Log output to standard error. This option is ignored if log_config_append is
+# set. (boolean value)
+#use_stderr = true
+
+# Format string to use for log messages with context. (string value)
+#logging_context_format_string = %(asctime)s.%(msecs)03d %(process)d %(levelname)s %(name)s [%(request_id)s %(user_identity)s] %(instance)s%(message)s
+
+# Format string to use for log messages when context is undefined. (string
+# value)
+#logging_default_format_string = %(asctime)s.%(msecs)03d %(process)d %(levelname)s %(name)s [-] %(instance)s%(message)s
+
+# Additional data to append to log message when logging level for the message
+# is DEBUG. (string value)
+#logging_debug_format_suffix = <None>
+
+# Prefix each line of exception output with this format. (string value)
+#logging_exception_prefix = %(asctime)s.%(msecs)03d %(process)d ERROR %(name)s %(instance)s
+
+# Defines the format string for %(user_identity)s that is used in
+# logging_context_format_string. (string value)
+#logging_user_identity_format = %(user)s %(tenant)s %(domain)s %(user_domain)s %(project_domain)s
+
+# List of package logging levels in logger=LEVEL pairs. This option is ignored
+# if log_config_append is set. (list value)
+#default_log_levels = amqp=WARN,sqlalchemy=WARN,routes.middleware=WARN,requests.packages.urllib3.connectionpool=WARN,requests.packages.urllib3.util.retry=WARN,simpleutil=WARN,simpleservice.ormdb.engines=WARN
+
+
+[manager]
+
+#
+# From manager
+#
+
+# Timeout for allocate glock (floating point value)
+#glock_alloctime = 3
+
+# Hostname or IP address of gcenter wsgi service (hostname or ip value)
+#gcenter = 127.0.0.1
+
+# Http port of gcenter wsgi service (port value)
+# Minimum value: 0
+# Maximum value: 65535
+#gcenter_port = 7999
+
+# HTTP persistent connection number for gcenter (integer value)
+# Minimum value: 5
+# Maximum value: 50
+#http_pconn_count = 30
+
+# Trusted token, means a unlimit user (string value)
+#trusted = goperation-trusted-user
+
+# The SQLAlchemy connection string to use to connect to the database. (string
+# value)
+#connection = <None>
+
+# The SQLAlchemy connection string to use to connect to the slave database.
+# (string value)
+#slave_connection = <None>
+
+# The SQL mode to be used for MySQL sessions. This option, including the
+# default, overrides any server-set SQL mode. To use whatever SQL mode is set
+# by the server configuration, set this to no value. Example: mysql_sql_mode=
+# (string value)
+#mysql_sql_mode = TRADITIONAL
+
+# Timeout before idle SQL connections are reaped. (integer value)
+#idle_timeout = 600
+
+# Minimum number of SQL connections to keep open in a pool. (integer value)
+#min_pool_size = 1
+
+# Maximum number of SQL connections to keep open in a pool. (integer value)
+#max_pool_size = 5
+
+# Maximum number of database connection retries during startup. Set to -1 to
+# specify an infinite retry count. (integer value)
+#max_retries = 10
+
+# Interval between retries of opening a SQL connection. (integer value)
+#retry_interval = 10
+
+# If set, use this value for max_overflow with SQLAlchemy. (integer value)
+#max_overflow = 30
+
+# Add Python stack traces to SQL as comment strings. (boolean value)
+#connection_trace = false
+
+# If set, use this value for pool_timeout with SQLAlchemy. (integer value)
+#pool_timeout = <None>
+
+# Enable the experimental use of database reconnect on connection lost.
+# (boolean value)
+#use_db_reconnect = false
+
+# Seconds between retries of a database transaction. (integer value)
+#db_retry_interval = 1
+
+# If True, increases the interval between retries of a database operation up to
+# db_max_retry_interval. (boolean value)
+#db_inc_retry_interval = true
+
+# If db_inc_retry_interval is set, the maximum seconds between retries of a
+# database operation. (integer value)
+#db_max_retry_interval = 10
+
+# Maximum retries in case of connection error or deadlock error before error is
+# raised. Set to -1 to specify an infinite retry count. (integer value)
+#db_max_retries = 20
+
+# Redis connect host address (hostname value)
+#redis_host = 127.0.0.1
+
+# Redis connect Port (port value)
+# Minimum value: 0
+# Maximum value: 65535
+#redis_port = 6379
+
+# Redis datababse id (integer value)
+#redis_db = 0
+
+# Redis password (string value)
+#redis_password = <None>
+
+# Timeout for socket send and receive (floating point value)
+#redis_socket_timeout = 0.5
+
+# Timeout for socket connect (floating point value)
+#redis_connect_timeout = 3.0
+
+# Maximum number of redis connections to keep open in a pool. (integer value)
+# Minimum value: 2
+# Maximum value: 20
+#redis_pool_size = 5
+
+# Millisecond between two heartbeat (integer value)
+# Minimum value: 100
+# Maximum value: 10000
+#redis_heartbeat_overtime = 300
+
+# Over time max count of redis_heartbeat_overtime (integer value)
+# Minimum value: 1
+# Maximum value: 5
+#redis_heartbeat_overtime_max_count = 3
+
+# redis key prefix value (string value)
+#redis_key_prefix = goper
+
+
+[rabbit]
+
+#
+# From rabbit
+#
+
+# The RabbitMQ broker address where a single node is used. (string value)
+#rabbit_host = localhost
+
+# The RabbitMQ broker port where a single node is used. (port value)
+# Minimum value: 0
+# Maximum value: 65535
+#rabbit_port = 5672
+
+# The RabbitMQ userid. (string value)
+#rabbit_userid = guest
+
+# The RabbitMQ password. (string value)
+#rabbit_password = guest
+
+# The RabbitMQ virtual host. (string value)
+#rabbit_virtual_host = goperation
+
+# The default exchange under which topics are scoped. May be overridden by an
+# exchange name specified in the transport_url option. (string value)
+#exchange = simpleservice
+
+# The RabbitMQ login method. (string value)
+#rabbit_login_method = AMQPLAIN
+
+# Try to use HA queues in RabbitMQ (x-ha-policy: all). If you change this
+# option, you must wipe the RabbitMQ database. In RabbitMQ 3.0, queue mirroring
+# is no longer controlled by the x-ha-policy argument when declaring a queue.
+# If you just want to make sure that all queues (except  those with auto-
+# generated names) are mirrored across all nodes, run: "rabbitmqctl set_policy
+# HA '^(?!amq\.).*' '{"ha-mode": "all"}' " (boolean value)
+#rabbit_ha_queues = false
+
+# How long to wait before reconnecting in response to an AMQP consumer cancel
+# notification. (floating point value)
+#kombu_reconnect_delay = 0.5
+
+# How long to wait a missing client beforce abandoning to send it its replies.
+# This value should not be longer than rpc_send_timeout. (integer value)
+#kombu_missing_consumer_retry_timeout = 5
+
+# Determines how the next RabbitMQ node is chosen in case the one we are
+# currently connected to becomes unavailable. Takes effect only if more than
+# one RabbitMQ node is provided in config. (string value)
+# Allowed values: round-robin, shuffle
+#kombu_failover_strategy = round-robin
+
+# How frequently to retry connecting with RabbitMQ. (integer value)
+#rabbit_retry_interval = 1
+
+# How long to backoff for between retries when connecting to RabbitMQ. (integer
+# value)
+#rabbit_retry_backoff = 1
+
+# Maximum interval of RabbitMQ connection retries. Default is 3 seconds.
+# (integer value)
+#rabbit_interval_max = 2
+
+# Maximum number of RabbitMQ connection retries. Default is 0 (infinite retry
+# count). (integer value)
+#rabbit_max_retries = 5
+
+# Positive integer representing duration in seconds for queue TTL (x-expires).
+# Queues which are unused for the duration of the TTL are automatically
+# deleted. The parameter affects only reply and fanout queues. (integer value)
+# Minimum value: 1
+#rabbit_transient_queues_ttl = 300
+
+# Timeout connect to rabbit server (floating point value)
+#rabbit_connect_timeout = 0.5
+
+# Specifies the number of messages to prefetch. Setting to zero allows
+# unlimited messages. (integer value)
+#rabbit_qos_prefetch_count = 0
+
+# Number of seconds after which the Rabbit broker is considered down if
+# heartbeat's keep-alive fails (0 disable the heartbeat). EXPERIMENTAL (integer
+# value)
+#heartbeat_timeout_threshold = 30
+
+# How often times during the heartbeat_timeout_threshold we check the
+# heartbeat. (integer value)
+#heartbeat_rate = 2
+
+# EXPERIMENTAL: Possible values are: gzip, bz2. If not set compression will not
+# be used. This option may notbe available in future versions. (string value)
+#kombu_compression = <None>
+
+# Connect over SSL for RabbitMQ. (boolean value)
+#rabbit_use_ssl = false
+
+# SSL version to use (valid only if SSL enabled). Valid values are TLSv1 and
+# SSLv23. SSLv2, SSLv3, TLSv1_1, and TLSv1_2 may be available on some
+# distributions. (string value)
+#kombu_ssl_version =
+
+# SSL key file (valid only if SSL enabled). (string value)
+#kombu_ssl_keyfile =
+
+# SSL cert file (valid only if SSL enabled). (string value)
+#kombu_ssl_certfile =
+
+# SSL certification authority file (valid only if SSL enabled). (string value)
+#kombu_ssl_ca_certs =
+
+# Use durable queues in AMQP. (boolean value)
+#amqp_durable_queues = false
+
+# Auto-delete queues in AMQP. (boolean value)
+#amqp_auto_delete = false
+
+# Size of rabbit RPC connection pool for send rpc request. (integer value)
+#rabbit_conn_pool_size = 30
+
+# The number of worker processes to serve the rpc process (integer value)
+# Minimum value: 1
+# Maximum value: 255
+#rpc_process = 5
+
+# Size of eventlet thread pool. (integer value)
+#rpc_eventlet_pool_size = 64
+
+# Give this number of seconds to socket.settimeout as default when Rabbit
+# message send (integer value)
+# Minimum value: 3
+# Maximum value: 10
+#rpc_send_timeout = 5
+
+# Rabbit message default send retry times (integer value)
+# Minimum value: 0
+# Maximum value: 3
+#rpc_send_retry = 1

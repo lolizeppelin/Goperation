@@ -11,3 +11,6 @@ filemanager_opts = [
     cfg.StrOpt('folder',
                help='File Manager save file folder')
 ]
+
+def list_opts():
+    return list(filemanager_opts)

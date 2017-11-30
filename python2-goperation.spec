@@ -1,16 +1,18 @@
 %{!?python_sitelib: %global python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print get_python_lib()"
 )}
 
-%define proj_name Goperation
-%define lower_proj_name goperation
+%{!?_initddir: %{expand: %%global _initddir %{_initrddir}}}
 
-Name:           python-%{lower_proj_name}
+%define python_proj_name Goperation
+%define proj_name goperation
+
+Name:           python-%{proj_name}
 Version:        1.0.0
 Release:        0%{?dist}
 Summary:        Game operation framework
 Group:          Development/Libraries
 License:        MPLv1.1 or GPLv2
-URL:            http://github.com/Lolizeppelin/%{proj_name}
+URL:            http://github.com/Lolizeppelin/%{python_proj_name}
 Source0:        %{proj_name}-%{version}.tar.gz
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildArch:      noarch
@@ -19,59 +21,90 @@ BuildRequires:  python-setuptools >= 11.0
 
 Requires:       python >= 2.6.6
 Requires:       python < 3.0
-Requires:       python-six >= 1.9.0
-Requires:       python-eventlet >= 0.15.2
-Requires:       python-requests >= 2.8.1
-Requires:       python-requests != 2.9.0
-Requires:       python-simpleutil >= 1.0.0
+Requires:       python-redis >= 2.10.0
+Requires:       python-simpleservice-ormdb >= 1.0
+Requires:       python-simpleservice-ormdb < 1.1
+Requires:       python-simpleservice-rpc >= 1.0
+Requires:       python-simpleservice-rpc < 1.1
 
 %description
 Game operation framework
 
 %files
 %defattr(-,root,root,-)
-%{python_sitelib}/%{lower_proj_name}/*.py
-%{python_sitelib}/%{lower_proj_name}/*.pyc
-%dir %{python_sitelib}/%{lower_proj_name}/api
-%dir %{python_sitelib}/%{lower_proj_name}/cmd
-%dir %{python_sitelib}/%{lower_proj_name}/filemanager
-%dir %{python_sitelib}/%{lower_proj_name}/workflow
+%{python_sitelib}/%{proj_name}/*.py
+%{python_sitelib}/%{proj_name}/*.pyc
+%{python_sitelib}/%{proj_name}/*.pyo
+%{python_sitelib}/%{proj_name}/api/*
+%dir %{python_sitelib}/%{proj_name}/cmd/
+%dir %{python_sitelib}/%{proj_name}/cmd/agent
+%{python_sitelib}/%{proj_name}/cmd/agent/__init__.py*
+%{python_sitelib}/%{proj_name}/cmd/db/*
+%{python_sitelib}/%{proj_name}/filemanager/*
+%{python_sitelib}/%{proj_name}/redis/*
+%{python_sitelib}/%{proj_name}/taskflow/*
+%dir %{python_sitelib}/%{proj_name}/manager/
+%{python_sitelib}/%{proj_name}/manager/*.py
+%{python_sitelib}/%{proj_name}/manager/*.pyc
+%{python_sitelib}/%{proj_name}/manager/*.pyo
+%{python_sitelib}/%{proj_name}/manager/rpc/*
+%{python_sitelib}/%{proj_name}/manager/utils/*
+%{python_sitelib}/%{proj_name}-%{version}-*.egg-info/*
+%dir %{python_sitelib}/%{proj_name}-%{version}-*.egg-info/
 %doc README.rst
 %doc doc/*
+%config(noreplace) %{_sysconfdir}/%{proj_name}/goperation.conf
+%config(noreplace) %{_sysconfdir}/%{proj_name}/endpoints/*.conf
 
 
 
-%package wsgi
+%package server
 Summary:        Control center of goperation
 Group:          Development/Libraries
 Requires:       %{name} == %{version}
-Requires:       python-webob >= 1.2.3
-Requires:       python-paste
-Requires:       python-paste-deploy >= 1.5.0
-Requires:       python-routes >= 1.12.3
-Requires:       python-routes < 2.0
+Requires:       python-simpleservice-wsgi >= 1.0
+Requires:       python-simpleservice-wsgi < 1.1
 
-%description wsgi
-wsgi server framework
+%description server
+goperation wsgi server and rpc server
 
-%files wsgi
+%files server
 %defattr(-,root,root,-)
-%dir %{python_sitelib}/%{proj_name}/wsgi
+%{python_sitelib}/%{proj_name}/cmd/server/*
+%config(noreplace) %{_sysconfdir}/%{proj_name}/gcenter.conf
+%config(noreplace) %{_sysconfdir}/%{proj_name}/gcenter-paste.ini
 
 
 
-%package rpc
-Summary:        rpc framework for simpleservice plugin
+%package application
+Summary:        Goperation application agent
 Group:          Development/Libraries
 Requires:       %{name} == %{version}
-Requires:       python-kombu >= 3.0.25
 
-%description rpc
-rpc framework for simpleservice plugin
+%description application
+goperation application agent
 
-%files ormdb
+%files application
 %defattr(-,root,root,-)
-%dir %{python_sitelib}/%{proj_name}/rpc
+%{python_sitelib}/%{proj_name}/cmd/agent/application.py*
+%config(noreplace) %{_sysconfdir}/%{proj_name}/agent.conf
+
+
+
+%package scheduler
+Summary:        Goperation scheduler agent
+Group:          Development/Libraries
+Requires:       %{name} == %{version}
+
+%description scheduler
+goperation scheduler agent
+
+%files scheduler
+%defattr(-,root,root,-)
+%{python_sitelib}/%{proj_name}/cmd/agent/scheduler.py*
+%config(noreplace) %{_sysconfdir}/%{proj_name}/agent.conf
+%{_sbindir}/
+%{_bindir}/
 
 
 
@@ -86,8 +119,41 @@ rm -rf %{proj_name}.egg-info
 %{__rm} -rf %{buildroot}
 %{__python} setup.py install -O1 --skip-build --root %{buildroot}
 
+install -C -D etc/*.conf -d %{buildroot}%{_sysconfdir}/%{proj_name}
+install -C -D etc/gcenter-paste.ini -d %{buildroot}%{_sysconfdir}/%{proj_name}
+install -D etc/endpoints/* -d %{buildroot}%{_sysconfdir}/%{proj_name}/endpoints
+
 %clean
 %{__rm} -rf %{buildroot}
+
+
+%post server
+%if %{initscripttype} == "systemd"
+%systemd_post gcenter-wsgi.service
+%systemd_post gcenter-rpc.service
+%endif
+%if %{initscripttype} == "sysv"
+chkconfig --add gcenter-wsgi
+chkconfig --add gcenter-rpc
+%endif
+
+
+%post application
+%if %{initscripttype} == "systemd"
+%systemd_post gop-application.service
+%endif
+%if %{initscripttype} == "sysv"
+chkconfig --add gop-application
+%endif
+
+
+%post scheduler
+%if %{initscripttype} == "systemd"
+%systemd_post gop-scheduler.service
+%endif
+%if %{initscripttype} == "sysv"
+chkconfig --add gop-scheduler
+%endif
 
 
 %changelog

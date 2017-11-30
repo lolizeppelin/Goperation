@@ -1,10 +1,10 @@
-from goperation.cmd.server import http
+from goperation.cmd.server import wsgi
 
 
 def main():
     a = 'C:\\Users\\loliz_000\\Desktop\\etc\\goperation\\goperation.conf'
     b = 'C:\\Users\\loliz_000\\Desktop\\etc\\goperation\\gcenter.conf'
-    http.run([a, b])
+    wsgi.run([a, b])
 
 
 if __name__ == '__main__':

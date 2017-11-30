@@ -8,3 +8,7 @@ route_opts = [
                  default=[],
                  help='Manager extend route module string'),
 ]
+
+
+def list_opts():
+    return route_opts

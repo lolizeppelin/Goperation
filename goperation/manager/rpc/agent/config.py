@@ -1,7 +1,7 @@
 from simpleutil.config import cfg
 
-
 from goperation.manager import common as manager_common
+from goperation.filemanager.config import filemanager_opts
 
 
 CONF = cfg.CONF
@@ -34,3 +34,11 @@ rpc_endpoint_opts = [
                 default=5,
                 help='Endpoint max lock size'),
 ]
+
+
+CONF.register_opts(rpc_agent_opts, agent_group)
+CONF.register_opts(filemanager_opts, agent_group)
+
+
+def list_opts():
+    return rpc_agent_opts + filemanager_opts

@@ -19,14 +19,18 @@ wsgi_port = 7999
 client = ManagerClient(wsgi_url, wsgi_port)
 
 
-print client.entitys_index(endpoint='gopcdn')
-print client.entitys_agent_index(agent_id=1, endpoint='gopcdn')
+# print client.entitys_index(endpoint='gopcdn')
+# print client.entitys_agent_index(agent_id=1, endpoint='gopcdn')
+# try:
+#     print client.entitys_show(endpoint='gopcdn', entitys=1)
+# except Exception as e:
+#     print e
 try:
-    print client.entitys_show(endpoint='gopcdn', entitys=1)
-except Exception as e:
-    print e
-try:
-    print client.entitys_add(agent_id=1, endpoint='gopcdn', body=None)
+    print client.entitys_add(agent_id=1, endpoint='gopcdn',
+                             body={'forendpoint': 'mszl', 'etype': 'ios',
+                                   'uri': 'http://172.23.0.2:8081/svn/pokemon_assets_online/default.ios',
+                                   'auth': {'username': 'pokemon_op_manager',
+                                            'password': '0bcc3acb7431f3d0'}})
 except Exception as e:
     print e
 

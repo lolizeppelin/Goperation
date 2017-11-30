@@ -7,6 +7,7 @@ import contextlib
 import psutil
 
 from simpleutil.config import cfg
+from simpleutil.log import log as logging
 from simpleutil.utils import lockutils
 from simpleutil.utils import importutils
 from simpleutil.utils.attributes import validators
@@ -19,7 +20,6 @@ from goperation import threadpool
 from goperation.utils import suicide
 from goperation.api.client import GopHttpClientApi
 from goperation.filemanager import FileManager
-from goperation.filemanager.config import filemanager_opts
 from goperation.manager.api import get_http
 from goperation.manager import common as manager_common
 from goperation.manager.utils.validateutils import validate_endpoint
@@ -37,10 +37,7 @@ from goperation.manager.rpc.agent.config import rpc_endpoint_opts
 
 CONF = cfg.CONF
 
-LOG = None
-
-CONF.register_opts(rpc_agent_opts, agent_group)
-CONF.register_opts(filemanager_opts, agent_group)
+LOG = logging.getLogger(__name__)
 
 
 class AgentManagerClient(GopHttpClientApi):

@@ -6,9 +6,7 @@ from simpleflow.storage.middleware import LogBook
 from simpleflow.engines.engine import ParallelActionEngine
 
 from goperation.taskflow import common
-from goperation.manager.rpc.agent.application import taskflow
 
-LOG = taskflow.LOG
 
 class StandardTask(Task):
 
@@ -25,8 +23,6 @@ class StandardTask(Task):
     def revert(self, *args, **kwargs):
         result = kwargs.get('result') or args[0]
         if isinstance(result, failure.Failure):
-            if LOG:
-                LOG.error(result.pformat())
             self.middleware.set_return(self.__class__.__name__, common.EXECUTE_FAIL)
 
     def post_execute(self):
@@ -46,9 +42,6 @@ class EntityTask(Task):
     def execute(self):
         try:
             self.engine.run()
-        except Exception as e:
-            if LOG:
-                LOG.exception('Entity execute cache %s' % e.__class__.__name__)
         finally:
             # cleanup sub taskflow engine logbook
             self.connection.destroy_logbook(self.book_uuid)
