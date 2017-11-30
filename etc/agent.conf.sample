@@ -21,8 +21,7 @@
 # simpleflow storage connection url (string value)
 #taskflow_storage = sqlite:///:memory:
 
-# The SQLAlchemy connection string to use to connect to the database. (string
-# value)
+# File Manager storage file (string value)
 #sqlite = $state_path/filemanager.db
 
 # File Manager save file folder (string value)

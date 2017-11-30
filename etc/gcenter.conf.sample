@@ -41,7 +41,7 @@
 
 # Name of the paste configuration file that defines the available pipelines.
 # (string value)
-#paste_config = simpleservice-paste.ini
+#paste_config = gcenter-paste.ini
 
 # A python format string that is used as the template to generate log lines.
 # The following values can beformatted into it: client_ip, date_time,

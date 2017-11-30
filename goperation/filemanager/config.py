@@ -6,8 +6,7 @@ CONF = cfg.CONF
 filemanager_opts = [
     cfg.StrOpt('sqlite',
                default='$state_path/filemanager.db',
-               help='The SQLAlchemy connection string '
-                    'to use to connect to the database.'),
+               help='File Manager storage file'),
     cfg.StrOpt('folder',
                help='File Manager save file folder')
 ]
