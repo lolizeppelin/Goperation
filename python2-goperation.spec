@@ -91,6 +91,7 @@ goperation wsgi server and rpc server
 %{_initrddir}/gcenter-wsgi
 %{_sbindir}/gcenter-rpc
 %{_sbindir}/gcenter-wsgi
+%{_sbindir}/gcenter-db-init
 
 
 %package agent
