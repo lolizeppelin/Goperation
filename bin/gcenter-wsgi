@@ -1,0 +1,11 @@
+#!/usr/bin/python
+from goperation.cmd.server import wsgi
+
+
+def main():
+    default = '/etc/goperation/goperation.conf'
+    agent = '/etc/goperation/gcenter.conf'
+    wsgi.run([default, agent])
+
+if __name__ == '__main__':
+    main()

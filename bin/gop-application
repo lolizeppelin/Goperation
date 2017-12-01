@@ -1,0 +1,11 @@
+#!/usr/bin/python
+from goperation.cmd.agent import application
+
+
+def main():
+    default = '/etc/goperation/goperation.conf'
+    agent = '/etc/goperation/agent.conf'
+    application.run([default, agent])
+
+if __name__ == '__main__':
+    main()

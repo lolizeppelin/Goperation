@@ -22,7 +22,8 @@ def configure(agent_type, config_files=None, config_dirs=None):
 
 
 def run(manager_cls, config_files, config_dirs=None):
-    configure(manager_cls.agent_type, config_files=config_files, config_dirs=config_dirs)
+    configure(manager_cls.agent_type,
+              config_files=config_files, config_dirs=config_dirs)
     wrappers = []
     rpc_service = LauncheRpcServiceBase(manager_cls(), plugin_threadpool=threadpool)
     rpc_wrapper = LaunchWrapper(service=rpc_service, workers=1)

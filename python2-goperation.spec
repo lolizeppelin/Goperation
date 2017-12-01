@@ -5,10 +5,14 @@
 
 %define python_proj_name Goperation
 %define proj_name goperation
+%define rundir /var/run/%{proj_name}
+
+
+%define _release RELEASEVERSION
 
 Name:           python-%{proj_name}
-Version:        1.0.0
-Release:        0%{?dist}
+Version:        RPMVERSION
+Release:        %{_release}%{?dist}
 Summary:        Game operation framework
 Group:          Development/Libraries
 License:        MPLv1.1 or GPLv2
@@ -37,24 +41,32 @@ Game operation framework
 %{python_sitelib}/%{proj_name}/*.pyo
 %{python_sitelib}/%{proj_name}/api/*
 %dir %{python_sitelib}/%{proj_name}/cmd/
-%dir %{python_sitelib}/%{proj_name}/cmd/agent
-%{python_sitelib}/%{proj_name}/cmd/agent/__init__.py*
 %{python_sitelib}/%{proj_name}/cmd/db/*
+%dir %{python_sitelib}/%{proj_name}/filemanager/
 %{python_sitelib}/%{proj_name}/filemanager/*
+%dir %{python_sitelib}/%{proj_name}/redis/
 %{python_sitelib}/%{proj_name}/redis/*
+%dir %{python_sitelib}/%{proj_name}/taskflow/
 %{python_sitelib}/%{proj_name}/taskflow/*
 %dir %{python_sitelib}/%{proj_name}/manager/
 %{python_sitelib}/%{proj_name}/manager/*.py
 %{python_sitelib}/%{proj_name}/manager/*.pyc
 %{python_sitelib}/%{proj_name}/manager/*.pyo
-%{python_sitelib}/%{proj_name}/manager/rpc/*
+%dir %{python_sitelib}/%{proj_name}/manager/rpc/
+%{python_sitelib}/%{proj_name}/manager/rpc/*.py
+%{python_sitelib}/%{proj_name}/manager/rpc/*.pyo
+%{python_sitelib}/%{proj_name}/manager/rpc/*.pyc
+%dir %{python_sitelib}/%{proj_name}/manager/utils/
+%{python_sitelib}/%{proj_name}/manager/utils/*.py
+%{python_sitelib}/%{proj_name}/manager/utils/*.pyc
+%{python_sitelib}/%{proj_name}/manager/utils/*.pyo
 %{python_sitelib}/%{proj_name}/manager/utils/*
 %{python_sitelib}/%{proj_name}-%{version}-*.egg-info/*
 %dir %{python_sitelib}/%{proj_name}-%{version}-*.egg-info/
 %doc README.rst
 %doc doc/*
-%config(noreplace) %{_sysconfdir}/%{proj_name}/goperation.conf
-%config(noreplace) %{_sysconfdir}/%{proj_name}/endpoints/*.conf
+%config %{_sysconfdir}/%{proj_name}/goperation.conf
+%config %{_sysconfdir}/%{proj_name}/endpoints/*.conf
 
 
 
@@ -71,15 +83,37 @@ goperation wsgi server and rpc server
 %files server
 %defattr(-,root,root,-)
 %{python_sitelib}/%{proj_name}/cmd/server/*
-%config(noreplace) %{_sysconfdir}/%{proj_name}/gcenter.conf
-%config(noreplace) %{_sysconfdir}/%{proj_name}/gcenter-paste.ini
+%{python_sitelib}/%{proj_name}/manager/rpc/server/
+%{python_sitelib}/%{proj_name}/manager/wsgi/*
+
+%config %{_sysconfdir}/%{proj_name}/gcenter.conf.sample
+%config %{_sysconfdir}/%{proj_name}/gcenter-paste.ini.sample
+
+
+%package agent
+Summary:        Control center of goperation
+Group:          Development/Libraries
+Requires:       %{name} == %{version}
+
+%description agent
+goperation rpc agent
+
+%files agent
+%defattr(-,root,root,-)
+%dir %{python_sitelib}/%{proj_name}/cmd/agent
+%{python_sitelib}/%{proj_name}/cmd/agent/__init__.py*
+%dir %{python_sitelib}/%{proj_name}/manager/rpc/agent/
+%{python_sitelib}/%{proj_name}/manager/rpc/agent/*.py
+%{python_sitelib}/%{proj_name}/manager/rpc/agent/*.pyc
+%{python_sitelib}/%{proj_name}/manager/rpc/agent/*.pyo
+%config %{_sysconfdir}/%{proj_name}/agent.conf.sample
 
 
 
 %package application
 Summary:        Goperation application agent
 Group:          Development/Libraries
-Requires:       %{name} == %{version}
+Requires:       %{name}-agent == %{version}
 
 %description application
 goperation application agent
@@ -87,25 +121,24 @@ goperation application agent
 %files application
 %defattr(-,root,root,-)
 %{python_sitelib}/%{proj_name}/cmd/agent/application.py*
-%config(noreplace) %{_sysconfdir}/%{proj_name}/agent.conf
+%dir %{python_sitelib}/%{proj_name}/manager/rpc/agent/application/
+%{python_sitelib}/%{proj_name}/manager/rpc/agent/application/*
 
 
 
 %package scheduler
 Summary:        Goperation scheduler agent
 Group:          Development/Libraries
-Requires:       %{name} == %{version}
+Requires:       %{name}-agent == %{version}
 
 %description scheduler
 goperation scheduler agent
 
 %files scheduler
 %defattr(-,root,root,-)
+%dir %{python_sitelib}/%{proj_name}/manager/rpc/agent/scheduler/
+%{python_sitelib}/%{proj_name}/manager/rpc/agent/scheduler/*
 %{python_sitelib}/%{proj_name}/cmd/agent/scheduler.py*
-%config(noreplace) %{_sysconfdir}/%{proj_name}/agent.conf
-%{_sbindir}/
-%{_bindir}/
-
 
 
 %prep
@@ -119,12 +152,21 @@ rm -rf %{proj_name}.egg-info
 %{__rm} -rf %{buildroot}
 %{__python} setup.py install -O1 --skip-build --root %{buildroot}
 
-install -C -D etc/*.conf -d %{buildroot}%{_sysconfdir}/%{proj_name}
+install -C -D etc/*.conf.sample -d %{buildroot}%{_sysconfdir}/%{proj_name}
 install -C -D etc/gcenter-paste.ini -d %{buildroot}%{_sysconfdir}/%{proj_name}
-install -D etc/endpoints/* -d %{buildroot}%{_sysconfdir}/%{proj_name}/endpoints
+install -d %{buildroot}%{_sysconfdir}/%{proj_name}/endpoints
+install -d %{rundir}
+
+install  -p -D -m 0755 gcenter-wsgi %{buildroot}%{_initrddir}/gcenter-wsgi
+install  -p -D -m 0755 gcenter-rpc %{buildroot}%{_initrddir}/gcenter-rpc
+install  -p -D -m 0755 gop-application %{buildroot}%{_initrddir}/gop-application
+install  -p -D -m 0755 gop-scheduler %{buildroot}%{_initrddir}/gop-scheduler
+
+install  -p -D -m 0554 bin/* %{buildroot}%{_sbindir}
 
 %clean
 %{__rm} -rf %{buildroot}
+
 
 
 %post server
@@ -137,6 +179,11 @@ chkconfig --add gcenter-wsgi
 chkconfig --add gcenter-rpc
 %endif
 
+%preun server
+chkconfig --del gcenter-wsgi
+chkconfig --del gcenter-rpc
+
+
 
 %post application
 %if %{initscripttype} == "systemd"
@@ -146,6 +193,10 @@ chkconfig --add gcenter-rpc
 chkconfig --add gop-application
 %endif
 
+%preun application
+chkconfig --del gop-application
+
+
 
 %post scheduler
 %if %{initscripttype} == "systemd"
@@ -154,6 +205,9 @@ chkconfig --add gop-application
 %if %{initscripttype} == "sysv"
 chkconfig --add gop-scheduler
 %endif
+
+%preun application
+chkconfig --del gop-scheduler
 
 
 %changelog
