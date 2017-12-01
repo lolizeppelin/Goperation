@@ -69,7 +69,7 @@ class CheckManagerRpcCtxt(CheckRpcCtxt):
                                            result='Could not find target file')
                     raise exceptions.RpcCtxtException(result)
                 # change file info to object
-                ctxt.update({'file', target_file})
+                ctxt.update({'file': target_file})
             # check success run rpc function
             result = self.func(*args, **kwargs)
         except MessageNotForMe:
