@@ -19,8 +19,8 @@
 CONF_DIR="/etc/goperation/endpoints"
 
 lockfile="/var/lock/subsys/gcenter.rpc"
-prog="gcenter.rpc"
-pyproc="/usr/sbin/gcenter-rpc"
+prog="gcenter-rpc"
+pyproc="/usr/sbin/"$prog
 
 
 start() {

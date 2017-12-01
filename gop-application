@@ -19,8 +19,8 @@
 CONF_DIR="/etc/goperation/endpoints"
 
 lockfile="/var/lock/subsys/gop.application"
-prog="gop.application"
-pyproc="/usr/sbin/gop-application"
+prog="gop-application"
+pyproc="/usr/sbin/"$prog
 
 
 start() {

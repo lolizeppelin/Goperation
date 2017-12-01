@@ -19,8 +19,8 @@
 CONF_DIR="/etc/goperation/endpoints"
 
 lockfile="/var/lock/subsys/gop.scheduler"
-prog="gop.scheduler"
-pyproc="/usr/sbin/gop-scheduler"
+prog="gop-scheduler"
+pyproc="/usr/sbin/"$prog
 
 
 start() {

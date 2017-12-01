@@ -19,8 +19,8 @@
 CONF_DIR="/etc/goperation/endpoints"
 
 lockfile="/var/lock/subsys/gcenter.wsgi"
-prog="gcenter.wsgi"
-pyproc="/usr/sbin/gcenter-wsgi"
+prog="gcenter-wsgi"
+pyproc="/usr/sbin/"$prog
 
 
 start() {
