@@ -48,6 +48,11 @@ restart() {
     start
 }
 
+prog_status() {
+    status $prog
+}
+
+
 case "$1" in
     start)
         rh_status_q && exit 0
@@ -57,10 +62,13 @@ case "$1" in
         rh_status_q || exit 0
         $1
         ;;
-    restart|configtest|reopen_logs)
-        $1
+    restart)
+        restart
+        ;;
+    status)
+        prog_status
         ;;
     *)
-        echo $"Usage: $0 {start|stop|restart}"
+        echo $"Usage: $0 {start|stop|restart|status}"
         exit 2
 esac
