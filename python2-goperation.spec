@@ -22,6 +22,7 @@ BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildArch:      noarch
 
 BuildRequires:  python-setuptools >= 11.0
+BuildRequires:  python-simpleutil
 
 Requires:       python >= 2.6.6
 Requires:       python < 3.0
@@ -168,45 +169,21 @@ install  -p -D -m 0554 bin/* %{buildroot}%{_sbindir}
 %{__rm} -rf %{buildroot}
 
 
-
 %post server
-%if %{initscripttype} == "systemd"
-%systemd_post gcenter-wsgi.service
-%systemd_post gcenter-rpc.service
-%endif
-%if %{initscripttype} == "sysv"
 chkconfig --add gcenter-wsgi
 chkconfig --add gcenter-rpc
-%endif
-
 %preun server
 chkconfig --del gcenter-wsgi
 chkconfig --del gcenter-rpc
 
-
-
 %post application
-%if %{initscripttype} == "systemd"
-%systemd_post gop-application.service
-%endif
-%if %{initscripttype} == "sysv"
 chkconfig --add gop-application
-%endif
-
 %preun application
 chkconfig --del gop-application
 
-
-
 %post scheduler
-%if %{initscripttype} == "systemd"
-%systemd_post gop-scheduler.service
-%endif
-%if %{initscripttype} == "sysv"
 chkconfig --add gop-scheduler
-%endif
-
-%preun application
+%preun scheduler
 chkconfig --del gop-scheduler
 
 
