@@ -5,7 +5,8 @@
 
 %define python_proj_name Goperation
 %define proj_name goperation
-%define rundir /var/run/%{proj_name}
+%global rundir /var/run/%{proj_name}
+%global logdir /var/log/%{proj_name}
 
 
 %define _release RELEASEVERSION
@@ -66,6 +67,8 @@ Game operation framework
 %{_sysconfdir}/%{proj_name}/goperation.conf.sample
 %dir %{_sysconfdir}/%{proj_name}/
 %dir %{_sysconfdir}/%{proj_name}/endpoints/
+%dir %{logdir}
+%dir %{rundir}
 %doc README.md
 %doc doc/*
 
@@ -161,13 +164,12 @@ rm -rf %{proj_name}.egg-info
 %{__rm} -rf %{buildroot}
 %{__python} setup.py install -O1 --skip-build --root %{buildroot}
 
+install -d %{rundir}
+install -d %{logdir}
 install -d %{buildroot}%{_sysconfdir}/%{proj_name}/endpoints
 install -p -D -m 0644 etc/*.conf.sample %{buildroot}%{_sysconfdir}/%{proj_name}
 install -p -D -m 0644 etc/*.ini.sample %{buildroot}%{_sysconfdir}/%{proj_name}
-install -d %{rundir}
-install -d %{var}/log/%{proj_name}
 
-/var/log/goperation
 
 install -d %{buildroot}%{_initrddir}
 install -p -D -m 0755 gcenter-wsgi %{buildroot}%{_initrddir}/gcenter-wsgi
