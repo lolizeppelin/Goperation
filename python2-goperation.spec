@@ -158,16 +158,17 @@ rm -rf %{proj_name}.egg-info
 %{__rm} -rf %{buildroot}
 %{__python} setup.py install -O1 --skip-build --root %{buildroot}
 
-install -p -D -m 0644 etc/*.conf.sample %{buildroot}%{_sysconfdir}/%{proj_name}
-install -p -D -m 0644 etc/gcenter-paste.ini %{buildroot}%{_sysconfdir}/%{proj_name}
 install -d %{buildroot}%{_sysconfdir}/%{proj_name}/endpoints
+install -p -D -m 0644 etc/*.conf.sample %{buildroot}%{_sysconfdir}/%{proj_name}
 install -d %{rundir}
 
+install -d %{buildroot}%{_initrddir}
 install -p -D -m 0755 gcenter-wsgi %{buildroot}%{_initrddir}/gcenter-wsgi
 install -p -D -m 0755 gcenter-rpc %{buildroot}%{_initrddir}/gcenter-rpc
 install -p -D -m 0755 gop-application %{buildroot}%{_initrddir}/gop-application
 install -p -D -m 0755 gop-scheduler %{buildroot}%{_initrddir}/gop-scheduler
 
+install -d %{buildroot}%{_sbindir}
 install -p -D -m 0554 bin/* %{buildroot}%{_sbindir}
 
 %clean
