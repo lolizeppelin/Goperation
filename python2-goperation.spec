@@ -42,6 +42,7 @@ Game operation framework
 %{python_sitelib}/%{proj_name}/*.pyo
 %{python_sitelib}/%{proj_name}/api/*
 %dir %{python_sitelib}/%{proj_name}/cmd/
+%dir %{python_sitelib}/%{proj_name}/cmd/__init__.py*
 %{python_sitelib}/%{proj_name}/cmd/db/*
 %dir %{python_sitelib}/%{proj_name}/filemanager/
 %{python_sitelib}/%{proj_name}/filemanager/*
