@@ -12,7 +12,9 @@ def main():
     conf.register_cli_opts(utils.database_init_opts)
     conf()
     utils.init_manager(db_info=dict(user=conf.user,
-                                    passwd=conf.passwd,port=str(conf.port),
+                                    passwd=conf.passwd,
+                                    host=conf.host,
+                                    port=str(conf.port),
                                     schema=conf.schema))
 
 
