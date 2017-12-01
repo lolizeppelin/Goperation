@@ -88,7 +88,7 @@ goperation wsgi server and rpc server
 %{_sysconfdir}/%{proj_name}/gcenter.conf.sample
 %{_sysconfdir}/%{proj_name}/gcenter-paste.ini.sample
 %{_initrddir}/gcenter-rpc
-%{_initrddir}/gcenter-wsgo
+%{_initrddir}/gcenter-wsgi
 %{_sbindir}/gcenter-rpc
 %{_sbindir}/gcenter-wsgi
 
