@@ -58,15 +58,12 @@ Game operation framework
 %{python_sitelib}/%{proj_name}/manager/rpc/*.pyo
 %{python_sitelib}/%{proj_name}/manager/rpc/*.pyc
 %dir %{python_sitelib}/%{proj_name}/manager/utils/
-%{python_sitelib}/%{proj_name}/manager/utils/*.py
-%{python_sitelib}/%{proj_name}/manager/utils/*.pyc
-%{python_sitelib}/%{proj_name}/manager/utils/*.pyo
 %{python_sitelib}/%{proj_name}/manager/utils/*
 %{python_sitelib}/%{proj_name}-%{version}-*.egg-info/*
 %dir %{python_sitelib}/%{proj_name}-%{version}-*.egg-info/
-%config %{_sysconfdir}/%{proj_name}/goperation.conf.sample
-%configdir %{_sysconfdir}/%{proj_name}/
-%configdir %{_sysconfdir}/%{proj_name}/endpoints/
+%{_sysconfdir}/%{proj_name}/goperation.conf.sample
+%dir %{_sysconfdir}/%{proj_name}/
+%dir %{_sysconfdir}/%{proj_name}/endpoints/
 %doc README.md
 %doc doc/*
 
@@ -87,8 +84,8 @@ goperation wsgi server and rpc server
 %{python_sitelib}/%{proj_name}/cmd/server/*
 %{python_sitelib}/%{proj_name}/manager/rpc/server/
 %{python_sitelib}/%{proj_name}/manager/wsgi/*
-%config %{_sysconfdir}/%{proj_name}/gcenter.conf.sample
-%config %{_sysconfdir}/%{proj_name}/gcenter-paste.ini.sample
+%{_sysconfdir}/%{proj_name}/gcenter.conf.sample
+%{_sysconfdir}/%{proj_name}/gcenter-paste.ini.sample
 %{_initrddir}/gcenter-rpc
 %{_sbindir}/gcenter-wsgi
 
@@ -109,7 +106,7 @@ goperation rpc agent
 %{python_sitelib}/%{proj_name}/manager/rpc/agent/*.py
 %{python_sitelib}/%{proj_name}/manager/rpc/agent/*.pyc
 %{python_sitelib}/%{proj_name}/manager/rpc/agent/*.pyo
-%config %{_sysconfdir}/%{proj_name}/agent.conf.sample
+%{_sysconfdir}/%{proj_name}/agent.conf.sample
 
 
 
@@ -161,6 +158,7 @@ rm -rf %{proj_name}.egg-info
 
 install -d %{buildroot}%{_sysconfdir}/%{proj_name}/endpoints
 install -p -D -m 0644 etc/*.conf.sample %{buildroot}%{_sysconfdir}/%{proj_name}
+install -p -D -m 0644 etc/*.ini.sample %{buildroot}%{_sysconfdir}/%{proj_name}
 install -d %{rundir}
 
 install -d %{buildroot}%{_initrddir}

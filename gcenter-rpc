@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# gcenter-rpc - this script starts and stops the nginx daemon
+# gcenter-rpc - this script starts and stops the goperation rpc server daemon
 #
 # chkconfig:   - 85 15
 # description:  goperation rpc server
@@ -20,7 +20,7 @@ CONF_DIR="/etc/goperation/endpoints"
 
 lockfile="/var/lock/subsys/gcenter.rpc"
 prog="gcenter.rpc"
-pyproc="/usr/sbin/nginx"
+pyproc="/usr/sbin/gcenter-rpc"
 
 
 start() {

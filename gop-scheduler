@@ -1,0 +1,66 @@
+#!/bin/sh
+#
+# gop-scheduler - this script starts and stops the goperation scheduler agent daemon
+#
+# chkconfig:   - 85 15
+# description:  goperation scheduler agent
+# processname:  gop-scheduler
+# pidfile:     /var/goperation/scheduler.pid
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+ Source networking configuration.
+. /etc/sysconfig/network
+
+# Check that networking is up.
+[ "$NETWORKING" = "no" ] && exit 0
+
+CONF_DIR="/etc/goperation/endpoints"
+
+lockfile="/var/lock/subsys/gop.scheduler"
+prog="gop.scheduler"
+pyproc="/usr/sbin/gop-scheduler"
+
+
+start() {
+    [ -x $nginx ] || exit 5
+    [ -f $NGINX_CONF_FILE ] || exit 6
+    echo -n $"Starting $prog: "
+    daemon $pyproc --config-dir $CONF_DIR
+    retval=$?
+    echo
+    [ $retval -eq 0 ] && touch $lockfile
+    return $retval
+}
+
+stop() {
+    echo -n $"Stopping $prog: "
+    killproc -p $pidfile $prog
+    retval=$?
+    echo
+    [ $retval -eq 0 ] && rm -f $lockfile
+    return $retval
+}
+
+restart() {
+    stop
+    start
+}
+
+case "$1" in
+    start)
+        rh_status_q && exit 0
+        $1
+        ;;
+    stop)
+        rh_status_q || exit 0
+        $1
+        ;;
+    restart|configtest|reopen_logs)
+        $1
+        ;;
+    *)
+        echo $"Usage: $0 {start|stop|restart}"
+        exit 2
+esac
