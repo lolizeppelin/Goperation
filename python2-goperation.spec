@@ -64,10 +64,11 @@ Game operation framework
 %{python_sitelib}/%{proj_name}/manager/utils/*
 %{python_sitelib}/%{proj_name}-%{version}-*.egg-info/*
 %dir %{python_sitelib}/%{proj_name}-%{version}-*.egg-info/
-%doc README.rst
+%config %{_sysconfdir}/%{proj_name}/goperation.conf.sample
+%configdir %{_sysconfdir}/%{proj_name}/
+%configdir %{_sysconfdir}/%{proj_name}/endpoints/
+%doc README.md
 %doc doc/*
-%config %{_sysconfdir}/%{proj_name}/goperation.conf
-%config %{_sysconfdir}/%{proj_name}/endpoints/*.conf
 
 
 
