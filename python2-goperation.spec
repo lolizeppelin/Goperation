@@ -170,7 +170,7 @@ install -p -D -m 0755 gop-application %{buildroot}%{_initrddir}/gop-application
 install -p -D -m 0755 gop-scheduler %{buildroot}%{_initrddir}/gop-scheduler
 
 install -d %{buildroot}%{_sbindir}
-install -p -D -m 0554 bin/* %{buildroot}%{_sbindir}
+install -p -D -m 0754 bin/* %{buildroot}%{_sbindir}
 
 %clean
 %{__rm} -rf %{buildroot}
