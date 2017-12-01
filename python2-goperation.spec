@@ -86,9 +86,10 @@ goperation wsgi server and rpc server
 %{python_sitelib}/%{proj_name}/cmd/server/*
 %{python_sitelib}/%{proj_name}/manager/rpc/server/
 %{python_sitelib}/%{proj_name}/manager/wsgi/*
-
 %config %{_sysconfdir}/%{proj_name}/gcenter.conf.sample
 %config %{_sysconfdir}/%{proj_name}/gcenter-paste.ini.sample
+%{_initrddir}/gcenter-rpc
+%{_sbindir}/gcenter-wsgi
 
 
 %package agent
@@ -124,6 +125,8 @@ goperation application agent
 %{python_sitelib}/%{proj_name}/cmd/agent/application.py*
 %dir %{python_sitelib}/%{proj_name}/manager/rpc/agent/application/
 %{python_sitelib}/%{proj_name}/manager/rpc/agent/application/*
+%{_initrddir}/gop-application
+%{_sbindir}/gop-application
 
 
 
@@ -140,6 +143,8 @@ goperation scheduler agent
 %dir %{python_sitelib}/%{proj_name}/manager/rpc/agent/scheduler/
 %{python_sitelib}/%{proj_name}/manager/rpc/agent/scheduler/*
 %{python_sitelib}/%{proj_name}/cmd/agent/scheduler.py*
+%{_initrddir}/gop-scheduler
+%{_sbindir}/gop-scheduler
 
 
 %prep
@@ -153,17 +158,17 @@ rm -rf %{proj_name}.egg-info
 %{__rm} -rf %{buildroot}
 %{__python} setup.py install -O1 --skip-build --root %{buildroot}
 
-install -C -D etc/*.conf.sample -d %{buildroot}%{_sysconfdir}/%{proj_name}
-install -C -D etc/gcenter-paste.ini -d %{buildroot}%{_sysconfdir}/%{proj_name}
+install -p -D -m 0644 etc/*.conf.sample %{buildroot}%{_sysconfdir}/%{proj_name}
+install -p -D -m 0644 etc/gcenter-paste.ini %{buildroot}%{_sysconfdir}/%{proj_name}
 install -d %{buildroot}%{_sysconfdir}/%{proj_name}/endpoints
 install -d %{rundir}
 
-install  -p -D -m 0755 gcenter-wsgi %{buildroot}%{_initrddir}/gcenter-wsgi
-install  -p -D -m 0755 gcenter-rpc %{buildroot}%{_initrddir}/gcenter-rpc
-install  -p -D -m 0755 gop-application %{buildroot}%{_initrddir}/gop-application
-install  -p -D -m 0755 gop-scheduler %{buildroot}%{_initrddir}/gop-scheduler
+install -p -D -m 0755 gcenter-wsgi %{buildroot}%{_initrddir}/gcenter-wsgi
+install -p -D -m 0755 gcenter-rpc %{buildroot}%{_initrddir}/gcenter-rpc
+install -p -D -m 0755 gop-application %{buildroot}%{_initrddir}/gop-application
+install -p -D -m 0755 gop-scheduler %{buildroot}%{_initrddir}/gop-scheduler
 
-install  -p -D -m 0554 bin/* %{buildroot}%{_sbindir}
+install -p -D -m 0554 bin/* %{buildroot}%{_sbindir}
 
 %clean
 %{__rm} -rf %{buildroot}
