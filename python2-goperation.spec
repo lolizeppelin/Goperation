@@ -31,6 +31,7 @@ Requires:       python-simpleservice-ormdb >= 1.0
 Requires:       python-simpleservice-ormdb < 1.1
 Requires:       python-simpleservice-rpc >= 1.0
 Requires:       python-simpleservice-rpc < 1.1
+Requires:       python-psutil >= 3.1.1
 
 %description
 Game operation framework

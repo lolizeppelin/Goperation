@@ -35,6 +35,7 @@ setup(
     install_requires=('eventlet>=0.15.2',
                       'sqlalchemy>=1.0.11',
                       'six>=1.9.0',
+                      'python-psutil>=3.1.1',
                       'simpleutil>=1.0',
                       'simpleutil<1.1',
                       'simpleservice>=1.0',

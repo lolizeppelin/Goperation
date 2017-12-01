@@ -16,7 +16,6 @@ class RpcManagerBase(ManagerBase):
 
     def __init__(self, target):
         super(RpcManagerBase, self).__init__(target=target)
-
         self.rpcservice = None
         CONF.register_opts(rpc_service_opts, manager_config.rabbit_group)
         self.rabbit_conf = CONF[manager_config.rabbit_group.name]
@@ -29,8 +28,8 @@ class RpcManagerBase(ManagerBase):
         self.status = manager_common.INITIALIZING
 
     def pre_start(self, external_objects):
-        if not os.path.exists(self.work_path):
-            raise RuntimeError('Work path not exist')
+        if self.work_path == '/':
+            raise RuntimeError('Work path is root path')
         self.rpcservice = external_objects
 
     def post_stop(self):

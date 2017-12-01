@@ -12,11 +12,13 @@ service_base_opts = [
                     help='The endpoint group name or namespace'),
     cfg.IPOpt('local_ip',
               version=4,
+              required=True,
               help='Goperation local ip address'),
     cfg.ListOpt('external_ips',
                 item_type=cfg.types.IPAddress(version=4),
                 help='Goperation external network IP addresses'),
     cfg.FolderPathOpt('work_path',
+                      required=True,
                       help='Goperation work in this path'),
 ]
 
