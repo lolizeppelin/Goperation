@@ -165,6 +165,9 @@ install -d %{buildroot}%{_sysconfdir}/%{proj_name}/endpoints
 install -p -D -m 0644 etc/*.conf.sample %{buildroot}%{_sysconfdir}/%{proj_name}
 install -p -D -m 0644 etc/*.ini.sample %{buildroot}%{_sysconfdir}/%{proj_name}
 install -d %{rundir}
+install -d %{var}/log/%{proj_name}
+
+/var/log/goperation
 
 install -d %{buildroot}%{_initrddir}
 install -p -D -m 0755 gcenter-wsgi %{buildroot}%{_initrddir}/gcenter-wsgi

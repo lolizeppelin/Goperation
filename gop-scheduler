@@ -52,14 +52,18 @@ prog_status() {
     status $prog
 }
 
+q_status() {
+    prog_status >/dev/null 2>&1
+}
+
 
 case "$1" in
     start)
-        rh_status_q && exit 0
+        q_status && exit 0
         $1
         ;;
     stop)
-        rh_status_q || exit 0
+        q_status || exit 0
         $1
         ;;
     restart)

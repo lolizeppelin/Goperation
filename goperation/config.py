@@ -25,6 +25,8 @@ service_base_opts = [
 def set_all_default():
     # over write state path default value
     from simpleservice.config import default_opts
+    from simpleutil.log._options import logging_cli_opts
+    cfg.set_defaults(logging_cli_opts, log_dir='/var/log/goperation')
     cfg.set_defaults(default_opts, state_path='/var/run/goperation')
 
 
