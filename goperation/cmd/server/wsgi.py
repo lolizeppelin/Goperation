@@ -45,7 +45,7 @@ def configure(config_files=None, config_dirs=None):
             # add endpoint route
             for cls in CONF[endpoint_group.name].routes:
                 EXTEND_ROUTES.append(importutils.import_module(cls))
-                LOG.info('Add endpoint route %s success' % cls)
+                LOG.debug('Add endpoint route %s success' % cls)
 
     paste_file_path = find_paste_abs(CONF[gcenter_group.name])
     return gcenter_group.name, paste_file_path
@@ -53,7 +53,7 @@ def configure(config_files=None, config_dirs=None):
 
 def run(procname, config_files, config_dirs=None):
     name, paste_config = configure(config_files=config_files, config_dirs=config_dirs)
-    LOG.info('Paste config file is %s' % paste_config)
+    LOG.debug('Paste config file is %s' % paste_config)
     app = load_paste_app(name, paste_config)
     wrappers = []
     wsgi_service = LauncheWsgiServiceBase(name, app, plugin_threadpool=threadpool)
