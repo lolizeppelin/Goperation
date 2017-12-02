@@ -25,8 +25,6 @@ service_base_opts = [
 def set_all_default():
     # over write state path default value
     from simpleservice.config import default_opts
-    from simpleutil.log._options import logging_cli_opts
-    cfg.set_defaults(logging_cli_opts, log_dir='/var/log/goperation')
     cfg.set_defaults(default_opts, state_path='/var/run/goperation')
 
 
@@ -42,6 +40,7 @@ def set_rabbitmq_vhost_default():
 
 
 def configure(name, config_files, config_dirs=None):
+    set_all_default()
     group = cfg.OptGroup(name=name, title='group of goperation %s' % name)
     args = None
     if config_dirs is not None:
@@ -63,7 +62,6 @@ def configure(name, config_files, config_dirs=None):
     # set log config
     logging.setup(CONF, group.name)
     defalut_logging.captureWarnings(True)
-    set_all_default()
     return group
 
 

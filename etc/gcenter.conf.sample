@@ -9,25 +9,14 @@
 
 # Manager extend route module string (multi import string)
 
-# Rpc Server run user (string value)
-#rpc_user = root
-
-# Rpc Server run group (string value)
-#rpc_group = root
-
-# The number of worker processes to serve the rpc process (integer value)
-# Minimum value: 1
-#rpc_process = 1
-
 # Wsgi Server run user (string value)
-#user = nginx
+#wsgi_user = nginx
 
 # Wsgi Server run group (string value)
-#group = nginx
+#wsgi_group = nginx
 
 # The number of worker processes to serve the wsgi application (integer value)
 # Minimum value: 1
-# Maximum value: 4
 #wsgi_process = 1
 
 # The IP address of the network interface for the wsgi application listen on.
@@ -68,3 +57,13 @@
 # is idle for this number of seconds it will be closed. A value of '0' means
 # wait forever. (integer value)
 #client_socket_timeout = 900
+
+# Rpc Server run user (string value)
+#rpc_user = root
+
+# Rpc Server run group (string value)
+#rpc_group = root
+
+# The number of worker processes to serve the rpc process (integer value)
+# Minimum value: 1
+#rpc_process = 1

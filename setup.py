@@ -32,8 +32,7 @@ long_description = f.read()
 f.close()
 
 setup(
-    install_requires=('eventlet>=0.15.2',
-                      'sqlalchemy>=1.0.11',
+    install_requires=('sqlalchemy>=1.0.11',
                       'six>=1.9.0',
                       'python-psutil>=3.1.1',
                       'simpleutil>=1.0',

@@ -5,7 +5,7 @@ from goperation.cmd.agent import scheduler
 def main():
     default = '/etc/goperation/goperation.conf'
     agent = '/etc/goperation/agent.conf'
-    scheduler.run([default, agent])
+    scheduler.run(os.path.basename(__file__), [default, agent])
 
 if __name__ == '__main__':
     main()

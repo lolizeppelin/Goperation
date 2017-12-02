@@ -4,8 +4,8 @@ from goperation.cmd.server import wsgi
 
 def main():
     default = '/etc/goperation/goperation.conf'
-    agent = '/etc/goperation/gcenter.conf'
-    wsgi.run([default, agent])
+    server = '/etc/goperation/gcenter.conf'
+    wsgi.run(os.path.basename(__file__), [default, server])
 
 if __name__ == '__main__':
     main()

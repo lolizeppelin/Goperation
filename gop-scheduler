@@ -17,17 +17,18 @@
 [ "$NETWORKING" = "no" ] && exit 0
 
 CONF_DIR="/etc/goperation/endpoints"
+STATEPATH="/var/run/goperation"
 
-lockfile="/var/lock/subsys/gop.scheduler"
 prog="gop-scheduler"
 pyproc="/usr/sbin/"$prog
+pidfile=${STATEPATH}/${prog}.pid
+lockfile="/var/lock/subsys/"${prog}
 
 
 start() {
-    [ -x $nginx ] || exit 5
-    [ -f $NGINX_CONF_FILE ] || exit 6
+    [ -x $pyproc ] || exit 5
     echo -n $"Starting $prog: "
-    daemon $pyproc --config-dir $CONF_DIR
+    $pyproc --config-dir $CONF_DIR --state-path $STATEPATH
     retval=$?
     echo
     [ $retval -eq 0 ] && touch $lockfile

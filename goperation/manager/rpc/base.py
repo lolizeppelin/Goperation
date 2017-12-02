@@ -1,10 +1,9 @@
-import os
 from simpleutil.config import cfg
 from simpleutil.utils.lockutils import PriorityLock
 from simpleutil.utils.systemutils import get_partion_free_bytes
 
 from simpleservice.plugin.base import ManagerBase
-from simpleservice.rpc.config import rpc_service_opts
+from simpleservice.rpc.driver.config import rpc_service_opts
 
 from goperation.manager import common as manager_common
 from goperation.manager import config as manager_config

@@ -14,18 +14,15 @@ LOG = logging.getLogger(__name__)
 
 
 def configure(agent_type, config_files=None, config_dirs=None):
-    agent_group = cfg.OptGroup(name=agent_type,
-                               title='group of goperation %s agent' % agent_type)
     # init goperation config
-    goperation_config.configure(agent_group, config_files, config_dirs)
-    return agent_group.name
+    goperation_config.configure(agent_type, config_files, config_dirs)
 
 
-def run(manager_cls, config_files, config_dirs=None):
+def run(procname, manager_cls, config_files, config_dirs=None):
     configure(manager_cls.agent_type,
               config_files=config_files, config_dirs=config_dirs)
     wrappers = []
     rpc_service = LauncheRpcServiceBase(manager_cls(), plugin_threadpool=threadpool)
     rpc_wrapper = LaunchWrapper(service=rpc_service, workers=1)
     wrappers.append(rpc_wrapper)
-    launch(wrappers)
+    launch(wrappers, procname)

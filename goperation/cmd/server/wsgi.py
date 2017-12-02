@@ -51,7 +51,7 @@ def configure(config_files=None, config_dirs=None):
     return gcenter_group.name, paste_file_path
 
 
-def run(config_files, config_dirs=None):
+def run(procname, config_files, config_dirs=None):
     name, paste_config = configure(config_files=config_files, config_dirs=config_dirs)
     LOG.info('Paste config file is %s' % paste_config)
     app = load_paste_app(name, paste_config)
@@ -60,5 +60,5 @@ def run(config_files, config_dirs=None):
     wsgi_wrapper = LaunchWrapper(service=wsgi_service,
                                  workers=wsgi_service.conf.wsgi_process)
     wrappers.append(wsgi_wrapper)
-    launch(wrappers, CONF[name].user, CONF[name].group)
+    launch(wrappers, procname=procname)
 

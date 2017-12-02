@@ -4,7 +4,7 @@ from simpleservice.ormdb.config import database_opts
 from simpleservice.rpc.driver.config import rpc_base_opts
 from simpleservice.rpc.driver.config import rabbit_opts
 from simpleservice.rpc.driver.config import amqp_opts
-from simpleservice.rpc.config import rpc_client_opts
+from simpleservice.rpc.driver.config import rpc_client_opts
 
 from goperation import config as goperation_config
 from goperation.redis.config import redis_opts

@@ -5,7 +5,7 @@ from goperation.cmd.agent import application
 def main():
     default = '/etc/goperation/goperation.conf'
     agent = '/etc/goperation/agent.conf'
-    application.run([default, agent])
+    application.run(os.path.basename(__file__), [default, agent])
 
 if __name__ == '__main__':
     main()

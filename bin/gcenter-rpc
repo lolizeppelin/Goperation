@@ -1,11 +1,12 @@
 #!/usr/bin/python
+import os
 from goperation.cmd.server import rpc
 
 
 def main():
     default = '/etc/goperation/goperation.conf'
-    agent = '/etc/goperation/gcenter.conf'
-    rpc.run([default, agent])
+    server = '/etc/goperation/gcenter.conf'
+    rpc.run(os.path.basename(__file__), [default, server])
 
 if __name__ == '__main__':
     main()
