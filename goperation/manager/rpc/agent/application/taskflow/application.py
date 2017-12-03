@@ -180,6 +180,9 @@ class AppStopBase(AppTaskBase):
 class AppFileUpgradeBase(AppTaskBase):
     """app 程序文件升级"""
 
+
+class AppFileUpgradeByBackupFile(AppFileUpgradeBase):
+
     def __init__(self, middleware, revertable=False, rollback=False,
                  rebind=None, requires='upgradefile',
                  revert_requires='backupfile'):
@@ -205,6 +208,7 @@ class AppFileUpgradeBase(AppTaskBase):
                                 timeout=timeout,
                                 fork=functools.partial(safe_fork, user, group)
                                 if systemutils.LINUX else None)
+
 
 class AppUpdateBase(AppTaskBase):
     """程序更新,这里的更新一般是非app文件相关的更新

@@ -21,8 +21,5 @@
 # simpleflow storage connection url (string value)
 #taskflow_storage = sqlite:///:memory:
 
-# File Manager storage file (string value)
-#sqlite = $state_path/filemanager.db
-
-# File Manager save file folder (string value)
-#folder = <None>
+# File Manager working folder (folder path)
+#filecache =None

@@ -4,8 +4,8 @@ CONF = cfg.CONF
 
 route_opts = [
     cfg.MultiOpt('routes',
-                 item_type=cfg.types.MultiImportString(),
-                 default=[],
+                 item_type=cfg.types.ImportString(),
+                 # default=[],
                  help='Manager extend route module string'),
 ]
 

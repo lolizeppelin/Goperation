@@ -7,7 +7,10 @@ class RpcCtxtException(Exception):
 class RpcBaseException(Exception):
 
     def __init__(self, endpoint, entity, reason):
-        self.message = 'Rpc target %s:%d %s' % (endpoint, entity, reason)
+        self.message = 'Rpc target %s:%s %s' % (endpoint,
+                                                entity if isinstance(entity, (int, long))
+                                                else str(entity),
+                                                reason)
 
 
 class RpcTargetLockException(RpcBaseException):

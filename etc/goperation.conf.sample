@@ -16,14 +16,14 @@
 # Goperation work in this path (folder path)
 #work_path = <None>
 
+# Where to store simpleservice state files. This directory must be writable by
+# the agent.  (string value)
+#state_path = /var/run/goperation
+
 # Hostname to be used by the server, agents and services running on this
 # machine. All the agents and services running on this machine must use the
 # same host value. (hostname value)
 #host = surfac
-
-# Where to store simpleservice state files. This directory must be writable by
-# the agent.  (string value)
-#state_path = /var/run/goperation
 
 # Enables or disables logging values of all registered options when starting a
 # service (at DEBUG level). (boolean value)

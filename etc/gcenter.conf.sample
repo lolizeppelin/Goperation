@@ -7,7 +7,8 @@
 # From gcenter
 #
 
-# Manager extend route module string (multi import string)
+# Manager extend route module string (import string value)
+#routes = <None>
 
 # Wsgi Server run user (string value)
 #wsgi_user = nginx
@@ -17,6 +18,7 @@
 
 # The number of worker processes to serve the wsgi application (integer value)
 # Minimum value: 1
+# Maximum value: 255
 #wsgi_process = 1
 
 # The IP address of the network interface for the wsgi application listen on.
@@ -66,4 +68,5 @@
 
 # The number of worker processes to serve the rpc process (integer value)
 # Minimum value: 1
+# Maximum value: 255
 #rpc_process = 1

@@ -29,7 +29,6 @@ from goperation.manager.utils.resultutils import BaseRpcResult
 from goperation.manager.rpc.base import RpcManagerBase
 from goperation.manager.rpc.exceptions import RpcTargetLockException
 from goperation.manager.rpc.agent.config import agent_group
-from goperation.manager.rpc.agent.config import rpc_agent_opts
 from goperation.manager.rpc.agent.ctxtdescriptor import CheckManagerRpcCtxt
 from goperation.manager.rpc.agent.ctxtdescriptor import CheckThreadPoolRpcCtxt
 from goperation.manager.rpc.agent.config import rpc_endpoint_opts
@@ -96,13 +95,13 @@ class RpcAgentEndpointBase(EndpointBase):
     UMASK = 022
     semaphores = lockutils.Semaphores()
 
-    def __init__(self, manager, name):
+    def __init__(self, manager, group):
         if not isinstance(manager, RpcAgentManager):
             raise TypeError('Manager for rpc endpoint is not RpcAgentManager')
-        super(EndpointBase, self).__init__(target=target_endpoint(name))
+        super(EndpointBase, self).__init__(target=target_endpoint(group.name))
         self.manager = manager
         self.entitys_map = None
-        self.conf = CONF[name]
+        self.conf = CONF[group.name]
         self.frozen = False
         self._home_path = os.path.join(manager.work_path, self.namespace)
 
@@ -128,11 +127,16 @@ class RpcAgentEndpointBase(EndpointBase):
         if len(self.semaphores) > self.conf.max_lock:
             raise RpcTargetLockException(self.namespace, entity, 'over max lock')
         lock = self.semaphores.get(entity)
-        if lock.acquire(blocking=True, timeout=timeout):
+        if lock.acquire(blocking=True, timeout=max(0.1, timeout)):
             yield
             lock.release()
         else:
             raise RpcTargetLockException(self.namespace, entity)
+
+    @property
+    def locked(self):
+        return self.semaphores.locked()
+
 
     def rpc_create_entity(self, ctxt, entity, **kwargs):
         raise NotImplementedError
@@ -192,7 +196,7 @@ class RpcAgentManager(RpcManagerBase):
                     LOG.error('Import class of %s faile' % endpoint_group.name)
                     raise
                 else:
-                    obj = cls(manager=self, name=endpoint_group.name)
+                    obj = cls(manager=self, group=endpoint_group)
                     if not isinstance(obj, RpcAgentEndpointBase):
                         raise TypeError('Endpoint string %s not base from RpcEndpointBase')
                     self.endpoints.add(obj)

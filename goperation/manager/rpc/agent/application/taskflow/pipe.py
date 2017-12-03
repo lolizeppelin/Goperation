@@ -72,9 +72,11 @@ def flow_factory(session, applications,
     if not applications:
         raise RuntimeError('No application found')
     store = store or {}
+    if store.get('backupfile'):
+        raise RuntimeError('Backupfile in store')
     main_flow = lf.Flow('%s_taskflow' % applications[0].middleware.endpoint)
 
-    # choice one entity by randomizing the selection of middlewares
+    # choice one entity by randomizing
     app = applications[random.randint(0, len(applications)-1)]
 
     # prepare file for app update and database
@@ -88,15 +90,14 @@ def flow_factory(session, applications,
         if app.upgradetask:
             raise RuntimeError('Application upgrade need upgradefile')
     if backupfile:
-        store.pop('backupfile', None)
         rebind = ['download_timeout']
         format_store_rebind(store, rebind)
         prepare_uflow.add(application.AppBackUp(app.middleware, backupfile, rebind=rebind))
-    else:
-        if not store.get('backupfile'):
-            if app.upgradetask and app.upgradetask.rollback:
-                raise RuntimeError('upgrade rollback able, but no backupfile found')
-        store.setdefault('backupfile', None)
+    # else:
+    #     if not store.get('backupfile'):
+    #         if app.upgradetask and app.upgradetask.rollback:
+    #             raise RuntimeError('upgrade rollback able, but no backupfile found')
+    #     store.setdefault('backupfile', None)
     if app.databases:
         rebind = ['download_timeout']
         format_store_rebind(store, rebind)
