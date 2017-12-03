@@ -17,16 +17,16 @@ class Routers(router.RoutersBase):
         controller_intance = controller_return_response(controller.EntityReuest(),
                                                         controller.FAULT_MAP)
         self._add_resource(mapper, controller_intance,
-                   path='/%s/{endpoint}/entitys/{entity}' % (manager_common.ENDPOINT + 's'),
+                   path='/%s/{endpoint}/entitys/{entity}' % (manager_common.ENDPOINT),
                    get_action='show')
         self._add_resource(mapper, controller_intance,
-                   path='/%s/{endpoint}/entitys/{entity}' % (manager_common.ENDPOINT + 's'),
+                   path='/%s/{endpoint}/entitys/{entity}' % (manager_common.ENDPOINT),
                    delete_action='delete')
         collection = mapper.collection(collection_name=self.collection_name,
                                        resource_name=self.resource_name,
                                        controller=controller_intance,
-                                       path_prefix='/%s/{agent_id}/%s/{endpoint}' % (manager_common.AGENT + 's',
-                                                                                     manager_common.ENDPOINT + 's'),
+                                       path_prefix='/%s/{agent_id}/%s/{endpoint}' % (manager_common.AGENT,
+                                                                                     manager_common.ENDPOINT),
                                        member_prefix='/{entity}',
                                        collection_actions=COLLECTION_ACTIONS,
                                        member_actions=MEMBER_ACTIONS)

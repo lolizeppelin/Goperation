@@ -18,15 +18,15 @@ class ManagerClient(HttpClientBase):
     agent_path = "/agents/%s"
     agent_ext_path = "/agents/%s/%s"
 
-    endpoints_path = "/agents/%s/endpoints"
-    endpoint_path = "/agents/%s/endpoints/%s"
+    endpoints_path = "/agent/%s/endpoints"
+    endpoint_path = "/agent/%s/endpoints/%s"
     endpoints_ex_path = "/endpoints/%s/%s"
 
-    entitys_agent_path = "/agents/%s/endpoints/%s/entitys"
-    entity_path = "/endpoints/%s/entitys/%s"
+    entitys_agent_path = "/agent/%s/endpoint/%s/entitys"
+    entity_path = "/endpoint/%s/entitys/%s"
 
-    ports_path = "/agents/%s/endpoints/%s/entitys/%s/ports"
-    port_path = "/agents/%s/endpoints/%s/entitys/%s/ports/%s"
+    ports_path = "/agent/%s/endpoint/%s/entity/%s/ports"
+    port_path = "/agent/%s/endpoint/%s/entity/%s/ports/%s"
 
     asyncs_path = "/asyncrequests"
     async_path = "/asyncrequests/%s"

@@ -20,9 +20,9 @@ class Routers(router.RoutersBase):
                                        resource_name=self.resource_name,
                                        controller=controller_intance,
                                        path_prefix='/%s/{agent_id}/%s/{endpoint}/%s/{entity}' %
-                                                   (manager_common.AGENT + 's',
-                                                    manager_common.ENDPOINT + 's',
-                                                    manager_common.ENTITY + 's'),
+                                                   (manager_common.AGENT,
+                                                    manager_common.ENDPOINT,
+                                                    manager_common.ENTITY),
                                        member_prefix='/{ports}',
                                        collection_actions=COLLECTION_ACTIONS,
                                        member_actions=MEMBER_ACTIONS)
