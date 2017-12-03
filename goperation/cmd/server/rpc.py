@@ -6,7 +6,6 @@ from simpleservice.server import launch
 from simpleservice.rpc.service import LauncheRpcServiceBase
 
 from simpleservice.rpc.config import rpc_server_opts
-from simpleservice.rpc.config import rpc_server_opts
 
 from goperation import threadpool
 from goperation import config as goperation_config
@@ -22,7 +21,6 @@ def configure(config_files=None, config_dirs=None):
     # create a new project and group named gcenter
     name='gcenter'
     # init goperation config
-    CONF.register_cli_opts(server_cli_opts)
     gcenter_group = goperation_config.configure(name, config_files, config_dirs)
     # set gcenter config
     CONF.register_opts(rpc_server_opts, group=gcenter_group)
