@@ -4,11 +4,9 @@ CONF = cfg.CONF
 
 
 filemanager_opts = [
-    cfg.StrOpt('sqlite',
-               default='$state_path/filemanager.db',
-               help='File Manager storage file'),
-    cfg.StrOpt('folder',
-               help='File Manager save file folder')
+    cfg.FolderPathOpt('filecache',
+               default='$work_path/filecache',
+               help='File Manager working folder'),
 ]
 
 def list_opts():

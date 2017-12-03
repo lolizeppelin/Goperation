@@ -159,8 +159,8 @@ class RpcAgentManager(RpcManagerBase):
         self.client = AgentManagerClient(httpclient=get_http())
         super(RpcAgentManager, self).__init__(target=target_server(self.agent_type, CONF.host, fanout=True))
         self.filemanager = FileManager(conf=CONF[agent_group.name],
-                                       rootpath=self.work_path,
-                                       threadpool=threadpool, infoget=lambda x: self.client.file_show(x)['data'][0])
+                                       threadpool=threadpool,
+                                       infoget=lambda x: self.client.file_show(x)['data'][0])
         # agent id
         self._agent_id = None
         # port and port and disk space info

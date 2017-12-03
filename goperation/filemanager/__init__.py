@@ -57,15 +57,18 @@ class FileManager(object):
         'required': ['address', 'ext', 'size', 'uploadtime', 'marks']
     }
 
-    def __init__(self, conf, rootpath, threadpool, infoget):
+    def __init__(self, conf, threadpool, infoget):
+
+        if not os.path.exists(conf.filecache):
+            os.makedirs(conf.filecache)
+        self.path = os.path.join(conf.filecache, 'files')
         self.threadpool = threadpool
-        self.path = os.path.join(rootpath, conf.folder)
         self.infoget = infoget
         self.localfiles = {}
         self.downloading = {}
         self.lock = Semaphore()
         # init sqlite session
-        engine = create_engine(sql_connection='sqlite:///%s' % conf.sqlite,
+        engine = create_engine(sql_connection='sqlite:///%s' % os.path.join(conf.filecache, 'filemanager.db'),
                                logging_name='filemanager')
         if not engine.has_table(models.FileDetail.__tablename__):
             # create table if needed
