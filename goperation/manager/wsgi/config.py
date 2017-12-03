@@ -3,12 +3,10 @@ from simpleutil.config import cfg
 CONF = cfg.CONF
 
 route_opts = [
-    cfg.MultiOpt('routes',
-                 item_type=cfg.types.ImportString(),
-                 # default=[],
-                 help='Manager extend route module string'),
+    cfg.MultiImportStrOpt('routes',
+                          default=[],
+                          help='Manager extend route module string'),
 ]
-
 
 def list_opts():
     return route_opts
