@@ -169,7 +169,7 @@ def init_http_client():
     if HTTPClient is None:
         with lock.get('http'):
             if HTTPClient is None:
-                LOG.info("Try init http client for manager")
+                LOG.debug("Try init http client for manager")
                 conf = CONF[manager_group.name]
                 _Session = Session()
                 _Session.mount('http://', adapters.HTTPAdapter(pool_connections=1,

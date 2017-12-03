@@ -1,3 +1,4 @@
+import os
 from simpleutil.config import cfg
 from simpleutil.utils.lockutils import PriorityLock
 from simpleutil.utils.systemutils import get_partion_free_bytes
@@ -20,6 +21,8 @@ class RpcManagerBase(ManagerBase):
         self.rabbit_conf = CONF[manager_config.rabbit_group.name]
         self.host = CONF.host
         self.work_path = CONF.work_path
+        if not os.path.exists(self.work_path):
+            os.makedirs(self.work_path)
         self.local_ip = CONF.local_ip
         self.external_ips = CONF.external_ips
         self.work_lock = PriorityLock()
