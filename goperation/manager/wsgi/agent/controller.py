@@ -118,7 +118,7 @@ class AgentReuest(BaseContorller):
                            _entity['ports'].append(port)
         result_data = dict(agent_id=agent.agent_id, host=agent.host,
                            status=agent.status,
-                           ports_range=jsonutils.loads_as_bytes(agent.ports_range),
+                           ports_range=jsonutils.safe_loads_as_bytes(agent.ports_range) or [],
                            endpoints=endpoints)
         result['data'].append(result_data)
         return result

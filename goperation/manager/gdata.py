@@ -260,7 +260,7 @@ class GlobalData(object):
             agent.agent_type = body.pop('agent_type', None)
             if agent.agent_type is None or len(agent.agent_type) > 64:
                 raise ValueError('Agent type info over size')
-            if body.get('ports_range'):
+            if body.get('ports_range', None) is not None:
                 agent.ports_range = jsonutils.dumps(body.pop('ports_range'))
             agent.memory = int(body.pop('memory'))
             agent.cpu = int(body.pop('cpu'))

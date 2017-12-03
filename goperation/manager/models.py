@@ -194,8 +194,7 @@ class Agent(PluginTableBase):
     # total disk space left can be used
     disk = sa.Column(INTEGER(unsigned=True), default=0, server_default='0', nullable=False)
     ports_range = sa.Column(VARCHAR(manager_common.MAX_PORTS_RANGE_SIZE),
-                            default='',
-                            nullable=False)
+                            nullable=True)
     endpoints = orm.relationship(AgentEndpoint, backref='agent', lazy='select',
                                  cascade='delete,delete-orphan,save-update')
     entitys = orm.relationship(AgentEntity, backref='agent', lazy='select',
