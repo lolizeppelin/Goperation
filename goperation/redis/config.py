@@ -27,7 +27,7 @@ redis_opts = [
                help='Maximum number of redis connections to keep open in a '
                     'pool.'),
     cfg.IntOpt('redis_heartbeat_overtime',
-               default=300,
+               default=3000,
                max=10000,
                min=100,
                help='Millisecond between two heartbeat'),

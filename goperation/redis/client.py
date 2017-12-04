@@ -58,7 +58,7 @@ class GRedisPool(StrictRedis):
         PING命令不使用execute_command
         """
         pool = self.connection_pool
-        heart_interval = float(self.heart_beat_over_time)/(float(self.heart_beat_over_time_max_count))
+        heart_interval = float(self.heart_beat_over_time)*(float(self.heart_beat_over_time_max_count))
         heart_interval_s = heart_interval/1000
         error_connection_count = 0
         while True:
@@ -92,7 +92,7 @@ class GRedisPool(StrictRedis):
                     eventlet.sleep(heart_interval_s)
                 error_connection_count += 1
             # 切换到其他绿色线程
-            eventlet.sleep(0.1)
+            eventlet.sleep(heart_interval_s)
 
     def safe_delete(self, key, mark):
         with self.pipeline() as pipe:
