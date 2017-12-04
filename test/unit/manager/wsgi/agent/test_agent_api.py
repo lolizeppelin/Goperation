@@ -9,12 +9,11 @@ from goperation.api.client import ManagerClient
 
 a = 'C:\\Users\\loliz_000\\Desktop\\etc\\goperation\\goperation.conf'
 b = 'C:\\Users\\loliz_000\\Desktop\\etc\\goperation\\gcenter.conf'
-test_group = cfg.OptGroup(name='test')
-config.configure(test_group, [a, b])
+config.configure('test', [a, b])
 
 
 
-wsgi_url = '127.0.0.1'
+wsgi_url = '172.31.0.110'
 wsgi_port = 7999
 
 
@@ -23,7 +22,7 @@ client = ManagerClient(wsgi_url, wsgi_port)
 
 # print client.agents_index()['data']
 # print client.agent_show(agent_id=1)['data']
-print client.agents_status(agent_id=1, body={'request_time': int(time.time())})['data']
+print client.agents_status(agent_id=1, body={'request_time': int(time.time())})
 # print client.agent_active(agent_id=1, status=1)['data']
 
 
