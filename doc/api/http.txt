@@ -1,0 +1,158 @@
+以下服务器都是只物理服务器
+
+%(agent_id)s      服务器id                int
+%(endpoint)s      目标 （游戏名称等）     string
+%(entity)s        目标实体id              int
+%(request_id)s    异步亲请求id            uuid string
+
+%(job_id)s        计划任务id              int
+
+%(file_id)s       文件标识id              uuid md5 crc32
+%(ports)s         端口号                  int
+
+
+
+# -------------通用接口
+
+
+# -------------缓存接口
+[flush_cache], path:[/caches/flush], method:[['POST']]
+缓存清理接口,调用后清理缓存中的服务器状态(全部id列表、在线列表)
+用于处理异常缓存,一般不需要调用
+
+
+
+# -------------服务器接口
+[agents], path:[/agents%(format)s], method:[GET]
+列出所有服务器
+
+[agent], path:[/agents/%(agent_id)s%(format)s], method:[GET]
+查看指定服务器
+
+
+[status_agent], path:[/agents/%(agent_id)s/status%(format)s], method:[GET]
+查询服务器状态   异步接口
+
+
+[delete_agent], path:[/agents/%(agent_id)s%(format)s], method:[DELETE]
+删除服务器
+
+[upgrade_agent], path:[/agents/%(agent_id)s/upgrade%(format)s], method:[POST]
+升级服务器agent程序
+
+[update_agent], path:[/agents/%(agent_id)s%(format)s], method:[PUT]
+更新服务器信息
+
+[active_agent], path:[/agents/%(agent_id)s/active%(format)s], method:[PATCH]
+激活服务器,新加入服务器默认属于未激活状态
+
+
+# -------------endpoint接口
+[count_endpoint], path:[/endpoints/%(endpoint)s/count], method:[['GET']]
+用于统计endpoint的数量
+
+[endpoints], path:[/agent/%(agent_id)s/endpoints%(format)s], method:[GET]
+获取在指定服务器上的所有endpoint信息
+
+[endpoint], path:[/agent/%(agent_id)s/endpoints/%(endpoint)s%(format)s], method:[GET]
+获取在指定服务器上的指定endpoint信息
+
+
+[ports], path:[/agent/%(agent_id)s/endpoint/%(endpoint)s/entity/%(entity)s/ports%(format)s], method:[GET]
+查询指定服务器、endpoint以及endpoint实体所使用的端口
+
+
+[edit_agent], path:[/agents/%(agent_id)s/edit%(format)s], method:[PATCH]
+编辑服务器（暂无作用）
+
+[clean_agent], path:[/agents/%(agent_id)s/clean%(format)s], method:[POST]
+彻底删除服务器信息
+
+
+
+# -------------调度器接口
+[create_scheduler], path:[/schedulers%(format)s], method:[POST]
+创建计划任务
+
+[scheduler], path:[/schedulers/%(job_id)s%(format)s], method:[GET]
+查看计划任务
+
+[update_scheduler], path:[/schedulers/%(job_id)s%(format)s], method:[PUT]
+变更计划任务（变更计划任务形势,周期性,一次性,多次性）
+
+[delete_scheduler], path:[/schedulers/%(job_id)s%(format)s], method:[DELETE]
+删除计划任务
+
+[stop_scheduler], path:[/schedulers/%(job_id)s/stop%(format)s], method:[POST]
+启动指定计划任务
+
+[start_scheduler], path:[/schedulers/%(job_id)s/start%(format)s], method:[POST]
+停止指定计划任务
+
+
+
+# -------------文件接口
+[file], path:[/files/%(file_id)s%(format)s], method:[GET]
+列出所有文件
+
+[create_file], path:[/files%(format)s], method:[POST]
+创建文件，用于传输文件标记信息和uri地址
+
+[files], path:[/files%(format)s], method:[GET]
+获取文件详细信息
+
+[list_file], path:[/agents/%(agent_id)s/files], method:[['POST']]
+列出指定服务器上的文件
+
+[send_file], path:[/agents/%(agent_id)s/files/%(file_id)s], method:[['PUT']]
+发送文件到指定服务器
+
+[clean_file], path:[/agents/%(agent_id)s/files/%(file_id)s], method:[['DELETE']]
+删除指定服务器上的指定文件
+
+[delete_file], path:[/files/%(file_id)s%(format)s], method:[DELETE]
+删除文件
+
+
+# -------------异步接口
+[asyncrequests], path:[/asyncrequests%(format)s], method:[GET]
+查看异步请求列表
+
+
+[asyncrequest], path:[/asyncrequests/%(request_id)s%(format)s], method:[GET]
+查询制定异步请求结果
+
+[details_asyncrequest], path:[/asyncrequests/%(request_id)s/details%(format)s], method:[GET]
+查询制定异步请求的结果细节
+
+
+[update_asyncrequest], path:[/asyncrequests/%(request_id)s%(format)s], method:[PUT]
+更新异步请求(暂无作用)
+
+
+# -------------实体接口
+[entitys], path:[/agent/%(agent_id)s/endpoint/%(endpoint)s/entitys%(format)s], method:[GET]
+查询指定服务器上的指定endpoint中所有的实体
+
+[show_entity], path:[/endpoint/%(endpoint)s/entitys/%(entity)s], method:[['GET']]
+查询指定endpoint中所有的指定实体
+
+[delete_entity], path:[/endpoint/%(endpoint)s/entitys/%(entity)s], method:[['DELETE']]
+删除指定endpoint中所有的指定实体
+
+
+
+# ------------ 以下路由为程序自行调用
+[create_port], path:[/agent/%(agent_id)s/endpoint/%(endpoint)s/entity/%(entity)s/ports%(format)s], method:[POST]
+[delete_port], path:[/agent/%(agent_id)s/endpoint/%(endpoint)s/entity/%(entity)s/ports/%(ports)s%(format)s], method:[DELETE]
+[agents_endpoint], path:[/endpoints/%(endpoint)s/agents], method:[['GET']]
+[entitys_endpoint], path:[/endpoints/%(endpoint)s/entitys], method:[['GET']]
+[create_endpoint], path:[/agent/%(agent_id)s/endpoints%(format)s], method:[POST]
+[delete_endpoint], path:[/agent/%(agent_id)s/endpoints/%(endpoint)s%(format)s], method:[DELETE]
+[create_agent], path:[/agents%(format)s], method:[POST]
+[report_agent], path:[/agents/%(agent_id)s/report%(format)s], method:[POST]
+[online_cache], path:[/caches/host/%(host)s/online], method:[['POST']]
+[create_entity], path:[/agent/%(agent_id)s/endpoint/%(endpoint)s/entitys%(format)s], method:[POST]
+[responses_asyncrequest], path:[/asyncrequests/%(request_id)s/responses%(format)s], method:[GET]
+[response_asyncrequest], path:[/asyncrequests/%(request_id)s/response%(format)s], method:[POST]
+[overtime_asyncrequest], path:[/asyncrequests/%(request_id)s/overtime%(format)s], method:[PUT]
