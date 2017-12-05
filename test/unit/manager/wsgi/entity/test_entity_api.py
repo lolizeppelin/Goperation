@@ -9,10 +9,9 @@ from goperation.api.client import ManagerClient
 
 a = 'C:\\Users\\loliz_000\\Desktop\\etc\\goperation\\goperation.conf'
 b = 'C:\\Users\\loliz_000\\Desktop\\etc\\goperation\\gcenter.conf'
-test_group = cfg.OptGroup(name='test')
-config.configure(test_group, [a, b])
+config.configure('test', [a, b])
 
-wsgi_url = '127.0.0.1'
+wsgi_url = '172.31.0.110'
 wsgi_port = 7999
 
 

@@ -19,6 +19,7 @@
 CONF_DIR="/etc/goperation/endpoints"
 STATEPATH="/var/run/goperation"
 
+killtime=35
 prog="gop-application"
 pyproc="/usr/sbin/"$prog
 pidfile=${STATEPATH}/${prog}.pid
@@ -37,7 +38,7 @@ start() {
 
 stop() {
     echo -n $"Stopping $prog: "
-    killproc -p $pidfile -d 30 $prog
+    killproc -p $pidfile -d $killtime $prog
     retval=$?
     echo
     [ $retval -eq 0 ] && rm -f $lockfile
