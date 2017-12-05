@@ -18,9 +18,9 @@ wsgi_port = 7999
 client = ManagerClient(wsgi_url, wsgi_port)
 
 print client.endpoints_index(agent_id=1)
-print client.endpoints_show(agent_id=1, endpoint='gopcdn')
-print client.endpoint_entitys(endpoint='gopcdn')
-print client.endpoint_count(endpoints='gopcdn')
+# print client.endpoints_show(agent_id=1, endpoint='gopcdn')
+# print client.endpoint_entitys(endpoint='gopcdn')
+# print client.endpoint_count(endpoints='gopcdn')
 
 # endpoints_index(self, agent_id, body=None)
 # endpoints_add(self, agent_id, endpoints)

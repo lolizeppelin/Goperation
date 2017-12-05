@@ -19,7 +19,7 @@
 CONF_DIR="/etc/goperation/endpoints"
 STATEPATH="/var/run/goperation"
 
-killtime = 35
+killtime=35
 prog="gcenter-wsgi"
 pyproc="/usr/sbin/"$prog
 pidfile=${STATEPATH}/${prog}.pid

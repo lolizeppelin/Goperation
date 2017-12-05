@@ -19,10 +19,11 @@ class Routers(router.RoutersBase):
         collection = mapper.collection(collection_name=self.collection_name,
                                        resource_name=self.resource_name,
                                        controller=controller_intance,
-                                       path_prefix='/%s/{agent_id}/%s/{endpoint}/%s/{entity}' %
+                                       path_prefix='/%s/{agent_id}/%s/{endpoint}/%s/{entity}/%s' %
                                                    (manager_common.AGENT,
                                                     manager_common.ENDPOINT,
-                                                    manager_common.ENTITY),
+                                                    manager_common.ENTITY,
+                                                    self.collection_name),
                                        member_prefix='/{ports}',
                                        collection_actions=COLLECTION_ACTIONS,
                                        member_actions=MEMBER_ACTIONS)
