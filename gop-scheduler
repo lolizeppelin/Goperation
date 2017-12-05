@@ -29,7 +29,7 @@ lockfile="/var/lock/subsys/"${prog}
 start() {
     [ -x $pyproc ] || exit 5
     echo -n $"Starting $prog: "
-    daemon $pyproc --config-dir $CONF_DIR --state-path $STATEPATH
+    daemon $pyproc --config-dir $CONF_DIR --state-path $STATEPATH >/dev/null 2>&1
     retval=$?
     echo
     [ $retval -eq 0 ] && touch $lockfile
