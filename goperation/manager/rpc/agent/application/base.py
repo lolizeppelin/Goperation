@@ -39,7 +39,7 @@ class AppEndpointBase(RpcAgentEndpointBase):
         return os.path.join(self.endpoint_home, str(entity))
 
     def _prepare_entity_path(self, entity, apppath=True, logpath=True):
-        with systemutils.umask() as umask:
+        with systemutils.umask():
             entity_home = self.entity_home(entity)
             if apppath:
                 apppath = self.apppath(entity)
@@ -52,5 +52,4 @@ class AppEndpointBase(RpcAgentEndpointBase):
             for path in (entity_home, apppath, logpath):
                 if path:
                     os.makedirs(path)
-                    systemutils.chmod(path, umask)
                     systemutils.chown(path, entity_user, entity_root)
