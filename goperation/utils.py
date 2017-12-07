@@ -5,6 +5,7 @@ import eventlet
 from eventlet import hubs
 
 from simpleutil.utils import systemutils
+from simpleutil.utils import reflection
 from simpleutil.log import log as logging
 
 from simpleservice.base import SignalHandler
@@ -15,7 +16,8 @@ def safe_func_wrapper(f, logger=None):
         f()
     except Exception as e:
         if logger:
-            logger.error('Safe wrapper catch error: %s' % e.__class__.__name__)
+            logger.error('function %s error: %s' % (reflection.get_callable_name(f),
+                                                    e.__class__.__name__))
             if hasattr(logger, 'exception'):
                 logger.exception('Safe error traceback')
 
