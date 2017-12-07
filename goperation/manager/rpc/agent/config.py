@@ -22,9 +22,16 @@ rpc_agent_opts = [
     cfg.BoolOpt('report_performance',
                 default=False,
                 help='Rpc agent online report with system performance'),
-    cfg.StrOpt('taskflow_storage',
-               default='sqlite:///:memory:',
-               help='simpleflow storage connection url'),
+    cfg.StrOpt('taskflowcache',
+               default='$work_path/taskflowcache',
+               help='simpleflow storage file dir'),
+    cfg.BoolOpt('ramfscache',
+                default=False,
+                help='taskflow cache file in ramfs',
+                ),
+    cfg.StrOpt('taskflow_connection',
+                help='taskflow storage connection url, '
+                     'taskflowcache option will be ignore when this option set'),
 ]
 
 rpc_endpoint_opts = [
