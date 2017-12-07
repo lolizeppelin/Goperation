@@ -99,8 +99,8 @@ class EntityReuest(BaseContorller):
         glock = get_global().lock('agents')
         elock = get_global().lock('endpoint')
         result = 'add entity success.'
-        with elock(endpoint):
-            with glock([agent_id, ]):
+        with glock([agent_id, ]):
+            with elock(endpoint):
                 with session.begin(subtransactions=True):
                     agent = model_query(session, Agent, filter=Agent.agent_id == agent_id).one()
                     if agent.status != manager_common.ACTIVE:
@@ -127,10 +127,10 @@ class EntityReuest(BaseContorller):
         body = body or {}
         show_ports = body.get('ports', False)
         endpoint = validateutils.validate_endpoint(endpoint)
-        entitys = argutils.map_to_int(entity)
+        entity = int(entity)
         session = get_session(readonly=True)
         query = model_query(session, AgentEntity, filter=and_(AgentEntity.endpoint == endpoint,
-                                                              AgentEntity.entity.in_(entitys)))
+                                                              AgentEntity.entity == entity))
         if show_ports:
             query = query.options(joinedload(AgentEntity.ports, innerjoin=False))
         entitys = query.all()
@@ -148,24 +148,25 @@ class EntityReuest(BaseContorller):
         body = body or {}
         force = body.pop('force', False)
         endpoint = validateutils.validate_endpoint(endpoint)
+        entity = int(entity)
         session = get_session()
-        glock = get_global().lock('entitys')
-        elock = get_global().lock('endpoint')
+        glock = get_global().lock('agents')
+        elock = get_global().lock('entitys')
         agent = None
         result = 'delete endpoints success'
-        with glock([entity, ]):
-            with elock(endpoint):
-                with session.begin():
-                    query = model_query(session, AgentEntity,
-                                        filter=and_(AgentEntity.endpoint == endpoint,
-                                                    AgentEntity.entity == entity))
-                    if not force:
-                        for entity in query:
-                            if agent is None:
-                                agent = entity.agent
-                                continue
-                            if entity.agent_id != agent.agent_id:
-                                raise InvalidArgument('Delete entity fail, entity not in same agent')
+        with elock(endpoint, [entity, ]):
+            with session.begin():
+                query = model_query(session, AgentEntity,
+                                    filter=and_(AgentEntity.endpoint == endpoint,
+                                                AgentEntity.entity == entity))
+                if not force:
+                    for entity in query:
+                        if agent is None:
+                            agent = entity.agent
+                            continue
+                        if entity.agent_id != agent.agent_id:
+                            raise InvalidArgument('Delete entity fail, entity not in same agent')
+                with glock([agent.agent_id, ]):
                     delete_count = query.delete()
                     if not delete_count:
                         LOG.warning('Delete no entitys, but expect count 1')

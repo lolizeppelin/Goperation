@@ -7,11 +7,13 @@ from sqlalchemy.sql import and_
 from redis.exceptions import ConnectionError
 from redis.exceptions import TimeoutError
 from redis.exceptions import WatchError
+from redis.exceptions import ResponseError
 
 from simpleutil.config import cfg
 from simpleutil.utils import timeutils
 from simpleutil.utils import uuidutils
 from simpleutil.utils import jsonutils
+from simpleutil.utils import argutils
 from simpleutil.utils.attributes import validators
 from simpleutil.log import log as logging
 from simpleutil.common.exceptions import InvalidArgument
@@ -39,7 +41,7 @@ class GlobalData(object):
 
     PREFIX = CONF[manager_group.name].redis_key_prefix
     AGENT_KEY = '-'.join([PREFIX, manager_common.AGENT])
-    AGENTS_KEY = '-'.join([AGENT_KEY, 'set'])
+    # AGENTS_KEY = '-'.join([AGENT_KEY, 'set'])
     ALL_AGENTS_KEY = '-'.join([PREFIX, manager_common.AGENT, 'id', 'all'])
 
     def __init__(self, client, session):
@@ -75,6 +77,8 @@ class GlobalData(object):
                 if int(time.time())*1000 > overtime:
                     LOG.critical('SREM %s from %s fail %s' % (str(members), key, e.__class__.__name__))
                     break
+            except ResponseError:
+                break
             eventlet.sleep(0)
 
     def lock(self, target):
@@ -88,7 +92,7 @@ class GlobalData(object):
         overtime = self.alloctime + int(time.time()*1000)
         client = self.client
         while True:
-            if client.set(self.AGENT_KEY, self.locker, nx=True):
+            if client.set(key, self.locker, nx=True):
                 break
             if int(time.time()*1000) > overtime:
                 raise exceptions.AllocLockTimeout('Alloc key %s timeout' % key)
@@ -108,7 +112,7 @@ class GlobalData(object):
             if client.set(self.AGENT_KEY, self.locker, nx=True):
                 break
             if int(time.time()*1000) > overtime:
-                raise exceptions.AllocLockTimeout('Alloc key %s timeout' % self.AGENTS_KEY)
+                raise exceptions.AllocLockTimeout('Alloc key %s timeout' % self.AGENT_KEY)
             eventlet.sleep(0.003)
         try:
             yield manager_common.ALL_AGENTS
@@ -128,18 +132,28 @@ class GlobalData(object):
         while True:
             wpipe = None
             try:
-                with self._lock_all_agents():
-                    agents = query.all()
-                    if count != len(agents):
-                        raise exceptions.TargetCountUnequal('Target agents count %d, but found %d in database' %
-                                                            (count, len(agents)))
-                    agents_ids = map(str, [agent.agent_id for agent in agents])
-                    while client.sinter(self.AGENTS_KEY, agents_ids) and int(time.time()*1000) <= overtime:
+                agents = query.all()
+                if count != len(agents):
+                    raise exceptions.TargetCountUnequal('Target agents count %d, but found %d in database' %
+                                                        (count, len(agents)))
+                agents_ids = argutils.map_with([agent.agent_id for agent in agents], str)
+                while True:
+                    try:
+                        locked = client.sinter(self.AGENT_KEY, *agents_ids)
+                    except ResponseError as e:
+                        if not e.message.startswith('WRONGTYPE'):
+                            raise
+                        locked = True
+                    if not locked:
+                        break
+                    if int(time.time()*1000) <= overtime:
                         eventlet.sleep(0.01)
-                    wpipe = client.pipeline()
-                    wpipe.watch(self.AGENTS_KEY)
+                    else:
+                        raise exceptions.AllocLockTimeout('Lock agents timeout')
+                wpipe = client.pipeline()
+                wpipe.watch(self.AGENT_KEY)
                 wpipe.multi()
-                wpipe.sadd(self.AGENTS_KEY, *agents_ids)
+                wpipe.sadd(self.AGENT_KEY, *agents_ids)
                 wpipe.execute()
                 break
             except WatchError:
@@ -152,7 +166,7 @@ class GlobalData(object):
             yield agents
         finally:
             if agents_ids:
-                self.garbage_member_collection(self.AGENTS_KEY, agents_ids)
+                self.garbage_member_collection(self.AGENT_KEY, agents_ids)
 
     @contextlib.contextmanager
     def _lock_entitys(self, endpoint, entitys):
@@ -163,62 +177,65 @@ class GlobalData(object):
         query = model_query(session, AgentEntity,
                             filter=and_(AgentEntity.entity.in_(entitys),
                                         AgentEntity.endpoint == endpoint))
-        entitys_key = '-'.join([self.PREFIX, endpoint, manager_common.ENTITY, 'set'])
+        endpoint_key = '%s-%s' % (self.PREFIX, endpoint)
         agents_ids = set()
         entitys_ids = set()
         while True:
             wpipe = None
             try:
-                with self._lock_all_agents():
-                    entitys = query.all()
-                    if count != len(entitys):
-                        raise exceptions.TargetCountUnequal('Target entitys %d, but just found %d in database' %
-                                                            (count, len(entitys)))
-                    for entity in entitys:
-                        entitys_ids.add(entity.entity)
-                        agents_ids.add(entity.agent_id)
-                    agents_ids = map(str, agents_ids)
-                    entitys_ids = map(str, entitys_ids)
-                    while int(time.time()*1000) <= overtime:
-                        with client.pipeline() as pipe:
-                            pipe.multi()
-                            pipe.sinter(self.AGENTS_KEY, agents_ids)
-                            pipe.sinter(entitys_key, entitys_ids)
-                            retsults = pipe.execute()
-                        if all([True if len(result) == 0 else False for result in retsults]):
-                            break
-                        else:
-                            eventlet.sleep(0.01)
-                    wpipe = client.pipeline()
-                    wpipe.watch(self.AGENTS_KEY, entitys_key)
+                entitys = query.all()
+                if count != len(entitys):
+                    raise exceptions.TargetCountUnequal('Target entitys %d, but just found %d in database' %
+                                                        (count, len(entitys)))
+                for entity in entitys:
+                    entitys_ids.add(entity.entity)
+                    agents_ids.add(entity.agent_id)
+                agents_ids = map(str, agents_ids)
+                entitys_ids = map(str, entitys_ids)
+                while int(time.time()*1000) <= overtime:
+                    with client.pipeline() as pipe:
+                        pipe.multi()
+                        pipe.sinter(self.AGENT_KEY, agents_ids)
+                        pipe.sinter(endpoint_key, entitys_ids)
+                        results = pipe.execute()
+                    if all([True if len(result) == 0 else False for result in results]):
+                        break
+                    else:
+                        eventlet.sleep(0.01)
+                wpipe = client.pipeline()
+                wpipe.watch(self.AGENT_KEY, endpoint_key)
                 wpipe.multi()
-                wpipe.sadd(entitys_key, *agents_ids)
-                wpipe.sadd(entitys_key, *entitys_ids)
+                wpipe.sadd(self.AGENT_KEY, *agents_ids)
+                wpipe.sadd(endpoint_key, *entitys_ids)
                 wpipe.execute()
                 break
             except WatchError:
                 if int(time.time()*1000) > overtime:
                     raise exceptions.AllocLockTimeout('Lock entitys timeout')
+            except ResponseError as e:
+                if not e.message.startswith('WRONGTYPE'):
+                    raise
+                if int(time.time()*1000) > overtime:
+                    raise exceptions.AllocLockTimeout('Lock entitys timeout')
             finally:
                 if wpipe:
                     wpipe.reset()
-
         try:
             yield entitys
         finally:
-            self.garbage_member_collection(self.AGENTS_KEY, agents_ids)
-            self.garbage_member_collection(entitys_key, entitys_ids)
+            self.garbage_member_collection(self.AGENT_KEY, agents_ids)
+            self.garbage_member_collection(endpoint_key, entitys_ids)
 
     @contextlib.contextmanager
     def _lock_endpoint(self, endpoint):
         overtime = self.alloctime + int(time.time()*1000)
         client = self.client
-        endpoint_key = '-'.join([self.PREFIX, endpoint, 'all'])
+        endpoint_key = '%s-%s' % (self.PREFIX, endpoint)
         while True:
             if client.set(endpoint_key, self.locker, nx=True):
                 break
             if int(time.time()*1000) > overtime:
-                raise exceptions.AllocLockTimeout('Alloc key %s timeout' % self.AGENTS_KEY)
+                raise exceptions.AllocLockTimeout('Alloc key %s timeout' % endpoint_key)
             eventlet.sleep(0)
         try:
             yield

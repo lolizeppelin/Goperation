@@ -41,7 +41,7 @@
 
 # Sets the value of TCP_KEEPIDLE in seconds for each server socket. Not
 # supported on OS X. (integer value)
-#tcp_keepidle = 600
+#tcp_keepidle = 60
 
 # Size of the pool of greenthreads used by wsgi (integer value)
 #wsgi_default_pool_size = 100
@@ -58,7 +58,7 @@
 # Timeout for client connections' socket operations. If an incoming connection
 # is idle for this number of seconds it will be closed. A value of '0' means
 # wait forever. (integer value)
-#client_socket_timeout = 900
+#client_socket_timeout = 30
 
 # Rpc Server run user (string value)
 #rpc_user = root

@@ -18,8 +18,15 @@
 # Rpc agent online report with system performance (boolean value)
 #report_performance = false
 
-# simpleflow storage connection url (string value)
-#taskflow_storage = sqlite:///:memory:
+# simpleflow storage file dir (string value)
+#taskflowcache = $work_path/taskflowcache
+
+# taskflow cache file in ramfs (boolean value)
+#ramfscache = false
+
+# taskflow storage connection url, taskflowcache option will be ignore when
+# this option set (string value)
+#taskflow_connection = <None>
 
 # File Manager working folder (folder path)
 #filecache =None

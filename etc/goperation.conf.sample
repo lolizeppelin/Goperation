@@ -230,7 +230,7 @@
 # Millisecond between two heartbeat (integer value)
 # Minimum value: 100
 # Maximum value: 10000
-#redis_heartbeat_overtime = 300
+#redis_heartbeat_overtime = 3000
 
 # Over time max count of redis_heartbeat_overtime (integer value)
 # Minimum value: 1
