@@ -73,7 +73,6 @@ class EntityReuest(BaseContorller):
                                               ports=[port.port for port in entity.ports] if show_ports else [])
                                          for entity in entitys])
 
-    @BaseContorller.AgentIdformater
     def create(self, req, agent_id, endpoint, body=None):
         body = body or {}
         endpoint = validateutils.validate_endpoint(endpoint)
@@ -99,6 +98,7 @@ class EntityReuest(BaseContorller):
         entity = 0
         glock = get_global().lock('agents')
         elock = get_global().lock('endpoint')
+        result = 'add entity success.'
         with elock(endpoint):
             with glock([agent_id, ]):
                 with session.begin(subtransactions=True):
@@ -119,8 +119,8 @@ class EntityReuest(BaseContorller):
                         target = targetutils.target_agent(agent)
                         target.namespace = endpoint
                         body.setdefault('entity', entity)
-                        self.notify_create(target, entity, body)
-        return resultutils.results(result='add entity success', data=[dict(entity=entity, agent_id=agent_id,
+                        result += self.notify_create(target, entity, body)
+        return resultutils.results(result=result, data=[dict(entity=entity, agent_id=agent_id,
                                                                            endpoint=endpoint, port=ports or [])])
 
     def show(self, req, endpoint, entity, body=None):
@@ -148,17 +148,17 @@ class EntityReuest(BaseContorller):
         body = body or {}
         force = body.pop('force', False)
         endpoint = validateutils.validate_endpoint(endpoint)
-        entitys = argutils.map_to_int(entity)
         session = get_session()
         glock = get_global().lock('entitys')
         elock = get_global().lock('endpoint')
         agent = None
-        with glock(entitys):
+        result = 'delete endpoints success'
+        with glock([entity, ]):
             with elock(endpoint):
                 with session.begin():
                     query = model_query(session, AgentEntity,
                                         filter=and_(AgentEntity.endpoint == endpoint,
-                                                    AgentEntity.entity.in_(entitys)))
+                                                    AgentEntity.entity == entity))
                     if not force:
                         for entity in query:
                             if agent is None:
@@ -167,15 +167,14 @@ class EntityReuest(BaseContorller):
                             if entity.agent_id != agent.agent_id:
                                 raise InvalidArgument('Delete entity fail, entity not in same agent')
                     delete_count = query.delete()
-                    need_to_delete = len(entitys)
-                    if delete_count != len(entitys):
-                        LOG.warning('Delete %d entitys, but expect count is %d' % (delete_count, need_to_delete))
+                    if not delete_count:
+                        LOG.warning('Delete no entitys, but expect count 1')
                     if not force:
                         target = targetutils.target_agent(agent)
                         target.namespace = endpoint
-                        body.setdefault('entitys', entitys)
-                        self.notify_delete(target, entitys, body)
-        return resultutils.results(result='delete endpoints success')
+                        body.setdefault('entity', entity)
+                        result += self.notify_delete(target, entity, body)
+        return resultutils.results(result=result)
 
     @staticmethod
     def notify_create(target, entity, body):
@@ -188,15 +187,17 @@ class EntityReuest(BaseContorller):
             raise RpcResultError('create entitys result is None')
         if create_ret.get('resultcode') != manager_common.RESULT_SUCCESS:
             raise RpcResultError('create entitys fail %s' % create_ret.get('result'))
+        return create_ret.get('result')
 
     @staticmethod
-    def notify_delete(target, entitys, body):
+    def notify_delete(target, entity, body):
         rpc = get_client()
-        body.setdefault('entitys', entitys)
+        body.setdefault('entity', entity)
         delete_ret = rpc.call(target, ctxt={'finishtime': body.pop('finishtime', rpcfinishtime()),
-                                            'entitys': list(entitys)},
-                              msg={'method': 'delete_entitys', 'args': body})
+                                            'entitys': [entity, ]},
+                              msg={'method': 'delete_entity', 'args': body})
         if not delete_ret:
-            raise RpcResultError('delete entitys result is None')
+            raise RpcResultError('delete entity result is None')
         if delete_ret.get('resultcode') != manager_common.RESULT_SUCCESS:
-            raise RpcResultError('delete entitys fail %s' % delete_ret.get('result'))
+            raise RpcResultError('delete entity fail %s' % delete_ret.get('result'))
+        return delete_ret.get('result')
