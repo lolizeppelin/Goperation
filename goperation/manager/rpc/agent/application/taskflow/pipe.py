@@ -86,9 +86,9 @@ def flow_factory(session, applications,
         format_store_rebind(store, rebind)
         #  get app update file, all middlewares use same app upload file
         prepare_uflow.add(application.AppUpgradeFileGet(app.middleware, upgradefile, rebind=rebind))
-    else:
-        if app.upgradetask:
-            raise RuntimeError('Application upgrade need upgradefile')
+    # else:
+    #     if app.upgradetask:
+    #         raise RuntimeError('Application upgrade need upgradefile')
     if backupfile:
         rebind = ['download_timeout']
         format_store_rebind(store, rebind)

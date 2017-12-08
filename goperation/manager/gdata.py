@@ -137,19 +137,19 @@ class GlobalData(object):
                     raise exceptions.TargetCountUnequal('Target agents count %d, but found %d in database' %
                                                         (count, len(agents)))
                 agents_ids = argutils.map_with([agent.agent_id for agent in agents], str)
-                while True:
+                locked = True
+                while int(time.time()*1000) < overtime:
                     try:
-                        locked = client.sinter(self.AGENT_KEY, *agents_ids)
+                        for _id in agents_ids:
+                            if client.sismember(self.AGENT_KEY, _id):
+                                eventlet.sleep(0.01)
+                                continue
+                        locked = False
                     except ResponseError as e:
                         if not e.message.startswith('WRONGTYPE'):
                             raise
-                        locked = True
-                    if not locked:
-                        break
-                    if int(time.time()*1000) <= overtime:
-                        eventlet.sleep(0.01)
-                    else:
-                        raise exceptions.AllocLockTimeout('Lock agents timeout')
+                if locked:
+                    raise exceptions.AllocLockTimeout('Lock agents timeout')
                 wpipe = client.pipeline()
                 wpipe.watch(self.AGENT_KEY)
                 wpipe.multi()
@@ -192,13 +192,15 @@ class GlobalData(object):
                     agents_ids.add(entity.agent_id)
                 agents_ids = map(str, agents_ids)
                 entitys_ids = map(str, entitys_ids)
-                while int(time.time()*1000) <= overtime:
+                while int(time.time()*1000) < overtime:
                     with client.pipeline() as pipe:
                         pipe.multi()
-                        pipe.sinter(self.AGENT_KEY, agents_ids)
-                        pipe.sinter(endpoint_key, entitys_ids)
+                        for _id in agents_ids:
+                            pipe.sismember(self.AGENT_KEY, _id)
+                        for _id in entitys_ids:
+                            pipe.sismember(endpoint_key, _id)
                         results = pipe.execute()
-                    if all([True if len(result) == 0 else False for result in results]):
+                    if all([True if not result else False for result in results]):
                         break
                     else:
                         eventlet.sleep(0.01)
@@ -221,7 +223,7 @@ class GlobalData(object):
                 if wpipe:
                     wpipe.reset()
         try:
-            yield entitys
+            yield entitys, agents_ids
         finally:
             self.garbage_member_collection(self.AGENT_KEY, agents_ids)
             self.garbage_member_collection(endpoint_key, entitys_ids)

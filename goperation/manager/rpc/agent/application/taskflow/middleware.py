@@ -76,3 +76,6 @@ class EntityMiddleware(object):
 
     def itervalues(self):
         return six.itervalues(self.results)
+
+    def __str__(self):
+        return ','.join(['%s:%s' % (k, v) for k,v in self.iterresults()])

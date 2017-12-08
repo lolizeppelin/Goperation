@@ -128,8 +128,10 @@ class RpcAgentEndpointBase(EndpointBase):
             raise RpcTargetLockException(self.namespace, entity, 'over max lock')
         lock = self.semaphores.get(entity)
         if lock.acquire(blocking=True, timeout=max(0.1, timeout)):
-            yield
-            lock.release()
+            try:
+                yield
+            finally:
+                lock.release()
         else:
             raise RpcTargetLockException(self.namespace, entity)
 
@@ -231,6 +233,7 @@ class RpcAgentManager(RpcManagerBase):
             for _entity in entitys:
                 entity = _entity['entity']
                 ports = _entity['ports']
+                self.allocked_ports[endpoint][entity] = set()
                 if ports:
                     if None in ports:
                         raise RuntimeError('None in ports list')
@@ -289,8 +292,6 @@ class RpcAgentManager(RpcManagerBase):
                 for p in allocked_port:
                     self.left_ports.add(p)
                 raise
-            if entity not in self.allocked_ports[endpoint]:
-                self.allocked_ports[endpoint][entity] = set()
             self.allocked_ports[endpoint][entity].add(port)
             allocked_port.add(port)
         return allocked_port
@@ -325,6 +326,12 @@ class RpcAgentManager(RpcManagerBase):
             if self.status <= manager_common.SOFTBUSY:
                 return True
             return False
+
+    def add_entity(self, endpoint, entity):
+        if entity in self.allocked_ports[endpoint]:
+            LOG.error('Add entity %d to %s faile' % (entity, endpoint))
+            raise RuntimeError('entity exist')
+        self.allocked_ports[self.namespace][entity] = set()
 
     @property
     def agent_id(self):

@@ -121,7 +121,7 @@ class EntityReuest(BaseContorller):
                         body.setdefault('entity', entity)
                         result += self.notify_create(target, entity, body)
         return resultutils.results(result=result, data=[dict(entity=entity, agent_id=agent_id,
-                                                                           endpoint=endpoint, port=ports or [])])
+                                                             endpoint=endpoint, port=ports or [])])
 
     def show(self, req, endpoint, entity, body=None):
         body = body or {}
@@ -141,7 +141,7 @@ class EntityReuest(BaseContorller):
                                    data=[dict(endpoint=e.endpoint,
                                               agent_id=e.agent_id,
                                               entity=e.entity,
-                                              ports=[x.port for x in entity.ports] if show_ports else [])
+                                              ports=[x.port for x in e.ports] if show_ports else [])
                                          for e in entitys])
 
     def delete(self, req, endpoint, entity, body=None):
@@ -150,31 +150,32 @@ class EntityReuest(BaseContorller):
         endpoint = validateutils.validate_endpoint(endpoint)
         entity = int(entity)
         session = get_session()
-        glock = get_global().lock('agents')
-        elock = get_global().lock('entitys')
-        agent = None
-        result = 'delete endpoints success'
-        with elock(endpoint, [entity, ]):
+        glock = get_global().lock('entitys')
+        result = 'delete entity success.'
+        with glock(endpoint, [entity, ]) as targets:
+            entitys = targets[0]
             with session.begin():
                 query = model_query(session, AgentEntity,
                                     filter=and_(AgentEntity.endpoint == endpoint,
                                                 AgentEntity.entity == entity))
                 if not force:
-                    for entity in query:
-                        if agent is None:
-                            agent = entity.agent
-                            continue
-                        if entity.agent_id != agent.agent_id:
-                            raise InvalidArgument('Delete entity fail, entity not in same agent')
-                with glock([agent.agent_id, ]):
-                    delete_count = query.delete()
-                    if not delete_count:
-                        LOG.warning('Delete no entitys, but expect count 1')
-                    if not force:
-                        target = targetutils.target_agent(agent)
-                        target.namespace = endpoint
-                        body.setdefault('entity', entity)
-                        result += self.notify_delete(target, entity, body)
+                    agent = entitys[0].agent
+                # if not force:
+                    # for _entity in query:
+                    #     if agent is None:
+                    #         agent = _entity.agent
+                    #         continue
+                    #     if _entity.agent_id != agent.agent_id:
+                    #         raise InvalidArgument('Delete entity fail, entity not in same agent')
+                # with glock([agent.agent_id, ]):
+                delete_count = query.delete()
+                if not delete_count:
+                    LOG.warning('Delete no entitys, but expect count 1')
+                if not force:
+                    target = targetutils.target_agent(agent)
+                    target.namespace = endpoint
+                    body.setdefault('entity', entity)
+                    result += self.notify_delete(target, entity, body)
         return resultutils.results(result=result)
 
     @staticmethod

@@ -13,8 +13,8 @@ config.configure('test', [a, b])
 
 
 
-# wsgi_url = '172.31.0.110'
-wsgi_url = '127.0.0.1'
+wsgi_url = '172.31.0.110'
+# wsgi_url = '127.0.0.1'
 wsgi_port = 7999
 
 
