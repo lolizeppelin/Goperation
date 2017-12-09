@@ -25,8 +25,14 @@ goperation_opts = [
     cfg.IntOpt('http_pconn_count',
                min=5,
                max=50,
-               default=30,
+               default=5,
                help='HTTP persistent connection number for gcenter'),
+    cfg.IntOpt('http_keepidle',
+               min=10,
+               max=180,
+               default=60,
+               help='HTTP persistent connection max idle time, '
+                    'do not less then tcp_keepidle of wsgi server'),
     cfg.StrOpt('trusted',
                default='goperation-trusted-user',
                help='Trusted token, means a unlimit user'

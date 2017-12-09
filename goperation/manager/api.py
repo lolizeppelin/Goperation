@@ -1,3 +1,4 @@
+import socket
 from requests import Session
 from requests import adapters
 
@@ -35,6 +36,25 @@ class ManagerRpcClient(RPCClientBase):
     def __init__(self):
         super(ManagerRpcClient, self).__init__(rabbit_conf)
         self.rpcdriver.init_timeout_record(session=get_session(readonly=False))
+
+
+class GopHTTPAdapter(adapters.HTTPAdapter):
+
+    def init_poolmanager(self, connections, maxsize, block=adapters.DEFAULT_POOLBLOCK, **pool_kwargs):
+
+        socket_options = [(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1),
+                          (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)]
+
+        if hasattr(socket, 'TCP_KEEPIDLE'):
+            conf = CONF[manager_group.name]
+            keepalive_opts = [(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, conf.http_keepidle),
+                              (socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 3),
+                              (socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 3)]
+            socket_options.extend(keepalive_opts)
+
+        pool_kwargs.setdefault('socket_options', socket_options)
+        super(GopHTTPAdapter, self).init_poolmanager(connections, maxsize,
+                                                     block=adapters.DEFAULT_POOLBLOCK, **pool_kwargs)
 
 
 def rpcfinishtime(starttime=None):
@@ -172,8 +192,8 @@ def init_http_client():
                 LOG.debug("Try init http client for manager")
                 conf = CONF[manager_group.name]
                 _Session = Session()
-                _Session.mount('http://', adapters.HTTPAdapter(pool_connections=1,
-                                                               pool_maxsize=conf.http_pconn_count))
+                _Session.mount('http://', GopHTTPAdapter(pool_connections=1,
+                                                         pool_maxsize=conf.http_pconn_count))
                 HTTPClient = ManagerClient(url=conf.gcenter,
                                            port=conf.gcenter_port,
                                            token=conf.trusted, session=_Session)
