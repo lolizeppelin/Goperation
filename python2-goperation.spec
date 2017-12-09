@@ -122,6 +122,8 @@ goperation rpc agent
 Summary:        Goperation application agent
 Group:          Development/Libraries
 Requires:       %{name}-agent == %{version}
+Requires:       python-simpleflow >= 1.0
+Requires:       python-simpleflow < 1.1
 
 %description application
 goperation application agent
