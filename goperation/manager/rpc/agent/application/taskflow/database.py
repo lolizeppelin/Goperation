@@ -22,7 +22,6 @@ from goperation.taskflow import exceptions
 from goperation.manager.rpc.agent.application.taskflow.base import StandardTask
 from goperation.manager.rpc.agent.application.taskflow.base import format_store_rebind
 
-from goperation.manager.rpc.agent.application import taskflow
 
 LOG = logging.getLogger(__name__)
 

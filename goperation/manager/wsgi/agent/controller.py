@@ -155,12 +155,10 @@ class AgentReuest(BaseContorller):
         agent_attributes = None
         with global_data.delete_agent(agent_id) as agent:
             if not force:
-                host_online_key = targetutils.host_online_key(agent.agent_id)
-                # make sure agent is online
-                agent_attributes = cache_store.get(host_online_key)
+                agent_attributes = BaseContorller.agent_attributes(cache_store, agent.agent_id)
                 if agent_attributes is None:
                     raise RpcPrepareError('Can not delete offline agent, try force')
-                agent_ipaddr = jsonutils.loads_as_bytes(agent_attributes).get('local_ip')
+                agent_ipaddr =agent_attributes.get('local_ip')
                 secret = uuidutils.generate_uuid()
                 # tell agent wait delete
                 delete_agent_precommit = rpc.call(targetutils.target_agent(agent),
@@ -231,12 +229,11 @@ class AgentReuest(BaseContorller):
                             filter=and_(Agent.agent_id == agent_id,
                                         Agent.status > manager_common.DELETED))
         agent = query.one()
-        host_online_key = targetutils.host_online_key(agent.agent_id)
         # make sure agent is online
-        agent_attributes = cache_store.get(host_online_key)
+        agent_attributes = BaseContorller.agent_attributes(cache_store, agent.agent_id)
         if agent_attributes is None:
             raise RpcPrepareError('Can not active or unactive a offline agent: %d' % agent_id)
-        agent_ipaddr = jsonutils.loads_as_bytes(agent_attributes).get('local_ip')
+        agent_ipaddr = agent_attributes.get('local_ip')
         with session.begin():
             agent.update({'status': status})
             active_agent = rpc.call(targetutils.target_agent(agent),

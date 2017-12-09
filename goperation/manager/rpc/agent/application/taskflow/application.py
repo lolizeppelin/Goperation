@@ -18,7 +18,6 @@ from simpleflow.types import failure
 from goperation.utils import safe_fork
 from goperation.filemanager import TargetFile
 from goperation.taskflow import common
-from goperation.manager.rpc.agent.application import taskflow
 from goperation.manager.rpc.agent.application.taskflow.base import StandardTask
 
 LOG = logging.getLogger(__name__)
