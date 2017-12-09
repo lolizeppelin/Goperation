@@ -16,6 +16,7 @@ service_base_opts = [
               help='Goperation local ip address'),
     cfg.ListOpt('external_ips',
                 item_type=cfg.types.IPAddress(version=4),
+                default=[],
                 help='Goperation external network IP addresses'),
     cfg.FolderPathOpt('work_path',
                       required=True,
