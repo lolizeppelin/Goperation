@@ -114,7 +114,7 @@ class RpcAgentEndpointBase(EndpointBase):
 
     def pre_start(self, external_objects):
         if not os.path.exists(self.home):
-            os.makedirs(self.home)
+            os.makedirs(self.home, 0755)
 
     @contextlib.contextmanager
     def lock(self, entity, timeout=3):
