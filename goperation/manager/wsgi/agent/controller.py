@@ -152,13 +152,15 @@ class AgentReuest(BaseContorller):
         cache_store = get_cache()
         rpc = get_client()
         global_data = get_global()
+        agent_attributes = None
         with global_data.delete_agent(agent_id) as agent:
             if not force:
                 host_online_key = targetutils.host_online_key(agent.agent_id)
                 # make sure agent is online
-                agent_ipaddr = cache_store.get(host_online_key)
-                if agent_ipaddr is None:
+                agent_attributes = cache_store.get(host_online_key)
+                if agent_attributes is None:
                     raise RpcPrepareError('Can not delete offline agent, try force')
+                agent_ipaddr = jsonutils.loads_as_bytes(agent_attributes).get('local_ip')
                 secret = uuidutils.generate_uuid()
                 # tell agent wait delete
                 delete_agent_precommit = rpc.call(targetutils.target_agent(agent),
@@ -167,7 +169,7 @@ class AgentReuest(BaseContorller):
                                                        'args': {'agent_id': agent.agent_id,
                                                                 'agent_type': agent.agent_type,
                                                                 'host': agent.host,
-                                                                'ipaddr': agent_ipaddr,
+                                                                'agent_ipaddr': agent_ipaddr,
                                                                 'secret': secret}
                                                        })
                 if not delete_agent_precommit:
@@ -183,12 +185,13 @@ class AgentReuest(BaseContorller):
                           'args': {'agent_id': agent.agent_id,
                                    'agent_type': agent.agent_type,
                                    'host': agent.host,
-                                   'ipaddr': agent_ipaddr,
+                                   'agent_ipaddr': agent_ipaddr,
                                    'secret': secret}})
         result = resultutils.results(result='Delete agent success',
                                      data=[dict(agent_id=agent.agent_id,
                                                 host=agent.host,
                                                 status=agent.status,
+                                                attributes=agent_attributes,
                                                 ports_range=agent.ports_range)
                                            ])
         return result
@@ -230,9 +233,10 @@ class AgentReuest(BaseContorller):
         agent = query.one()
         host_online_key = targetutils.host_online_key(agent.agent_id)
         # make sure agent is online
-        agent_ipaddr = cache_store.get(host_online_key)
-        if agent_ipaddr is None:
+        agent_attributes = cache_store.get(host_online_key)
+        if agent_attributes is None:
             raise RpcPrepareError('Can not active or unactive a offline agent: %d' % agent_id)
+        agent_ipaddr = jsonutils.loads_as_bytes(agent_attributes).get('local_ip')
         with session.begin():
             agent.update({'status': status})
             active_agent = rpc.call(targetutils.target_agent(agent),
@@ -249,7 +253,7 @@ class AgentReuest(BaseContorller):
             result = resultutils.results(result=active_agent.pop('result'),
                                          data=[dict(agent_id=agent.agent_id,
                                                     host=agent.host,
-                                                    ipaddr=agent_ipaddr,
+                                                    attributes=agent_attributes,
                                                     status=agent.status)
                                                ])
             return result
@@ -261,13 +265,13 @@ class AgentReuest(BaseContorller):
         body = body or {}
         session = get_session()
         glock = get_global().lock('agents')
-        with glock([agent_id, ]) as agents:
-            agent = agents[0]
+        with glock([agent_id, ]):
             data = body
             if not data:
                 raise InvalidInput('Not data exist')
             with session.begin():
-                agent.update(data)
+                query = model_query(session, Agent, Agent.agent_id == agent_id)
+                query.update(data)
             result = resultutils.results(pagenum=0,
                                          result='Update agent success',
                                          data=[body, ])
@@ -277,9 +281,8 @@ class AgentReuest(BaseContorller):
     def report(self, req, agent_id, body=None):
         body = body or {}
         cache_store = get_cache()
-        if body.get('agent_ipaddr'):
-            agent_ipaddr = validators['type:ip_address'](body.pop('agent_ipaddr'))
-            BaseContorller.agent_ipaddr_cache_flush(cache_store, agent_id, agent_ipaddr)
+        agent_attributes = body.pop('attributes')
+        BaseContorller.agent_attributes_cache_flush(cache_store, agent_id, agent_attributes)
         return resultutils.results(result='report success')
 
     def status(self, req, agent_id, body=None):
@@ -318,13 +321,11 @@ class AgentReuest(BaseContorller):
         rpc_ctxt = {}
 
         global_data = get_global()
-        glock = functools.partial(global_data.lock('agents'), agent_id)
+        glock = global_data.lock('agents')
 
         def wapper():
-            with glock() as agents:
-                if agents is not manager_common.ALL_AGENTS:
-                    agents = [agent.agent_id for agent in agents]
-                rpc_ctxt.setdefault('agents', agents)
+            with glock([agent_id, ]):
+                rpc_ctxt.setdefault('agents', [agent_id, ])
                 self.send_asyncrequest(asyncrequest, target,
                                        rpc_ctxt, rpc_method, rpc_args)
 

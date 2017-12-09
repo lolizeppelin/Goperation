@@ -5,6 +5,7 @@ from redis.exceptions import WatchError
 from simpleutil.utils import timeutils
 from simpleutil.utils import argutils
 from simpleutil.utils import uuidutils
+from simpleutil.utils import jsonutils
 from simpleutil.log import log as logging
 from simpleutil.common.exceptions import InvalidArgument
 
@@ -111,7 +112,13 @@ class BaseContorller(MiddlewareContorller):
         return new_request
 
     @staticmethod
-    def agent_ipaddr_cache_flush(cache_store, agent_id, agent_ipaddr):
+    def agent_attributes(cache_store, agent_id):
+        attributes = cache_store.get(targetutils.host_online_key(agent_id))
+        return attributes if not attributes else jsonutils.loads_as_bytes(attributes)
+
+    @staticmethod
+    def agent_attributes_cache_flush(cache_store, agent_id, attributes):
+        agent_ipaddr = attributes.get('local_ip')
         host_online_key = targetutils.host_online_key(agent_id)
         with cache_store.pipeline() as pipe:
             pipe.watch(host_online_key)
@@ -123,17 +130,19 @@ class BaseContorller(MiddlewareContorller):
                 results = pipe.execute()
             except WatchError:
                 raise InvalidArgument('Host changed')
-        exist_agent_ipaddr, ttl, expire_result = results
-        if exist_agent_ipaddr is not None:
-            if exist_agent_ipaddr != agent_ipaddr:
+        exist_agent_iattributes, ttl, expire_result = results
+        if exist_agent_iattributes is not None:
+            exist_agent_iattributes = jsonutils.loads_as_bytes(exist_agent_iattributes)
+            if exist_agent_iattributes.get('local_ip') != agent_ipaddr:
                 LOG.error('Host call online with %s, but %s alreday exist with same key' %
-                          (agent_ipaddr, exist_agent_ipaddr))
+                          (agent_ipaddr, exist_agent_iattributes.get('local_ip')))
                 if ttl > 3:
                     if not cache_store.expire(host_online_key, ttl):
                         LOG.error('Revet ttl of %s fail' % host_online_key)
-                raise InvalidArgument('Agent %d with ipaddr %s alreday eixst' % (agent_id, exist_agent_ipaddr))
+                raise InvalidArgument('Agent %d with ipaddr %s alreday eixst' %
+                                      (agent_id, exist_agent_iattributes.get('local_ip')))
         else:
-            if not cache_store.set(host_online_key, agent_ipaddr,
+            if not cache_store.set(host_online_key, jsonutils.dumps_as_bytes(attributes),
                                    ex=manager_common.ONLINE_EXIST_TIME, nx=True):
                 raise InvalidArgument('Another agent login with same host or '
                                       'someone set key %s' % host_online_key)

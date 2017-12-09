@@ -40,8 +40,11 @@ CONF = cfg.CONF
 class GlobalData(object):
 
     PREFIX = CONF[manager_group.name].redis_key_prefix
+    # agent lock
     AGENT_KEY = '-'.join([PREFIX, manager_common.AGENT])
-    # AGENTS_KEY = '-'.join([AGENT_KEY, 'set'])
+    # endpoint lock
+    ENDPOINT_KEY = '-'.join([PREFIX, 'endpoint', '%s'])
+    # all agent id list cache
     ALL_AGENTS_KEY = '-'.join([PREFIX, manager_common.AGENT, 'id', 'all'])
 
     def __init__(self, client, session):
@@ -121,22 +124,15 @@ class GlobalData(object):
 
     @contextlib.contextmanager
     def _lock_agents(self, agents):
-        count = len(agents)
+        agents = argutils.map_to_int(agents)
         overtime = self.alloctime + int(time.time()*1000)
         client = self.client
-        session = self.session(readonly=True)
-        query = model_query(session, Agent,
-                            filter=and_(Agent.agent_id.in_(agents),
-                                        Agent.status > manager_common.DELETED))
-        agents_ids = []
+        agents_ids = argutils.map_with(agents, str)
         while True:
             wpipe = None
             try:
-                agents = query.all()
-                if count != len(agents):
-                    raise exceptions.TargetCountUnequal('Target agents count %d, but found %d in database' %
-                                                        (count, len(agents)))
-                agents_ids = argutils.map_with([agent.agent_id for agent in agents], str)
+                if (agents  - self.all_agents):
+                    raise exceptions.TargetCountUnequal('Target agents not in all agents id list')
                 locked = True
                 while int(time.time()*1000) < overtime:
                     try:
@@ -163,42 +159,39 @@ class GlobalData(object):
                 if wpipe:
                     wpipe.reset()
         try:
-            yield agents
+            yield
         finally:
             if agents_ids:
                 self.garbage_member_collection(self.AGENT_KEY, agents_ids)
 
     @contextlib.contextmanager
     def _lock_entitys(self, endpoint, entitys):
-        count = len(entitys)
+        entitys = argutils.map_to_int(entitys)
         overtime = self.alloctime + int(time.time()*1000)
+        endpoint_key = self.ENDPOINT_KEY % endpoint
         client = self.client
         session = self.session(readonly=True)
         query = model_query(session, AgentEntity,
                             filter=and_(AgentEntity.entity.in_(entitys),
                                         AgentEntity.endpoint == endpoint))
-        endpoint_key = '%s-%s' % (self.PREFIX, endpoint)
         agents_ids = set()
         entitys_ids = set()
         while True:
             wpipe = None
             try:
-                entitys = query.all()
-                if count != len(entitys):
-                    raise exceptions.TargetCountUnequal('Target entitys %d, but just found %d in database' %
-                                                        (count, len(entitys)))
-                for entity in entitys:
+                target_entitys = query.all()
+                if len(entitys) != len(target_entitys):
+                    raise exceptions.TargetCountUnequal('Target entitys not found in database')
+                for entity in target_entitys:
                     entitys_ids.add(entity.entity)
                     agents_ids.add(entity.agent_id)
-                agents_ids = map(str, agents_ids)
-                entitys_ids = map(str, entitys_ids)
                 while int(time.time()*1000) < overtime:
                     with client.pipeline() as pipe:
                         pipe.multi()
                         for _id in agents_ids:
-                            pipe.sismember(self.AGENT_KEY, _id)
+                            pipe.sismember(self.AGENT_KEY, str(_id))
                         for _id in entitys_ids:
-                            pipe.sismember(endpoint_key, _id)
+                            pipe.sismember(endpoint_key, str(_id))
                         results = pipe.execute()
                     if all([True if not result else False for result in results]):
                         break
@@ -207,8 +200,8 @@ class GlobalData(object):
                 wpipe = client.pipeline()
                 wpipe.watch(self.AGENT_KEY, endpoint_key)
                 wpipe.multi()
-                wpipe.sadd(self.AGENT_KEY, *agents_ids)
-                wpipe.sadd(endpoint_key, *entitys_ids)
+                wpipe.sadd(self.AGENT_KEY, *map(str, agents_ids))
+                wpipe.sadd(endpoint_key, *map(str, entitys_ids))
                 wpipe.execute()
                 break
             except WatchError:
@@ -223,7 +216,7 @@ class GlobalData(object):
                 if wpipe:
                     wpipe.reset()
         try:
-            yield entitys, agents_ids
+            yield agents_ids
         finally:
             self.garbage_member_collection(self.AGENT_KEY, agents_ids)
             self.garbage_member_collection(endpoint_key, entitys_ids)
@@ -232,7 +225,7 @@ class GlobalData(object):
     def _lock_endpoint(self, endpoint):
         overtime = self.alloctime + int(time.time()*1000)
         client = self.client
-        endpoint_key = '%s-%s' % (self.PREFIX, endpoint)
+        endpoint_key = self.ENDPOINT_KEY % endpoint
         while True:
             if client.set(endpoint_key, self.locker, nx=True):
                 break
@@ -314,17 +307,18 @@ class GlobalData(object):
 
     @contextlib.contextmanager
     def delete_agent(self, agent):
-        with self._lock_agents([agent.agent_id if isinstance(agent, Agent) else agent, ]) as agents:
-            agent = agents[0]
-            if len(agent.entitys) > 0:
-                raise InvalidArgument('Can not delete agent, entity not 0')
+        agent_id = agent.agent_id if isinstance(agent, Agent) else agent
+        with self._lock_agents(agent_id):
             session = self.session()
             query = model_query(session, Agent,
-                                filter=and_(Agent.agent_id == agent.agent_id,
+                                filter=and_(Agent.agent_id == agent_id,
                                             Agent.status > manager_common.DELETED))
+            target_agent = query.one()
+            if len(target_agent.entitys) > 0:
+                raise InvalidArgument('Can not delete agent, entity not 0')
             with session.begin():
                 # Mark agent deleted
                 query.update({'status': manager_common.DELETED})
                 # Delete endpoint of agent
-                yield agent
-            self.garbage_member_collection(self.ALL_AGENTS_KEY, [str(agent.agent_id), ])
+                yield target_agent
+            self.garbage_member_collection(self.ALL_AGENTS_KEY, [str(agent_id), ])

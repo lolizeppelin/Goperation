@@ -42,7 +42,7 @@ LOG = logging.getLogger(__name__)
 class AgentManagerClient(GopHttpClientApi):
 
     def agent_init_self(self,  manager):
-        agent_id = self.cache_online(manager.host, manager.local_ip, manager.agent_type)['data'][0]['agent_id']
+        agent_id = self.cache_online(manager.agent_type, manager.attributes)['data'][0]['agent_id']
         if agent_id is None:
             self.agent_create_self(manager)
         else:
@@ -79,7 +79,8 @@ class OnlinTaskReporter(IntervalLoopinTask):
                                                 stop_on_exception=False)
 
     def __call__(self, *args, **kwargs):
-        body = {'agent_ipaddr': self.manager.local_ip,
+
+        body = {'attributes': self.manager.attributes,
                 'snapshot': self.performance_snapshot()}
         self.manager.client.agent_report(self.manager.agent_id, body)
 
@@ -398,7 +399,7 @@ class RpcAgentManager(RpcManagerBase):
             if kwargs['agent_id'] != self.agent_id \
                     or kwargs['agent_type'] != self.agent_type \
                     or kwargs['host'] != CONF.host \
-                    or kwargs['ipaddr'] != self.local_ip:
+                    or kwargs['agent_ipaddr'] != self.local_ip:
                 return BaseRpcResult(self.agent_id, ctxt,
                                      resultcode=manager_common.RESULT_ERROR,
                                      result='Not match this agent')
@@ -419,7 +420,7 @@ class RpcAgentManager(RpcManagerBase):
             if kwargs['agent_id'] != self.agent_id or \
                             kwargs['agent_type'] != self.agent_type or \
                             kwargs['host'] != CONF.host or \
-                            kwargs['ipaddr'] != self.local_ip:
+                            kwargs['agent_ipaddr'] != self.local_ip:
                 return BaseRpcResult(self.agent_id, ctxt,
                                      resultcode=manager_common.RESULT_ERROR, result='Not match this agent')
             if self.status == manager_common.PERDELETE:
@@ -456,3 +457,9 @@ class RpcAgentManager(RpcManagerBase):
         self.filemanager.get(mark, download=True, timeout=timeout)
         return BaseRpcResult(self.agent_id, ctxt, resultcode=manager_common.RESULT_SUCCESS,
                              result='getfile success')
+
+    @property
+    def attributes(self):
+        _attributes = super(RpcAgentManager, self).attributes
+        _attributes.setdefault('agent_type', self.agent_type)
+        return _attributes

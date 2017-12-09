@@ -150,29 +150,25 @@ class EntityReuest(BaseContorller):
         endpoint = validateutils.validate_endpoint(endpoint)
         entity = int(entity)
         session = get_session()
+        cache_store = get_cache()
         glock = get_global().lock('entitys')
         result = 'delete entity success.'
-        with glock(endpoint, [entity, ]) as targets:
-            entitys = targets[0]
+        with glock(endpoint, [entity, ]) as agents:
             with session.begin():
                 query = model_query(session, AgentEntity,
                                     filter=and_(AgentEntity.endpoint == endpoint,
                                                 AgentEntity.entity == entity))
                 if not force:
-                    agent = entitys[0].agent
-                # if not force:
-                    # for _entity in query:
-                    #     if agent is None:
-                    #         agent = _entity.agent
-                    #         continue
-                    #     if _entity.agent_id != agent.agent_id:
-                    #         raise InvalidArgument('Delete entity fail, entity not in same agent')
-                # with glock([agent.agent_id, ]):
+                    agent_id = agents.pop()
+                    attributes = BaseContorller.agent_attributes(cache_store, agent_id)
+                    if not attributes:
+                        raise InvalidArgument('Agent not online or not exist')
                 delete_count = query.delete()
                 if not delete_count:
                     LOG.warning('Delete no entitys, but expect count 1')
                 if not force:
-                    target = targetutils.target_agent(agent)
+                    target = targetutils.target_agent_by_string(attributes.get('agent_type'),
+                                                                attributes.get('host'))
                     target.namespace = endpoint
                     body.setdefault('entity', entity)
                     result += self.notify_delete(target, entity, body)

@@ -61,5 +61,9 @@ def target_agent(agent):
     return target_server(agent.agent_type, agent.host)
 
 
+def target_agent_by_string(agent_type, host):
+    return target_server(agent_type, host)
+
+
 def target_endpoint(endpoint):
     return Target(fanout=endpoint, namespace=endpoint)
