@@ -116,10 +116,14 @@ class AgentReuest(BaseContorller):
                     if show_ports:
                         for port in entity.ports:
                            _entity['ports'].append(port)
+        cache_store = get_cache()
+        agent_attributes = BaseContorller.agent_attributes(cache_store, agent_id)
         result_data = dict(agent_id=agent.agent_id, host=agent.host,
                            status=agent.status,
                            ports_range=jsonutils.safe_loads_as_bytes(agent.ports_range) or [],
-                           endpoints=endpoints)
+                           endpoints=endpoints,
+                           attributes=agent_attributes,
+                           )
         result['data'].append(result_data)
         return result
 
