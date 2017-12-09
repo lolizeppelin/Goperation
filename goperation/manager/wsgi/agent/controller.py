@@ -137,7 +137,7 @@ class AgentReuest(BaseContorller):
                                      data=[dict(agent_id=agent.agent_id,
                                                 host=agent.host,
                                                 status=agent.status,
-                                                ports_range=agent.ports_range,
+                                                ports_range=jsonutils.safe_loads_as_bytes(agent.ports_range) or [],
                                                 endpoints=[endpoint.endpoint for endpoint in agent.endpoints])
                                            ])
         return result
@@ -192,7 +192,7 @@ class AgentReuest(BaseContorller):
                                                 host=agent.host,
                                                 status=agent.status,
                                                 attributes=agent_attributes,
-                                                ports_range=agent.ports_range)
+                                                ports_range=jsonutils.safe_loads_as_bytes(agent.ports_range) or [])
                                            ])
         return result
 
@@ -263,6 +263,9 @@ class AgentReuest(BaseContorller):
         """call by agent"""
         # TODO  check data in body
         body = body or {}
+        ports_range = body.pop('ports_range', [])
+        if ports_range:
+            body.setdefault('ports_range', jsonutils.dumps_as_bytes(ports_range))
         session = get_session()
         glock = get_global().lock('agents')
         with glock([agent_id, ]):
@@ -290,7 +293,7 @@ class AgentReuest(BaseContorller):
         do not need Idsformater, check it in send_asyncrequest
         """
         body = body or {}
-        body.setdefault('expire', 60)
+        body.setdefault('expire', 180)
         asyncrequest = self.create_asyncrequest(body)
         target = targetutils.target_all(fanout=True)
         rpc_ctxt = {}
