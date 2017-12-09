@@ -172,7 +172,10 @@ class BaseContorller(MiddlewareContorller):
             except DBDuplicateEntry:
                 LOG.warning('Async request rpc call result is None, but recode found')
         except Exception as e:
-            LOG.exception('Async request rpc cast unkonw error')
+            if LOG.isEnabledFor(logging.DEBUG):
+                LOG.exception('Async request rpc cast fail')
+            else:
+                LOG.error('Async request rpc cast unkonw error')
             asyncrequest.status = manager_common.FINISH
             asyncrequest.result = 'Async request rpc cast error: %s' % e.__class__.__name__
             asyncrequest.resultcode = manager_common.RESULT_ERROR
