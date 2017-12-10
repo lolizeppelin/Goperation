@@ -46,12 +46,13 @@ class GopHTTPAdapter(adapters.HTTPAdapter):
                           (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)]
 
         if hasattr(socket, 'TCP_KEEPIDLE'):
-            conf = CONF[manager_group.name]
-            keepalive_opts = [(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, conf.http_keepidle),
+            keepalive_opts = [(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 30),
                               (socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 3),
                               (socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 3)]
             socket_options.extend(keepalive_opts)
-
+        # _Session = Session()
+        # _Session.mount('http://', GopHTTPAdapter(pool_connections=conf.http_pconn_count,
+        #                                          pool_maxsize=conf.http_conn_max))
         pool_kwargs.setdefault('socket_options', socket_options)
         super(GopHTTPAdapter, self).init_poolmanager(connections, maxsize,
                                                      block=adapters.DEFAULT_POOLBLOCK, **pool_kwargs)
@@ -71,14 +72,6 @@ def init_server_id():
         with lock.get('sid'):
             if SERVER_ID is None:
                 session = get_session()
-                # result = session.query(GkeyMap).filter(GkeyMap.host ==  CONF.host).with_for_update().one_or_none()
-                # if not result:
-                #     session.query(GkeyMap).filter(GkeyMap.host ==  None).update(dict(host=CONF.host),
-                #                                                                 update_args={'mysql_limit': 1})
-                #     session.commit()
-                # else:
-                #     session.commit()
-                #     return result.sid
                 with session.begin(subtransactions=True):
                     query = model_query(session, GkeyMap, filter=GkeyMap.host == CONF.host)
                     result = query.one_or_none()
@@ -191,12 +184,9 @@ def init_http_client():
             if HTTPClient is None:
                 LOG.debug("Try init http client for manager")
                 conf = CONF[manager_group.name]
-                _Session = Session()
-                _Session.mount('http://', GopHTTPAdapter(pool_connections=1,
-                                                         pool_maxsize=conf.http_pconn_count))
                 HTTPClient = ManagerClient(url=conf.gcenter,
                                            port=conf.gcenter_port,
-                                           token=conf.trusted, session=_Session)
+                                           token=conf.trusted)
     else:
         LOG.warning("Do not call init_http_client more then once")
 

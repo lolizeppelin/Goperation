@@ -22,17 +22,6 @@ goperation_opts = [
     cfg.PortOpt('gcenter_port',
                 default=7999,
                 help='Http port of gcenter wsgi service'),
-    cfg.IntOpt('http_pconn_count',
-               min=5,
-               max=50,
-               default=5,
-               help='HTTP persistent connection number for gcenter'),
-    cfg.IntOpt('http_keepidle',
-               min=10,
-               max=180,
-               default=60,
-               help='HTTP persistent connection max idle time, '
-                    'do not less then tcp_keepidle of wsgi server'),
     cfg.StrOpt('trusted',
                default='goperation-trusted-user',
                help='Trusted token, means a unlimit user'
@@ -59,6 +48,7 @@ CONF.register_opts(rpc_client_opts, rabbit_group)
 # reset default value of rabbit_virtual_host
 goperation_config.set_rabbitmq_vhost_default()
 rabbit_conf = CONF[rabbit_group.name]
+
 
 def list_manager_opts():
     return goperation_opts + database_opts + redis_opts
