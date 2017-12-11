@@ -16,6 +16,10 @@ class Routers(router.RoutersBase):
     def append_routers(self, mapper, routers=None):
         controller_intance = controller_return_response(controller.AgentReuest(),
                                                         controller.FAULT_MAP)
+        self._add_resource(mapper, controller_intance,
+                       path='/allagents',
+                       get_action='allagents')
+
         collection = mapper.collection(collection_name=self.collection_name,
                                        resource_name=self.resource_name,
                                        controller=controller_intance,

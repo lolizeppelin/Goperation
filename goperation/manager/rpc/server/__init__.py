@@ -11,6 +11,7 @@ from simpleservice.rpc.exceptions import AMQPDestinationNotFound
 from simpleservice.ormdb.exceptions import DBDuplicateEntry
 from simpleservice.ormdb.exceptions import DBError
 from simpleservice.ormdb.api import model_query
+from simpleservice.loopingcall import IntervalLoopinTask
 
 from goperation import threadpool
 from goperation.utils import safe_func_wrapper
@@ -31,11 +32,28 @@ LOG = logging.getLogger(__name__)
 CONF = cfg.CONF
 
 
+class ExpiredAgentStatusTask(IntervalLoopinTask):
+    def __init__(self, manager):
+        self.manager = manager
+        conf = CONF[manager_common.SERVER]
+        self.interval = conf.expire_time
+        super(ExpiredAgentStatusTask, self).__init__(periodic_interval=self.interval,
+                                                     initial_delay=0,
+                                                     stop_on_exception=False)
+
+    def __call__(self, *args, **kwargs):
+        deadline = int(time.time()) - self.interval
+        for agent_id in self.manager.agents_loads:
+            if self.manager.agents_loads[agent_id].get('time', 0) < deadline:
+                self.manager.agents_loads.pop(agent_id)
+
+
 class RpcServerManager(RpcManagerBase):
 
     def __init__(self):
         # init httpclient
-        super(RpcServerManager, self).__init__(target=targetutils.target_rpcserver(CONF.host))
+        super(RpcServerManager, self).__init__(target=targetutils.target_rpcserver(CONF.host, fanout=True))
+        self.agents_loads = {}
 
     def pre_start(self, external_objects):
         super(RpcServerManager, self).pre_start(external_objects)
@@ -46,6 +64,7 @@ class RpcServerManager(RpcManagerBase):
 
     def post_start(self):
         self.force_status(manager_common.ACTIVE)
+        self.add_periodic_task(ExpiredAgentStatusTask(self))
 
     def full(self):
         if not self.is_active:
@@ -159,11 +178,24 @@ class RpcServerManager(RpcManagerBase):
             session.close()
         threadpool.add_thread(safe_func_wrapper, check_respone, LOG)
 
-    def rpc_respone(self, ctxt, request_id, body):
+    def rpc_changesource(self, ctxt, agent_id, fds, conns, free, process, cputime, iowait, left):
         """agent report respone api"""
-        session = get_session()
-        asyncrequest = model_query(session, AsyncRequest, filter=AsyncRequest.request_id == request_id).one()
-        if not asyncrequest.expire:
-            return responeutils.agentrespone(session, request_id, body)
-        else:
-            return responeutils.agentrespone(get_cache(), request_id, body)
+        if agent_id not in self.agents_loads:
+            session = get_session(readonly=True)
+            query = model_query(session, Agent, filter=Agent.agent_id == agent_id)
+            agent = query.one_or_none()
+            if not agent:
+                return
+            if agent_id not in self.agents_loads:
+                self.agents_loads[agent_id] = dict(cpu=agent.cpu,
+                                                   memory=agent.memory,
+                                                   disk=agent.disk)
+        new_status = {'free': free, 'process': process,
+                      'cputime': cputime, 'iowait': iowait,
+                      'left': left, 'fds': fds, 'conns': conns,
+                      'time': int(time.time())}
+        self.agents_loads[agent_id].update(new_status)
+
+
+    def rpc_chioces(self, ctxt, endpoint, include=None, exclude=None, weigher=None):
+        pass

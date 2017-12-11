@@ -26,13 +26,14 @@
 [agents], path:[/agents%(format)s], method:[GET]
 列出所有服务器
 
+[allagents_agents], path:[/agents%(format)s], method:[GET]
+列出所有服务器id
+
 [agent], path:[/agents/%(agent_id)s%(format)s], method:[GET]
 查看指定服务器
 
-
 [status_agent], path:[/agents/%(agent_id)s/status%(format)s], method:[GET]
 查询服务器状态   异步接口
-
 
 [delete_agent], path:[/agents/%(agent_id)s%(format)s], method:[DELETE]
 删除服务器
@@ -46,8 +47,15 @@
 [active_agent], path:[/agents/%(agent_id)s/active%(format)s], method:[PATCH]
 激活服务器,新加入服务器默认属于未激活状态
 
+[clean_agent], path:[/agents/%(agent_id)s/clean%(format)s], method:[POST]
+彻底删除服务器信息
+
 
 # -------------endpoint接口
+[agents_endpoint], path:[/endpoints/%(endpoint)s/agents], method:[['GET']]
+用于获取在指定endpoint中包含的agents
+
+
 [count_endpoint], path:[/endpoints/%(endpoint)s/count], method:[['GET']]
 用于统计endpoint的数量
 
@@ -57,17 +65,13 @@
 [endpoint], path:[/agent/%(agent_id)s/endpoints/%(endpoint)s%(format)s], method:[GET]
 获取在指定服务器上的指定endpoint信息
 
+# -------------ports接口
+[allocated_ports], path:[/agent/%(agent_id)s/ports%(format)s], method:[GET]
+查询指定服务器已使用端口
+
 
 [ports], path:[/agent/%(agent_id)s/endpoint/%(endpoint)s/entity/%(entity)s/ports%(format)s], method:[GET]
 查询指定服务器、endpoint以及endpoint实体所使用的端口
-
-
-[edit_agent], path:[/agents/%(agent_id)s/edit%(format)s], method:[PATCH]
-编辑服务器（暂无作用）
-
-[clean_agent], path:[/agents/%(agent_id)s/clean%(format)s], method:[POST]
-彻底删除服务器信息
-
 
 
 # -------------调度器接口
@@ -122,10 +126,6 @@
 [asyncrequest], path:[/asyncrequests/%(request_id)s%(format)s], method:[GET]
 查询制定异步请求结果
 
-[details_asyncrequest], path:[/asyncrequests/%(request_id)s/details%(format)s], method:[GET]
-查询制定异步请求的结果细节
-
-
 [update_asyncrequest], path:[/asyncrequests/%(request_id)s%(format)s], method:[PUT]
 更新异步请求(暂无作用)
 
@@ -145,7 +145,7 @@
 # ------------ 以下路由为程序自行调用
 [create_port], path:[/agent/%(agent_id)s/endpoint/%(endpoint)s/entity/%(entity)s/ports%(format)s], method:[POST]
 [delete_port], path:[/agent/%(agent_id)s/endpoint/%(endpoint)s/entity/%(entity)s/ports/%(ports)s%(format)s], method:[DELETE]
-[agents_endpoint], path:[/endpoints/%(endpoint)s/agents], method:[['GET']]
+[edit_agent], path:[/agents/%(agent_id)s/edit%(format)s], method:[PATCH]
 [entitys_endpoint], path:[/endpoints/%(endpoint)s/entitys], method:[['GET']]
 [create_endpoint], path:[/agent/%(agent_id)s/endpoints%(format)s], method:[POST]
 [delete_endpoint], path:[/agent/%(agent_id)s/endpoints/%(endpoint)s%(format)s], method:[DELETE]

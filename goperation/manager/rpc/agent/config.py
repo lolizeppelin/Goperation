@@ -30,16 +30,16 @@ rpc_agent_opts = [
                 help='taskflow cache file in ramfs',
                 ),
     cfg.StrOpt('taskflow_connection',
-                help='taskflow storage connection url, '
-                     'taskflowcache option will be ignore when this option set'),
+               help='taskflow storage connection url, taskflowcache '
+                    'option will be ignore when this option set'),
 ]
 
 rpc_endpoint_opts = [
     cfg.ImportStringOpt('module',
-                 help='Manager extend rpc endpoint module string'),
+                        help='Manager extend rpc endpoint module string'),
     cfg.IntOpt('max_lock',
-                default=5,
-                help='Endpoint max lock size'),
+               default=5,
+               help='Endpoint max lock size'),
 ]
 
 

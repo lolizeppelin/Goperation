@@ -1,4 +1,3 @@
-import functools
 import webob.exc
 
 from sqlalchemy.sql import and_
@@ -12,7 +11,6 @@ from simpleutil.log import log as logging
 from simpleutil.utils import jsonutils
 from simpleutil.utils import uuidutils
 from simpleutil.utils import singleton
-from simpleutil.utils.attributes import validators
 
 from simpleservice.ormdb.api import model_query
 from simpleservice.rpc.exceptions import AMQPDestinationNotFound
@@ -32,6 +30,7 @@ from goperation.manager.api import rpcfinishtime
 from goperation.manager.models import Agent
 from goperation.manager.models import AgentEndpoint
 from goperation.manager.models import AgentEntity
+from goperation.manager.models import AgentReportLog
 from goperation.manager.exceptions import CacheStoneError
 from goperation.manager.exceptions import AgentHostExist
 from goperation.manager.exceptions import EndpointNotEmpty
@@ -56,6 +55,10 @@ FAULT_MAP = {InvalidArgument: webob.exc.HTTPClientError,
 
 @singleton.singleton
 class AgentReuest(BaseContorller):
+
+    def allagents(self, req):
+        return resultutils.results(result='Get all agent id success',
+                                   data=list(get_global().all_agents))
 
     def index(self, req, body=None):
         """call buy client"""
@@ -117,12 +120,14 @@ class AgentReuest(BaseContorller):
                         for port in entity.ports:
                            _entity['ports'].append(port)
         cache_store = get_cache()
-        agent_attributes = BaseContorller.agent_attributes(cache_store, agent_id)
         result_data = dict(agent_id=agent.agent_id, host=agent.host,
                            status=agent.status,
+                           cpu=agent.cpu,
+                           memory=agent.memory,
+                           disk=agent.disk,
                            ports_range=jsonutils.safe_loads_as_bytes(agent.ports_range) or [],
                            endpoints=endpoints,
-                           attributes=agent_attributes,
+                           attributes=BaseContorller.agent_attributes(cache_store, agent_id),
                            )
         result['data'].append(result_data)
         return result
@@ -177,7 +182,8 @@ class AgentReuest(BaseContorller):
                 if not delete_agent_precommit:
                     raise RpcResultError('delete_agent_precommit result is None')
                 if delete_agent_precommit.get('resultcode') != manager_common.RESULT_SUCCESS:
-                    return resultutils.results(result=delete_agent_precommit.get('result'))
+                    return resultutils.results(result=delete_agent_precommit.get('result'),
+                                               resultcode=manager_common.RESULT_ERROR)
         if not force:
             # tell agent delete itself
             LOG.info('Delete agent %s postcommit with secret %s' % (agent_ipaddr, secret))
@@ -286,7 +292,32 @@ class AgentReuest(BaseContorller):
         body = body or {}
         cache_store = get_cache()
         agent_attributes = body.pop('attributes')
+        snapshot = body.get('snapshot')
         BaseContorller.agent_attributes_cache_flush(cache_store, agent_id, agent_attributes)
+        if snapshot:
+            snapshot.setdefault('agent_id', agent_id)
+            def wapper():
+                session = get_session()
+                report = AgentReportLog(*snapshot)
+                session.add(report)
+                session.flush()
+                process = snapshot.get('running') + snapshot.get('sleeping')
+                free = snapshot.get('free') + snapshot.get('cached')
+                conns = snapshot.get('syn') + snapshot.get('enable')
+                cputime = snapshot.get('iowait') + snapshot.get('user') + snapshot.get('system')
+                rpc = get_client()
+                rpc.cast(targetutils.target_rpcserver(fanout=True),
+                         msg={'method': 'changesource',
+                              'args': {'agent_id': agent_id,
+                                       'free':  free,
+                                       'process': process,
+                                       'cputime': cputime,
+                                       'iowait': snapshot.get('iowait'),
+                                       'left': snapshot.get('left'),
+                                       'fds': snapshot.get('num_fds'),
+                                       'conns': conns,
+                                       }})
+            threadpool.add_thread(safe_func_wrapper, wapper, LOG)
         return resultutils.results(result='report success')
 
     def status(self, req, agent_id, body=None):

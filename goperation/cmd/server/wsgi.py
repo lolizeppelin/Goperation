@@ -13,6 +13,7 @@ from simpleservice.wsgi.service import load_paste_app
 from goperation import threadpool
 from goperation import EXTEND_ROUTES
 from goperation import config as goperation_config
+from goperation.manager import common as manager_common
 from goperation.manager.wsgi.config import route_opts
 
 
@@ -21,7 +22,7 @@ LOG = logging.getLogger(__name__)
 
 
 def configure(config_files=None, config_dirs=None):
-    name = 'gcenter'
+    name = manager_common.SERVER
     # init goperation config
     gcenter_group = goperation_config.configure(name, config_files, config_dirs)
     # set wsgi config

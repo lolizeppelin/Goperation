@@ -38,6 +38,14 @@ FAULT_MAP = {InvalidArgument: webob.exc.HTTPClientError,
 @singleton.singleton
 class PortReuest(BaseContorller):
 
+
+    def allocated(self, req, agent_id):
+        session = get_session(readonly=True)
+        query = model_query(session, AllocatedPort, filter=AllocatedPort.agent_id == agent_id)
+        return resultutils.results(result='list ports success', data=[dict(port=p.port, desc=p.desc,
+                                                                           ) for p in query.all()])
+
+
     def index(self, req, agent_id, endpoint, entity):
         session = get_session(readonly=True)
         query = model_query(session, AllocatedPort, filter=and_(AllocatedPort.agent_id == agent_id,

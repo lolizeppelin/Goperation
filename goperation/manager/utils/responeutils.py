@@ -66,8 +66,7 @@ def agentrespone(storage, request_id, data):
     expire = data.get('expire', 60)
     details = [dict(detail_id=detail['detail_id'],
                     resultcode=detail['resultcode'],
-                    result=detail['result'] if isinstance(detail['result'], basestring)
-                    else jsonutils.dumps_as_bytes(detail['result'])) for detail in data.get('details', [])]
+                    result=detail['result']) for detail in data.get('details', [])]
     data = dict(agent_id=agent_id,
                 agent_time=agent_time,
                 server_time=int(time.time()),
@@ -82,6 +81,10 @@ def agentrespone(storage, request_id, data):
                 storage.flush()
                 for detail in details:
                     detail.update(dict(agent_id=agent_id, request_id=request_id))
+                    detail_result = detail.pop('result')
+                    if not isinstance(detail_result, basestring):
+                        detail_result = jsonutils.dumps_as_bytes(detail_result)
+                    detail.setdefault('result', detail_result)
                     storage.add(ResponeDetail(**detail))
                     storage.flush()
         except DBDuplicateEntry:

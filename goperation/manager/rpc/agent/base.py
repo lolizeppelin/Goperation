@@ -39,6 +39,11 @@ CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 
 
+CPU = psutil.cpu_count()
+MEMORY = psutil.virtual_memory().total/(1024*1024)
+DISK = 0
+
+
 class AgentManagerClient(GopHttpClientApi):
 
     def agent_init_self(self,  manager):
@@ -52,12 +57,9 @@ class AgentManagerClient(GopHttpClientApi):
         """agent notify gcenter add agent"""
         body = dict(host=manager.host,
                     agent_type=manager.agent_type,
-                    cpu=psutil.cpu_count(),
-                    # memory available MB
-                    # memory=psutil.virtual_memory().available/(1024*1024),
-                    # memory total MB
-                    memory=psutil.virtual_memory().total/(1024*1024),
-                    disk=manager.partion_left_size,
+                    cpu=CPU,
+                    memory=MEMORY,
+                    disk=DISK,
                     ports_range=manager.ports_range,
                     endpoints=[endpoint.namespace for endpoint in manager.endpoints],
                     )
@@ -77,18 +79,74 @@ class OnlinTaskReporter(IntervalLoopinTask):
         super(OnlinTaskReporter, self).__init__(periodic_interval=interval,
                                                 initial_delay=random.randint(0, 10),
                                                 stop_on_exception=False)
+        self.last_interrupt = None
 
     def __call__(self, *args, **kwargs):
 
         body = {'attributes': self.manager.attributes,
                 'snapshot': self.performance_snapshot()}
-        self.manager.client.agent_report(self.manager.agent_id, body)
+        try:
+            self.manager.client.agent_report(self.manager.agent_id, body)
+        except Exception:
+            LOG.warning('Agent report fail')
+            self.context = 0
+            self.interrupts = 0
+            self.sinterrupts = 0
+            raise
+
+    def get_interrupt(self):
+        cpu_stat = psutil.cpu_stats()
+        if not self.interrupt:
+            self.interrupt = (cpu_stat.ctx_switches, cpu_stat.interrupts, cpu_stat.soft_interrupts)
+            return 0, 0, 0
+        else:
+            cur_interrupt = (cpu_stat.ctx_switches, cpu_stat.interrupts, cpu_stat.soft_interrupts)
+
+            interrupt = (cur_interrupt[0] - self.last_interrupt[0],
+                         cur_interrupt[1] - self.last_interrupt[1],
+                         cur_interrupt[2] - self.last_interrupt[2])
+            self.last_interrupt = interrupt
+            return interrupt
 
     def performance_snapshot(self):
         if not self.with_performance:
-            return None
-        # TODO do a system performance snapshot with psutil
-        return None
+             return None
+        running = 0
+        sleeping = 0
+        num_fds = 0
+        num_threads = 0
+        syn = 0
+        enable = 0
+        closeing = 0
+        for proc in psutil.process_iter(attrs=['status', 'num_fds', 'num_threads', 'connections']):
+            num_threads += proc.info.get('num_threads')
+            num_fds += proc.info.get('num_fds')
+            status = proc.info.get('status')
+            if status == 'sleeping':
+                sleeping += 1
+            elif status == 'running':
+                running += 1
+            else:
+                LOG.error('process status not sleeping or running')
+            for conn in proc.info.get('connections'):
+                if conn.status == 'syn':
+                    syn += 1
+                elif conn.status == 'enable':
+                    enable += 1
+                elif conn.status == 'closeing':
+                    closeing += 1
+        context, interrupts, sinterrupts = self.get_interrupt()
+        cpu_time = psutil.cpu_times_percent(0.5)
+        memory = psutil.virtual_memory()
+        return dict(running=running, sleeping=sleeping, num_fds=num_fds, num_threads=num_threads,
+                    context=context, interrupts=interrupts, sinterrupts=sinterrupts,
+                    irq=int(cpu_time.irq), sirq=int(cpu_time.softirq),
+                    user=int(cpu_time.user), system=int(cpu_time.system),
+                    nice=int(cpu_time.nice), iowait=int(cpu_time.iowait),
+                    used=memory.used/(1024*1024), cached=memory.cached/(1024*1024),
+                    buffers=memory.buffers/(1024*1024), free=memory.free/(1024*1024),
+                    left=self.manager.partion_left_size,
+                    syn=syn, enable=enable, closeing=closeing)
 
 
 class RpcAgentEndpointBase(EndpointBase):
@@ -164,6 +222,8 @@ class RpcAgentManager(RpcManagerBase):
         # init httpclient
         self.client = AgentManagerClient(httpclient=get_http())
         super(RpcAgentManager, self).__init__(target=target_server(self.agent_type, CONF.host, fanout=True))
+        global DISK
+        DISK = psutil.disk_usage(self.work_path)
         self.filemanager = FileManager(conf=CONF[agent_group.name],
                                        threadpool=threadpool,
                                        infoget=lambda x: self.client.file_show(x)['data'][0])
@@ -243,12 +303,20 @@ class RpcAgentManager(RpcManagerBase):
             self.client.agents_delete_endpoints(agent_id=self.agent_id, endpoint=list(delete_endpoints))
         if add_endpoints:
             self.client.endpoints_add(agent_id=self.agent_id, endpoints=list(add_endpoints))
+        hardware_changes = {}
         remote_ports_range = agent_info['ports_range']
         if remote_ports_range != self.ports_range:
             LOG.warning('Agent ports range has been changed at remote database')
-            body = {'ports_range': self.ports_range}
-            # call agent change ports_range
-            self.client.agent_edit(agent_id=self.agent_id, body=body)
+            hardware_changes.setdefault('ports_range', self.ports_range)
+        if agent_info['cpu'] != CPU:
+            hardware_changes.setdefault('cpu', CPU)
+        if agent_info['memory'] != MEMORY:
+            hardware_changes.setdefault('memory', MEMORY)
+        if agent_info['disk'] != DISK:
+            hardware_changes.setdefault('disk', DISK)
+        # call agent change hardware info
+        if hardware_changes:
+            self.client.agent_edit(agent_id=self.agent_id, body=hardware_changes)
         # agent set status at this moment
         # before status set, all rpc will requeue by RPCDispatcher
         # so function agent_show in wsgi server do not need agent lock
@@ -375,7 +443,6 @@ class RpcAgentManager(RpcManagerBase):
         return BaseRpcResult(self.agent_id, ctxt,
                              resultcode=manager_common.RESULT_SUCCESS,
                              result='Get status from %s success' % self.local_ip,
-                             # TODO more info of endpoint
                              details=[dict(detail_id=index, resultcode=manager_common.RESULT_SUCCESS,
                                            result=dict(endpoint=endpoint.namespace,
                                                        entitys=endpoint.entitys,

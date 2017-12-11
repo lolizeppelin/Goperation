@@ -245,10 +245,9 @@ class AgentReportLog(PluginTableBase):
     context = sa.Column(INTEGER(unsigned=True), nullable=False)
     interrupts = sa.Column(INTEGER(unsigned=True), nullable=False)
     sinterrupts = sa.Column(INTEGER(unsigned=True), nullable=False)
-    # psutil.cpu_times() irq softirq user system nice iowait
+    # psutil.cpu_times_percent(0.5) irq softirq user system nice iowait
     irq = sa.Column(INTEGER(unsigned=True), nullable=False)
     sirq = sa.Column(INTEGER(unsigned=True), nullable=False)
-    # percent of cpu time
     user = sa.Column(TINYINT(unsigned=True), nullable=False)
     system = sa.Column(TINYINT(unsigned=True), nullable=False)
     nice = sa.Column(TINYINT(unsigned=True), nullable=False)

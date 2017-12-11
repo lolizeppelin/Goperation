@@ -31,8 +31,9 @@ def async_request_pattern(request_id):
     return '%s-async-%s-*' % (prefix, request_id)
 
 
-def target_rpcserver(host=None):
+def target_rpcserver(host=None, fanout=False):
     return Target(topic='%s' % SERVER, server=host,
+                  fanout=SERVER if fanout else None,
                   namespace=manager_group.name)
 
 

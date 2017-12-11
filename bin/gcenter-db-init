@@ -2,6 +2,7 @@
 import logging
 
 from simpleutil.config import cfg
+from simpleservice.ormdb.tools.utils import database_init_opts
 
 from goperation.cmd.db import utils
 
@@ -9,7 +10,7 @@ from goperation.cmd.db import utils
 def main():
     logging.basicConfig(level=logging.WARN)
     conf = cfg.ConfigOpts()
-    conf.register_cli_opts(utils.database_init_opts)
+    conf.register_cli_opts(database_init_opts)
     conf()
     utils.init_manager(db_info=dict(user=conf.user,
                                     passwd=conf.passwd,

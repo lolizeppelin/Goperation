@@ -10,6 +10,11 @@
 # Manager extend route module string (multi import string)
 #routes =
 
+# Rpc agent status expire time (integer value)
+# Minimum value: 2
+# Maximum value: 20
+#expire_time = 10
+
 # Wsgi Server run user (string value)
 #wsgi_user = nginx
 
@@ -58,7 +63,7 @@
 # Timeout for client connections' socket operations. If an incoming connection
 # is idle for this number of seconds it will be closed. A value of '0' means
 # wait forever. (integer value)
-#client_socket_timeout = 30
+#client_socket_timeout = 60
 
 # Rpc Server run user (string value)
 #rpc_user = root

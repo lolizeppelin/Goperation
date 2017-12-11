@@ -130,6 +130,8 @@ class AsyncWorkRequest(contorller.BaseContorller):
                                 agent_respone_data = jsonutils.loads_as_bytes(agent_respone)
                             except (TypeError, ValueError):
                                 continue
+                            if not details:
+                                agent_respone.pop('details', None)
                             respones.append(agent_respone_data)
             return ret_dict
 
@@ -146,36 +148,6 @@ class AsyncWorkRequest(contorller.BaseContorller):
             return responeutils.agentrespone(session, request_id, body)
         else:
             return responeutils.agentrespone(get_cache(), request_id, body)
-
-    @Idformater
-    def responses(self, req, request_id, body):
-        """Find agents not witch not respone"""
-        agents = argutils.map_to_int(body.pop('agents'))
-        session = get_session(readonly=True)
-        # esure request_id
-        asyncrequest = model_query(session, AsyncRequest, filter=AsyncRequest.request_id == request_id).one()
-        if not asyncrequest.expire:
-            wait_agents = responeutils.norespones(session, request_id, agents)
-        else:
-            wait_agents = responeutils.norespones(get_cache(), request_id, agents)
-        return resultutils.results(result='Get agents success', data=[dict(agents=list(wait_agents))])
-
-    @Idformater
-    def details(self, req, request_id, body):
-        try:
-            agent_id = int(body.get('agent_id'))
-        except (KeyError, TypeError):
-            raise InvalidArgument('Get agent respone need agent_id value of int')
-        session = get_session(readonly=True)
-        agent_filter = and_(ResponeDetail.request_id == request_id,
-                            ResponeDetail.agent_id == agent_id)
-        query = model_query(session, ResponeDetail, filter=agent_filter)
-        details = query.all()
-        if not details:
-            return resultutils.results(result='Details of agent %d can not be found' % agent_id,
-                                       resultcode=manager_common.RESULT_IS_NONE)
-        return resultutils.results(result='Get details success',
-                                   data=[resultutils.detail(detail) for detail in details])
 
     @Idformater
     def overtime(self, req, request_id, body):
