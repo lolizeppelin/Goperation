@@ -176,7 +176,7 @@ class RpcServerManager(RpcManagerBase):
 
         threadpool.add_thread(safe_func_wrapper, check_respone, LOG)
 
-    def rpc_changesource(self, ctxt, agent_id, fds, conns, free, process, cputime, iowait, left):
+    def rpc_changesource(self, ctxt, agent_id, fds, conns, free, process, cputime, iowait, left, attributes):
         """agent status of performance change"""
         if agent_id not in self.agents_loads:
             session = get_session(readonly=True)
@@ -191,14 +191,19 @@ class RpcServerManager(RpcManagerBase):
         new_status = {'free': free, 'process': process,
                       'cputime': cputime, 'iowait': iowait,
                       'left': left, 'fds': fds, 'conns': conns,
-                      'time': int(time.time())}
+                      'time': int(time.time()),
+                      'attributes': attributes}
         self.agents_loads[agent_id].update(new_status)
 
-    def rpc_chioces(self, ctxt, endpoint, exclude=None, weigher=None):
+    def rpc_deletesource(self, ctxt, agent_id):
+        """remove agent from change list"""
+        self.agents_loads.pop(agent_id)
+
+    def rpc_chioces(self, ctxt, target, exclude=None, weigher=None):
         """chioce best best performance agent for endpoint"""
         include = set()
         session = get_session(readonly=True)
-        for _endpoint in model_query(session, AgentEndpoint, filter=AgentEndpoint.endpoint == endpoint):
+        for _endpoint in model_query(session, AgentEndpoint, filter=AgentEndpoint.endpoint == target):
             include.add(_endpoint.agent_id)
         for agent_id in self.agents_loads:
             if agent_id not in include:

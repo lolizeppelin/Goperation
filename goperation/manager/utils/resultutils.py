@@ -1,3 +1,5 @@
+import six
+import abc
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 
 from simpleutil.utils import jsonutils
@@ -128,16 +130,41 @@ def detail(_detail):
     return ret_dict
 
 
+@six.add_metaclass(abc.ABCMeta)
 class BaseRpcResult(object):
+
+    def __init__(self, resultcode=0, result=None):
+        self.resultcode = resultcode
+        self.result = result
+
+    @abc.abstractmethod
+    def to_dict(self):
+        """change intacne to dict"""
+
+
+class ServerRpcResult(BaseRpcResult):
+    """"""
+
+    def __init__(self, host, resultcode=0, result=None, ):
+        self.host = host
+        super(ServerRpcResult, self).__init__(resultcode, result)
+
+    def to_dict(self):
+        ret_dict = {'resultcode': self.resultcode,
+                    'host': self.host,
+                    'result': self.result if self.result else 'unkonwn result'}
+        return ret_dict
+
+
+class AgentRpcResult(BaseRpcResult):
 
     def __init__(self, agent_id, ctxt=None,
                  resultcode=0, result=None, details=None):
         self.agent_id = agent_id
-        self.resultcode = resultcode
-        self.result = result
         self.details = details
         self.agent_time = int(timeutils.realnow())
         self.expire = ctxt.get('expire', 0)
+        super(AgentRpcResult, self).__init__(resultcode, result)
 
     def to_dict(self):
         ret_dict = {'agent_id': self.agent_id,

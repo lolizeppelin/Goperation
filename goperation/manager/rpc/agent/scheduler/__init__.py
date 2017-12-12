@@ -18,7 +18,7 @@ from goperation.manager.rpc.agent import base
 from goperation.manager.api import get_session
 from goperation.manager.models import ScheduleJob
 from goperation.manager.models import JobStep
-from goperation.manager.utils.resultutils import BaseRpcResult
+from goperation.manager.utils.resultutils import AgentRpcResult
 from goperation.manager.rpc.agent.ctxtdescriptor import CheckManagerRpcCtxt
 from goperation.manager.rpc.agent.ctxtdescriptor import CheckThreadPoolRpcCtxt
 from goperation.manager.rpc.agent.scheduler.taskflow import executor
@@ -132,6 +132,7 @@ class SchedulerManager(base.RpcAgentManager):
 
             self.jobs.add(job_id)
             self.timers.add(periodic)
+
             # remove from timers when task finish
             def clean():
                 self.timers.discard(periodic)
@@ -141,8 +142,8 @@ class SchedulerManager(base.RpcAgentManager):
     @CheckManagerRpcCtxt
     def rpc_scheduler(self, ctxt, job_id, jobdata):
         if not self.is_active:
-            return BaseRpcResult(self.agent_id, resultcode=manager_common.RESULT_ERROR,
-                                 result='Scheduler not active now')
+            return AgentRpcResult(self.agent_id, resultcode=manager_common.RESULT_ERROR,
+                                  result='Scheduler not active now')
         session = get_session()
         # write job to database
         interval = jobdata['interval']
@@ -175,7 +176,7 @@ class SchedulerManager(base.RpcAgentManager):
                                     provides=safe_dumps(step.get('provides', None))))
                 session.flush()
         self.start_task(job_id, start, interval)
-        return BaseRpcResult(result='Scheduler Job accepted', agent_id=self.agent_id)
+        return AgentRpcResult(result='Scheduler Job accepted', agent_id=self.agent_id)
 
     @CheckManagerRpcCtxt
     @CheckThreadPoolRpcCtxt

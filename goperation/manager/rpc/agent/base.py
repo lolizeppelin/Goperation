@@ -25,7 +25,7 @@ from goperation.manager import common as manager_common
 from goperation.manager.utils.validateutils import validate_endpoint
 from goperation.manager.utils.targetutils import target_server
 from goperation.manager.utils.targetutils import target_endpoint
-from goperation.manager.utils.resultutils import BaseRpcResult
+from goperation.manager.utils.resultutils import AgentRpcResult
 from goperation.manager.rpc.base import RpcManagerBase
 from goperation.manager.rpc.exceptions import RpcTargetLockException
 from goperation.manager.rpc.agent.config import agent_group
@@ -222,6 +222,8 @@ class RpcAgentManager(RpcManagerBase):
         # init httpclient
         self.client = AgentManagerClient(httpclient=get_http())
         super(RpcAgentManager, self).__init__(target=target_server(self.agent_type, CONF.host, fanout=True))
+        self._attributes = super(RpcAgentManager, self).attributes
+        self._attributes.setdefault('agent_type', self.agent_type)
         global DISK
         DISK = psutil.disk_usage(self.work_path)
         self.filemanager = FileManager(conf=CONF[agent_group.name],
@@ -273,7 +275,7 @@ class RpcAgentManager(RpcManagerBase):
         # add online report periodic tasks
         self._periodic_tasks.insert(0, OnlinTaskReporter(self))
         for endpoint in self.endpoints:
-            endpoint.pre_start(self._periodic_tasks)
+            endpoint.pre_start(self._attributes)
 
     def post_start(self):
         agent_info = self.client.agent_show(self.agent_id, body={'ports': True, 'entitys': True})['data'][0]
@@ -423,24 +425,24 @@ class RpcAgentManager(RpcManagerBase):
     @CheckManagerRpcCtxt
     def rpc_active_agent(self, ctxt, **kwargs):
         if kwargs.get('agent_id') != self.agent_id or kwargs.get('agent_ipaddr') != self.local_ip:
-            return BaseRpcResult(self.agent_id, ctxt,
+            return AgentRpcResult(self.agent_id, ctxt,
                                  resultcode=manager_common.RESULT_ERROR,
                                  result='ACTIVE agent failure, agent id or ip not match')
         status = kwargs.get('status')
         if not isinstance(status, (int, long)) or status <= manager_common.SOFTBUSY:
-            return BaseRpcResult(self.agent_id, ctxt,
+            return AgentRpcResult(self.agent_id, ctxt,
                                  resultcode=manager_common.RESULT_ERROR,
                                  result='Agent change status failure, status code value error')
         if not self.set_status(status):
-            return BaseRpcResult(self.agent_id, ctxt,
+            return AgentRpcResult(self.agent_id, ctxt,
                                  resultcode=manager_common.RESULT_ERROR,
                                  result='ACTIVE agent failure, can not set stauts now')
-        return BaseRpcResult(self.agent_id, ctxt,
+        return AgentRpcResult(self.agent_id, ctxt,
                              resultcode=manager_common.RESULT_SUCCESS, result='ACTIVE agent success')
 
     @CheckManagerRpcCtxt
     def rpc_status_agent(self, ctxt, **kwargs):
-        return BaseRpcResult(self.agent_id, ctxt,
+        return AgentRpcResult(self.agent_id, ctxt,
                              resultcode=manager_common.RESULT_SUCCESS,
                              result='Get status from %s success' % self.local_ip,
                              details=[dict(detail_id=index, resultcode=manager_common.RESULT_SUCCESS,
@@ -454,31 +456,31 @@ class RpcAgentManager(RpcManagerBase):
     def rpc_delete_agent_precommit(self, ctxt, **kwargs):
         with self.work_lock.priority(0):
             if threadpool.threads:
-                return BaseRpcResult(self.agent_id, ctxt,
+                return AgentRpcResult(self.agent_id, ctxt,
                                      resultcode=manager_common.RESULT_ERROR,
                                      result='Thread pool is not empty')
             for endpont in self.endpoints:
                 endpont.frozen = True
             if self.status <= manager_common.SOFTBUSY:
-                return BaseRpcResult(self.agent_id, ctxt,
+                return AgentRpcResult(self.agent_id, ctxt,
                                      resultcode=manager_common.RESULT_ERROR,
                                      result='Can not change status now')
             if kwargs['agent_id'] != self.agent_id \
                     or kwargs['agent_type'] != self.agent_type \
                     or kwargs['host'] != CONF.host \
                     or kwargs['agent_ipaddr'] != self.local_ip:
-                return BaseRpcResult(self.agent_id, ctxt,
+                return AgentRpcResult(self.agent_id, ctxt,
                                      resultcode=manager_common.RESULT_ERROR,
                                      result='Not match this agent')
             for endpont in self.endpoints:
                 if endpont.entitys:
-                    return BaseRpcResult(self.agent_id, ctxt,
+                    return AgentRpcResult(self.agent_id, ctxt,
                                          resultcode=manager_common.RESULT_ERROR,
                                          result='Endpoint %s is not empty' % endpont.name)
             self.status = manager_common.PERDELETE
             msg = 'Agent %s with id %d wait delete' % (CONF.host, self.agent_id)
             LOG.info(msg)
-            return BaseRpcResult(self.agent_id, ctxt,
+            return AgentRpcResult(self.agent_id, ctxt,
                                  resultcode=manager_common.RESULT_SUCCESS, result=msg)
 
     @CheckManagerRpcCtxt
@@ -488,24 +490,24 @@ class RpcAgentManager(RpcManagerBase):
                             kwargs['agent_type'] != self.agent_type or \
                             kwargs['host'] != CONF.host or \
                             kwargs['agent_ipaddr'] != self.local_ip:
-                return BaseRpcResult(self.agent_id, ctxt,
+                return AgentRpcResult(self.agent_id, ctxt,
                                      resultcode=manager_common.RESULT_ERROR, result='Not match this agent')
             if self.status == manager_common.PERDELETE:
                 self.status = manager_common.DELETED
                 msg = 'Agent %s with id %d set status to DELETED success' % (CONF.host, self.agent_id)
                 suicide(delay=3)
-                return BaseRpcResult(self.agent_id, ctxt,
+                return AgentRpcResult(self.agent_id, ctxt,
                                      resultcode=manager_common.RESULT_SUCCESS, result=msg)
             else:
                 msg = 'Agent status is not PERDELETE, status is %d' % self.status
-                return BaseRpcResult(self.agent_id, ctxt,
+                return AgentRpcResult(self.agent_id, ctxt,
                                      resultcode=manager_common.RESULT_ERROR, result=msg)
 
     @CheckManagerRpcCtxt
     def rpc_upgrade_agent(self, ctxt, **kwargs):
         with self.work_lock.priority(0):
             if threadpool.threads or self.status < manager_common.SOFTBUSY:
-                return BaseRpcResult(self.agent_id, ctxt,
+                return AgentRpcResult(self.agent_id, ctxt,
                                      resultcode=manager_common.RESULT_ERROR,
                                      result='upgrade fail public thread pool not empty or status error')
             for endpont in self.endpoints:
@@ -514,7 +516,7 @@ class RpcAgentManager(RpcManagerBase):
             self.status = manager_common.HARDBUSY
             # TODO call rpm Uvh then restart self
             self.status = last_status
-            return BaseRpcResult(self.agent_id, ctxt, resultcode=manager_common.RESULT_SUCCESS,
+            return AgentRpcResult(self.agent_id, ctxt, resultcode=manager_common.RESULT_SUCCESS,
                                  result='upgrade call rpm Uvh success')
 
     @CheckManagerRpcCtxt
@@ -522,11 +524,9 @@ class RpcAgentManager(RpcManagerBase):
     def getfile(self, ctxt, mark, timeout):
         timeout - time.time()
         self.filemanager.get(mark, download=True, timeout=timeout)
-        return BaseRpcResult(self.agent_id, ctxt, resultcode=manager_common.RESULT_SUCCESS,
+        return AgentRpcResult(self.agent_id, ctxt, resultcode=manager_common.RESULT_SUCCESS,
                              result='getfile success')
 
     @property
     def attributes(self):
-        _attributes = super(RpcAgentManager, self).attributes
-        _attributes.setdefault('agent_type', self.agent_type)
-        return _attributes
+        return self._attributes

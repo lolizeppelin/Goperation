@@ -184,17 +184,22 @@ class AgentReuest(BaseContorller):
                 if delete_agent_precommit.get('resultcode') != manager_common.RESULT_SUCCESS:
                     return resultutils.results(result=delete_agent_precommit.get('result'),
                                                resultcode=manager_common.RESULT_ERROR)
-        if not force:
-            # tell agent delete itself
-            LOG.info('Delete agent %s postcommit with secret %s' % (agent_ipaddr, secret))
-            rpc.cast(targetutils.target_agent(agent),
-                     ctxt={'finishtime': rpcfinishtime()},
-                     msg={'method': 'delete_agent_postcommit',
-                          'args': {'agent_id': agent.agent_id,
-                                   'agent_type': agent.agent_type,
-                                   'host': agent.host,
-                                   'agent_ipaddr': agent_ipaddr,
-                                   'secret': secret}})
+        # if not force:
+                # tell agent delete itself
+                LOG.info('Delete agent %s postcommit with secret %s' % (agent_ipaddr, secret))
+                rpc.cast(targetutils.target_agent(agent),
+                         ctxt={'finishtime': rpcfinishtime()},
+                         msg={'method': 'delete_agent_postcommit',
+                              'args': {'agent_id': agent.agent_id,
+                                       'agent_type': agent.agent_type,
+                                       'host': agent.host,
+                                       'agent_ipaddr': agent_ipaddr,
+                                       'secret': secret}})
+        def wapper():
+            rpc.cast(targetutils.target_rpcserver(fanout=True),
+                     msg={'method': 'deletesource',
+                          'args': {'agent_id': agent_id}})
+        threadpool.add_thread(safe_func_wrapper, wapper, LOG)
         result = resultutils.results(result='Delete agent success',
                                      data=[dict(agent_id=agent.agent_id,
                                                 host=agent.host,
@@ -318,6 +323,7 @@ class AgentReuest(BaseContorller):
                                        'left': snapshot.get('left'),
                                        'fds': snapshot.get('num_fds'),
                                        'conns': conns,
+                                       'attributes': agent_attributes,
                                        }})
             threadpool.add_thread(safe_func_wrapper, wapper, LOG)
         return resultutils.results(result='report success')

@@ -5,7 +5,7 @@ from simpleservice.rpc.exceptions import MessageNotForMe
 from goperation import threadpool
 from goperation.manager import common as manager_common
 from goperation.manager.rpc import exceptions
-from goperation.manager.utils.resultutils import BaseRpcResult
+from goperation.manager.utils.resultutils import AgentRpcResult
 
 
 class CheckRpcCtxt(object):
@@ -24,14 +24,14 @@ class CheckRpcCtxt(object):
 
     def check_status(self, ctxt):
         if not self.manager.is_active:
-            result = BaseRpcResult(self.manager.agent_id, ctxt,
+            result = AgentRpcResult(self.manager.agent_id, ctxt,
                                    resultcode=manager_common.RESULT_ERROR,
                                    result='Agent status is not active')
             raise exceptions.RpcCtxtException(result=result)
 
     def check_pool(self, ctxt):
         if threadpool.pool.free() < (threadpool.pool.size/10) + 2:
-            result = BaseRpcResult(self.manager.agent_id, ctxt,
+            result = AgentRpcResult(self.manager.agent_id, ctxt,
                                    resultcode=manager_common.RESULT_ERROR,
                                    result='Agent public thread pool is busy')
             raise exceptions.RpcCtxtException(result=result)
@@ -57,14 +57,14 @@ class CheckManagerRpcCtxt(CheckRpcCtxt):
                 raise MessageNotForMe
             if finishtime and int(realnow()) >= finishtime:
                 msg = 'Rpc receive time over finishtime'
-                result = BaseRpcResult(self.manager.agent_id, ctxt,
+                result = AgentRpcResult(self.manager.agent_id, ctxt,
                                        resultcode=manager_common.RESULT_OVER_FINISHTIME, result=msg)
                 raise exceptions.RpcCtxtException(result)
             file_mark = ctxt.pop('file', None)
             if file_mark:
                 target_file = self.manager.filemanager.find(file_mark)
                 if target_file is None:
-                    result = BaseRpcResult(self.manager.agent_id, ctxt,
+                    result = AgentRpcResult(self.manager.agent_id, ctxt,
                                            resultcode=manager_common.RESULT_ERROR,
                                            result='Could not find target file')
                     raise exceptions.RpcCtxtException(result)
@@ -85,7 +85,7 @@ class CheckManagerRpcCtxt(CheckRpcCtxt):
             result = e
         if not request_id:
             return result
-        if isinstance(result, BaseRpcResult):
+        if isinstance(result, AgentRpcResult):
             http_result = result.to_dict()
         elif isinstance(result, Exception):
             # TODO should get more details for exception like
@@ -95,13 +95,13 @@ class CheckManagerRpcCtxt(CheckRpcCtxt):
                 msg += str(getattr(result, 'message'))
             else:
                 msg += 'unkonwn msg'
-            http_result = BaseRpcResult(self.manager.agent_id, ctxt,
+            http_result = AgentRpcResult(self.manager.agent_id, ctxt,
                                         resultcode=manager_common.RESULT_ERROR,
                                         result=msg).to_dict()
         elif isinstance(result, dict):
             http_result = result
         else:
-            http_result = BaseRpcResult(self.manager.agent_id, ctxt,
+            http_result = AgentRpcResult(self.manager.agent_id, ctxt,
                                         resultcode=manager_common.RESULT_ERROR,
                                         result='Rpc result value type error: %s' % str(result)).to_dict()
         self.manager.client.async_response(request_id, http_result)
@@ -118,7 +118,7 @@ class CheckEndpointRpcCtxt(CheckRpcCtxt):
         # if not set, means all entitys of endpoint in this agent
         entitys = ctxt.get('entitys', endpoint.entitys)
         if not isinstance(entitys, list):
-            result = BaseRpcResult(self.manager.agent_id, ctxt,
+            result = AgentRpcResult(self.manager.agent_id, ctxt,
                                    resultcode=manager_common.RESULT_ERROR,
                                    result='ctxt entitys type error')
             raise exceptions.RpcCtxtException(result=result)
@@ -127,7 +127,7 @@ class CheckEndpointRpcCtxt(CheckRpcCtxt):
             target_file = ctxt.pop('file', None)
             if target_file:
                 if target_file.size * len(entitys) > self.manager.partion_left_size - 100:
-                    result = BaseRpcResult(self.manager.agent_id, ctxt,
+                    result = AgentRpcResult(self.manager.agent_id, ctxt,
                                            resultcode=manager_common.RESULT_ERROR,
                                            result='Not enough space for %d entitys' % len(entitys))
                     raise exceptions.RpcCtxtException(result=result)

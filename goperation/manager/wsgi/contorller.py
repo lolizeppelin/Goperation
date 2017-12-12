@@ -20,6 +20,7 @@ from goperation.manager.api import get_session
 from goperation.manager.api import get_global
 from goperation.manager.api import rpcfinishtime
 from goperation.manager.models import AsyncRequest
+from goperation.manager.wsgi.exceptions import RpcResultError
 
 
 LOG = logging.getLogger(__name__)
@@ -141,6 +142,14 @@ class BaseContorller(MiddlewareContorller):
                         LOG.error('Revet ttl of %s fail' % host_online_key)
                 raise InvalidArgument('Agent %d with ipaddr %s alreday eixst' %
                                       (agent_id, exist_agent_iattributes.get('local_ip')))
+            else:
+                # replace attributes
+                if exist_agent_iattributes != attributes:
+                    LOG.warning('Agent %d attributes change' % agent_id)
+                    if not cache_store.set(host_online_key, jsonutils.dumps_as_bytes(attributes),
+                                           ex=manager_common.ONLINE_EXIST_TIME):
+                        raise InvalidArgument('Another agent login with same host or '
+                                              'someone set key %s' % host_online_key)
         else:
             if not cache_store.set(host_online_key, jsonutils.dumps_as_bytes(attributes),
                                    ex=manager_common.ONLINE_EXIST_TIME, nx=True):
@@ -185,3 +194,14 @@ class BaseContorller(MiddlewareContorller):
                 raise
             except DBDuplicateEntry:
                 LOG.warning('Async request rpc call result is None, but recode found')
+
+    def chioces(self, endpoint, exclude, weigher=None):
+        rpc = get_client()
+        chioces_result = rpc.call(targetutils.target_rpcserver(),
+                                  msg={'method': 'chioces',
+                                       'args': {'target': endpoint, 'exclude': exclude, 'weigher': weigher}})
+        if not chioces_result:
+            raise RpcResultError('Active agent chioces result is None')
+        if chioces_result.pop('resultcode') != manager_common.RESULT_SUCCESS:
+            raise RpcResultError('Call agent chioces fail: ' + chioces_result.get('result'))
+        return chioces_result['agents']
