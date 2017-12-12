@@ -20,6 +20,7 @@ from goperation.manager.api import get_client
 from goperation.manager.api import get_session
 from goperation.manager.api import get_cache
 from goperation.manager.models import AsyncRequest
+from goperation.manager.models import AgentEndpoint
 from goperation.manager.models import Agent
 from goperation.manager.utils import targetutils
 from goperation.manager.utils import responeutils
@@ -51,16 +52,11 @@ class ExpiredAgentStatusTask(IntervalLoopinTask):
 class RpcServerManager(RpcManagerBase):
 
     def __init__(self):
-        # init httpclient
         super(RpcServerManager, self).__init__(target=targetutils.target_rpcserver(CONF.host, fanout=True))
         self.agents_loads = {}
 
     def pre_start(self, external_objects):
         super(RpcServerManager, self).pre_start(external_objects)
-        # get agent id of this agent
-        # if agent not exist,call create
-        # add online report periodic tasks
-        # self._periodic_tasks.insert(0, OnlinTaskReporter(self))
 
     def post_start(self):
         self.force_status(manager_common.ACTIVE)
@@ -79,6 +75,7 @@ class RpcServerManager(RpcManagerBase):
     def rpc_asyncrequest(self, ctxt,
                          asyncrequest, rpc_target, rpc_method,
                          rpc_ctxt, rpc_args):
+        """async respone check"""
         session = get_session()
         finishtime = ctxt.get('finishtime', None)
         asyncrequest = AsyncRequest(**asyncrequest)
@@ -176,10 +173,11 @@ class RpcServerManager(RpcManagerBase):
                 asyncrequest.result = 'all agent respone result'
             session.flush()
             session.close()
+
         threadpool.add_thread(safe_func_wrapper, check_respone, LOG)
 
     def rpc_changesource(self, ctxt, agent_id, fds, conns, free, process, cputime, iowait, left):
-        """agent report respone api"""
+        """agent status of performance change"""
         if agent_id not in self.agents_loads:
             session = get_session(readonly=True)
             query = model_query(session, Agent, filter=Agent.agent_id == agent_id)
@@ -196,6 +194,15 @@ class RpcServerManager(RpcManagerBase):
                       'time': int(time.time())}
         self.agents_loads[agent_id].update(new_status)
 
-
-    def rpc_chioces(self, ctxt, endpoint, include=None, exclude=None, weigher=None):
-        pass
+    def rpc_chioces(self, ctxt, endpoint, exclude=None, weigher=None):
+        """chioce best best performance agent for endpoint"""
+        include = set()
+        session = get_session(readonly=True)
+        for _endpoint in model_query(session, AgentEndpoint, filter=AgentEndpoint.endpoint == endpoint):
+            include.add(_endpoint.agent_id)
+        for agent_id in self.agents_loads:
+            if agent_id not in include:
+                continue
+            if exclude and agent_id in exclude:
+                continue
+        return []

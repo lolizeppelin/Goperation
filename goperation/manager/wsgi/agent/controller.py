@@ -304,7 +304,9 @@ class AgentReuest(BaseContorller):
                 process = snapshot.get('running') + snapshot.get('sleeping')
                 free = snapshot.get('free') + snapshot.get('cached')
                 conns = snapshot.get('syn') + snapshot.get('enable')
-                cputime = snapshot.get('iowait') + snapshot.get('user') + snapshot.get('system')
+                cputime = snapshot.get('iowait') + snapshot.get('user') \
+                          + snapshot.get('system') + snapshot.get('nice')\
+                          + snapshot.get('irq') + snapshot.get('sirq')
                 rpc = get_client()
                 rpc.cast(targetutils.target_rpcserver(fanout=True),
                          msg={'method': 'changesource',

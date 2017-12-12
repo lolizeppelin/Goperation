@@ -258,6 +258,8 @@ class AgentReportLog(PluginTableBase):
     cached = sa.Column(INTEGER(unsigned=True), nullable=False)
     buffers = sa.Column(INTEGER(unsigned=True), nullable=False)
     free = sa.Column(INTEGER(unsigned=True), nullable=False)
+    # partion left size MB
+    left = sa.Column(INTEGER(unsigned=True), nullable=False)
     # network  count
     # psutil.net_connections()  count(*)
     syn = sa.Column(INTEGER(unsigned=True), nullable=False)

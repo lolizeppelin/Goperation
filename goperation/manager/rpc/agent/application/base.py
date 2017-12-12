@@ -10,7 +10,7 @@ from goperation.manager.rpc.exceptions import RpcEntityError
 CONF = cfg.CONF
 
 class AppEndpointBase(RpcAgentEndpointBase):
-    """"""
+    """Endpoint base class"""
 
     def __init__(self, manager, name):
         super(AppEndpointBase, self).__init__(manager, name)
