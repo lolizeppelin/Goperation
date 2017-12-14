@@ -18,6 +18,7 @@ from goperation.manager import common as manager_common
 from goperation.manager.api import get_client
 from goperation.manager.api import get_session
 from goperation.manager.api import get_global
+from goperation.manager.api import get_redis
 from goperation.manager.api import rpcfinishtime
 from goperation.manager.models import AsyncRequest
 from goperation.manager.wsgi.exceptions import RpcResultError
@@ -113,12 +114,14 @@ class BaseContorller(MiddlewareContorller):
         return new_request
 
     @staticmethod
-    def agent_attributes(cache_store, agent_id):
+    def agent_attributes(agent_id):
+        cache_store = get_redis()
         attributes = cache_store.get(targetutils.host_online_key(agent_id))
         return attributes if not attributes else jsonutils.loads_as_bytes(attributes)
 
     @staticmethod
-    def agent_attributes_cache_flush(cache_store, agent_id, attributes):
+    def agent_attributes_cache_flush(agent_id, attributes):
+        cache_store = get_redis()
         agent_ipaddr = attributes.get('local_ip')
         host_online_key = targetutils.host_online_key(agent_id)
         with cache_store.pipeline() as pipe:

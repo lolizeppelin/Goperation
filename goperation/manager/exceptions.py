@@ -1,3 +1,10 @@
+class AcceptableError(Exception):
+    """error acceptable """
+
+class UnAcceptableError(Exception):
+    """error unacceptable """
+
+
 class AllocLockTimeout(Exception):
     """alloc GlobalLock timeout"""
 

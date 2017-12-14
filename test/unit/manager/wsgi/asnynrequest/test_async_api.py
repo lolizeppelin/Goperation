@@ -19,10 +19,10 @@ wsgi_port = 7999
 client = ManagerClient(wsgi_url, wsgi_port)
 
 
-for r in client.asyncs_index()['data']:
-    print r
+# for r in client.asyncs_index()['data']:
+#     print r
 
-print client.async_show(request_id='bcb5864c-8108-4498-bc1d-1018b5101deb')
+print client.async_show(request_id='78682612-803c-41a4-b73c-74cea6d6a918')
 
 # asyncs_index(self, body
 # async_show(self, request_id, body)

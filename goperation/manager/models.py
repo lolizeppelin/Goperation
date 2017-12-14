@@ -159,7 +159,6 @@ class AgentEntity(PluginTableBase):
 
 class AgentEndpoint(PluginTableBase):
     endpoint = sa.Column(VARCHAR(manager_common.MAX_ENDPOINT_NAME_SIZE),
-                         default=None,
                          nullable=False, primary_key=True)
     agent_id = sa.Column(sa.ForeignKey('agents.agent_id', ondelete="CASCADE", onupdate='RESTRICT'),
                          nullable=False,

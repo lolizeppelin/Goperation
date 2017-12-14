@@ -77,7 +77,6 @@ class CacheReuest(BaseContorller):
         except InvalidInput as e:
             raise InvalidArgument(e.message)
         session = get_session(readonly=True)
-        cache_store = get_cache()
         query = model_query(session, Agent,
                             filter=(and_(Agent.status > manager_common.DELETED,
                                          Agent.agent_type == agent_type, Agent.host == host)))
@@ -96,7 +95,7 @@ class CacheReuest(BaseContorller):
                        'local_ip': local_ip,
                        'external_ips': external_ips})
             ret = {'agent_id': agent.agent_id}
-            BaseContorller.agent_attributes_cache_flush(cache_store, agent.agent_id, attributes)
+            BaseContorller.agent_attributes_cache_flush(agent.agent_id, attributes)
         result = resultutils.results(result='Cache online function run success')
         result['data'].append(ret)
         return result

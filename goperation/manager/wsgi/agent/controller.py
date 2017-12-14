@@ -119,7 +119,6 @@ class AgentReuest(BaseContorller):
                     if show_ports:
                         for port in entity.ports:
                            _entity['ports'].append(port)
-        cache_store = get_cache()
         result_data = dict(agent_id=agent.agent_id, host=agent.host,
                            status=agent.status,
                            cpu=agent.cpu,
@@ -127,7 +126,7 @@ class AgentReuest(BaseContorller):
                            disk=agent.disk,
                            ports_range=jsonutils.safe_loads_as_bytes(agent.ports_range) or [],
                            endpoints=endpoints,
-                           attributes=BaseContorller.agent_attributes(cache_store, agent_id),
+                           attributes=BaseContorller.agent_attributes(agent_id),
                            )
         result['data'].append(result_data)
         return result
@@ -158,16 +157,15 @@ class AgentReuest(BaseContorller):
         # will not notify agent, just delete agent from database
         body = body or {}
         force = body.get('force', False)
-        cache_store = get_cache()
         rpc = get_client()
         global_data = get_global()
         agent_attributes = None
         with global_data.delete_agent(agent_id) as agent:
             if not force:
-                agent_attributes = BaseContorller.agent_attributes(cache_store, agent.agent_id)
+                agent_attributes = BaseContorller.agent_attributes(agent.agent_id)
                 if agent_attributes is None:
                     raise RpcPrepareError('Can not delete offline agent, try force')
-                agent_ipaddr =agent_attributes.get('local_ip')
+                agent_ipaddr = agent_attributes.get('local_ip')
                 secret = uuidutils.generate_uuid()
                 # tell agent wait delete
                 delete_agent_precommit = rpc.call(targetutils.target_agent(agent),
@@ -237,7 +235,6 @@ class AgentReuest(BaseContorller):
         status = body.get('status', manager_common.ACTIVE)
         if status not in (manager_common.ACTIVE, manager_common.UNACTIVE):
             raise InvalidArgument('Argument status not right')
-        cache_store = get_cache()
         rpc = get_client()
         session = get_session()
         query = model_query(session, Agent,
@@ -245,7 +242,7 @@ class AgentReuest(BaseContorller):
                                         Agent.status > manager_common.DELETED))
         agent = query.one()
         # make sure agent is online
-        agent_attributes = BaseContorller.agent_attributes(cache_store, agent.agent_id)
+        agent_attributes = BaseContorller.agent_attributes(agent.agent_id)
         if agent_attributes is None:
             raise RpcPrepareError('Can not active or unactive a offline agent: %d' % agent_id)
         agent_ipaddr = agent_attributes.get('local_ip')
@@ -295,10 +292,9 @@ class AgentReuest(BaseContorller):
     @BaseContorller.AgentIdformater
     def report(self, req, agent_id, body=None):
         body = body or {}
-        cache_store = get_cache()
         agent_attributes = body.pop('attributes')
         snapshot = body.get('snapshot')
-        BaseContorller.agent_attributes_cache_flush(cache_store, agent_id, agent_attributes)
+        BaseContorller.agent_attributes_cache_flush(agent_id, agent_attributes)
         if snapshot:
             snapshot.setdefault('agent_id', agent_id)
             def wapper():

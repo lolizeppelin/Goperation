@@ -150,7 +150,6 @@ class EntityReuest(BaseContorller):
         endpoint = validateutils.validate_endpoint(endpoint)
         entity = int(entity)
         session = get_session()
-        cache_store = get_cache()
         glock = get_global().lock('entitys')
         result = 'delete entity success.'
         with glock(endpoint, [entity, ]) as agents:
@@ -160,7 +159,7 @@ class EntityReuest(BaseContorller):
                                                 AgentEntity.entity == entity))
                 if not force:
                     agent_id = agents.pop()
-                    attributes = BaseContorller.agent_attributes(cache_store, agent_id)
+                    attributes = BaseContorller.agent_attributes(agent_id)
                     if not attributes:
                         raise InvalidArgument('Agent not online or not exist')
                 delete_count = query.delete()
