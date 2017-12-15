@@ -225,7 +225,7 @@ class RpcAgentManager(RpcManagerBase):
         self._attributes = super(RpcAgentManager, self).attributes
         self._attributes.setdefault('agent_type', self.agent_type)
         global DISK
-        DISK = psutil.disk_usage(self.work_path)
+        DISK = psutil.disk_usage(self.work_path).total/(1024*1024)
         self.filemanager = FileManager(conf=CONF[agent_group.name],
                                        threadpool=threadpool,
                                        infoget=lambda x: self.client.file_show(x)['data'][0])
@@ -257,7 +257,7 @@ class RpcAgentManager(RpcManagerBase):
                     # if not isinstance(cls, RpcEndpointBase):
                     #     raise TypeError('Endpoint class string %s not RpcEndpointBase' % endpoint_class)
                 except Exception:
-                    LOG.error('Import class of %s fail' % endpoint_group.name)
+                    LOG.error('Import class %s of %s fail' % (endpoint_class, endpoint_group.name))
                     raise
                 else:
                     obj = cls(manager=self)

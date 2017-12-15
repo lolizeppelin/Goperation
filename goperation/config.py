@@ -2,14 +2,16 @@ import logging as defalut_logging
 
 from simpleutil.log import log as logging
 from simpleutil.config import cfg
+from simpleutil.config import types
 
 from simpleservice import config as base_config
 
 CONF = cfg.CONF
 
 service_base_opts = [
-    cfg.MultiStrOpt('endpoints',
-                    help='The endpoint group name or namespace'),
+    cfg.ListOpt('endpoints',
+                item_type=types.String(),
+                help='The endpoint group name or namespace'),
     cfg.IPOpt('local_ip',
               version=4,
               required=True,
