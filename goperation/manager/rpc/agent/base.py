@@ -110,7 +110,7 @@ class OnlinTaskReporter(IntervalLoopinTask):
 
     def performance_snapshot(self):
         if not self.with_performance:
-             return None
+            return None
         running = 0
         sleeping = 0
         num_fds = 0

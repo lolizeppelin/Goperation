@@ -191,7 +191,7 @@ class Agent(PluginTableBase):
     # total memory can be used
     memory = sa.Column(INTEGER(unsigned=True),  default=0, server_default='0', nullable=False)
     # total disk space left can be used
-    disk = sa.Column(INTEGER(unsigned=True), default=0, server_default='0', nullable=False)
+    disk = sa.Column(BIGINT(unsigned=True), default=0, server_default='0', nullable=False)
     ports_range = sa.Column(VARCHAR(manager_common.MAX_PORTS_RANGE_SIZE),
                             nullable=True)
     endpoints = orm.relationship(AgentEndpoint, backref='agent', lazy='select',

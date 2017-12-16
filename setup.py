@@ -34,7 +34,7 @@ f.close()
 setup(
     install_requires=('sqlalchemy>=1.0.11',
                       'six>=1.9.0',
-                      'python-psutil>=5.4.0',
+                      'psutil>=5.4.0',
                       'simpleutil>=1.0',
                       'simpleutil<1.1',
                       'simpleservice>=1.0',
