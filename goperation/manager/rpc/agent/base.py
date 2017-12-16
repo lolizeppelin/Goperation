@@ -219,21 +219,16 @@ class RpcAgentEndpointBase(EndpointBase):
 class RpcAgentManager(RpcManagerBase):
 
     def __init__(self):
-        # init httpclient
-        self.client = AgentManagerClient(httpclient=get_http())
-        super(RpcAgentManager, self).__init__(target=target_server(self.agent_type, CONF.host, fanout=True))
-        self._attributes = super(RpcAgentManager, self).attributes
-        self._attributes.setdefault('agent_type', self.agent_type)
         global DISK
         DISK = psutil.disk_usage(self.work_path).total/(1024*1024)
-        self.filemanager = FileManager(conf=CONF[agent_group.name],
-                                       threadpool=threadpool,
-                                       infoget=lambda x: self.client.file_show(x)['data'][0])
+        super(RpcAgentManager, self).__init__(target=target_server(self.agent_type, CONF.host, fanout=True))
         # agent id
         self._agent_id = None
         # port and port and disk space info
         conf = CONF[manager_common.AGENT]
         self.ports_range = validators['type:ports_range_list'](conf.ports_range) if conf.ports_range else []
+        # zone mark
+        self.zone = conf.zone
         # key: port, value endpoint name
         self.allocked_ports = {}
         # left ports
@@ -242,6 +237,18 @@ class RpcAgentManager(RpcManagerBase):
             up, down = map(int, p_range.split('-'))
             for port in xrange(up, down):
                 self.left_ports.add(port)
+
+        # init attributes
+        self._attributes = super(RpcAgentManager, self).attributes
+        self._attributes.setdefault('agent_type', self.agent_type)
+        self._attributes.setdefault('zone', CONF[agent_group.name].zone)
+        # init httpclient
+        self.client = AgentManagerClient(httpclient=get_http())
+        # init filemanager
+        self.filemanager = FileManager(conf=conf,
+                                       threadpool=threadpool,
+                                       infoget=lambda x: self.client.file_show(x)['data'][0])
+
         # init endpoint
         if CONF.endpoints:
             # endpoint class must be singleton

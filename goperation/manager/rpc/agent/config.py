@@ -11,6 +11,10 @@ CONF.register_group(agent_group)
 
 
 rpc_agent_opts = [
+    cfg.StrOpt('zone',
+               default='all',
+               regex='^[a-z][a-z0-9]+$',
+               help='Agent zone mark'),
     cfg.MultiOpt('ports_range',
                  item_type=cfg.types.PortRange(),
                  help='Rpc agent can alloc port from this range'),
