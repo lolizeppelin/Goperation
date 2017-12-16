@@ -133,16 +133,15 @@ class EntityReuest(BaseContorller):
                                                               AgentEntity.entity == entity))
         if show_ports:
             query = query.options(joinedload(AgentEntity.ports, innerjoin=False))
-        entitys = query.all()
-        if not entitys:
-            raise InvalidArgument('no entity found')
+        _entity = query.one()
+        if not _entity:
+            raise InvalidArgument('no entity found for %s' % endpoint)
             # return resultutils.results(result='no entity found', resultcode=manager_common.RESULT_ERROR)
         return resultutils.results(result='show entity success',
-                                   data=[dict(endpoint=e.endpoint,
-                                              agent_id=e.agent_id,
-                                              entity=e.entity,
-                                              ports=[x.port for x in e.ports] if show_ports else [])
-                                         for e in entitys])
+                                   data=[dict(endpoint=_entity.endpoint,
+                                              agent_id=_entity.agent_id,
+                                              entity=_entity.entity,
+                                              ports=[x.port for x in _entity.ports] if show_ports else [])])
 
     def delete(self, req, endpoint, entity, body=None):
         body = body or {}
