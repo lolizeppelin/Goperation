@@ -201,6 +201,9 @@ class RpcAgentEndpointBase(EndpointBase):
     def rpc_create_entity(self, ctxt, entity, **kwargs):
         raise NotImplementedError
 
+    def rpc_post_create_entity(self, ctxt, entity, **kwargs):
+        raise NotImplementedError
+
     def rpc_delete_entity(self, ctxt, entity, **kwargs):
         raise NotImplementedError
 

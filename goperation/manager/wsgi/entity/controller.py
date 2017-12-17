@@ -122,7 +122,7 @@ class EntityReuest(BaseContorller):
         return resultutils.results(result=result, data=[dict(entity=entity, agent_id=agent_id,
                                                              endpoint=endpoint, port=ports or [])])
 
-    def post_create_entity(self, entity, endpoint):
+    def post_create_entity(self, entity, endpoint, **kwargs):
         entity = int(entity)
         endpoint = validateutils.validate_endpoint(endpoint)
         session = get_session(readonly=True)
@@ -136,6 +136,7 @@ class EntityReuest(BaseContorller):
                                                     agent_attributes.get('host'),)
         target.namespace = endpoint
         body = dict(entity=entity)
+        body.update(kwargs)
         rpc = get_client()
         rpc.cast(target, ctxt={'finishtime': body.pop('finishtime', rpcfinishtime()), 'entitys': [entity, ]},
                  msg={'method': 'post_create_entity', 'args': body})

@@ -1,4 +1,6 @@
 import os
+import contextlib
+import shutil
 import eventlet
 
 from simpleutil.config import cfg
@@ -69,18 +71,30 @@ class AppEndpointBase(RpcAgentEndpointBase):
         timer.cancel()
         return token
 
+    @contextlib.contextmanager
     def _prepare_entity_path(self, entity, apppath=True, logpath=True):
-        with systemutils.umask():
-            entity_home = self.entity_home(entity)
-            if apppath:
-                apppath = self.apppath(entity)
-            if logpath:
-                logpath = self.logpath(entity)
-            _user = self.entity_user(entity)
-            _group = self.entity_group(entity)
-            if os.path.exists(entity_home):
-                raise RpcEntityError(self.namespace, entity, 'Entity home %s exist' % entity_home)
-            for path in (entity_home, apppath, logpath):
-                if path:
-                    os.makedirs(path, 0755)
-                    systemutils.chown(path, _user, _group)
+        _user = self.entity_user(entity)
+        _group = self.entity_group(entity)
+        entity_home = self.entity_home(entity)
+        if apppath:
+            apppath = self.apppath(entity)
+        if logpath:
+            logpath = self.logpath(entity)
+
+        with systemutils.prepare_user(_user, _group, entity_home):
+            with systemutils.umask():
+                if os.path.exists(entity_home):
+                    raise RpcEntityError(self.namespace, entity, 'Entity home %s exist' % entity_home)
+                try:
+                    for path in (entity_home, apppath, logpath):
+                        if path:
+                            os.makedirs(path, 0755)
+                            systemutils.chown(path, _user, _group)
+                except:
+                    shutil.rmtree(entity_home)
+                    raise
+            try:
+                yield
+            except:
+                shutil.rmtree(entity_home)
+                raise
