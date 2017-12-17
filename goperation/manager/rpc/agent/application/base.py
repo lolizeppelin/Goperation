@@ -1,7 +1,9 @@
 import os
+import eventlet
 
 from simpleutil.config import cfg
 from simpleutil.utils import systemutils
+from simpleutil.utils import uuidutils
 
 from goperation.manager.rpc.agent.base import RpcAgentEndpointBase
 from goperation.manager.rpc.exceptions import RpcEntityError
@@ -14,6 +16,7 @@ class AppEndpointBase(RpcAgentEndpointBase):
 
     def __init__(self, manager, name):
         super(AppEndpointBase, self).__init__(manager, name)
+        self.entitys_tokens = dict()
 
     @property
     def apppathname(self):
@@ -37,6 +40,34 @@ class AppEndpointBase(RpcAgentEndpointBase):
 
     def entity_home(self, entity):
         return os.path.join(self.endpoint_home, str(entity))
+
+    def rpc_entity_token(self, ctxt, entity, **kwargs):
+        token = kwargs.pop('token')
+        exprie = kwargs.get('exprie', 60)
+        if not uuidutils.is_uuid_like(token):
+            return
+        if entity not in self.entitys:
+            return None
+        if entity in self.entitys_tokens:
+            return
+
+        def _token_overtime():
+            info = self.entitys_tokens.pop(entity, None)
+            if info:
+                info.clear()
+
+        timer = eventlet.spawn_after(exprie, _token_overtime)
+
+        self.entitys_tokens.setdefault(entity, {'token': token, 'timer': timer})
+
+    def _entity_token(self, entity):
+        info = self.entitys_tokens.pop(entity, None)
+        if not info:
+            return None
+        timer = info.pop('timer')
+        token = info.pop('token')
+        timer.cancel()
+        return token
 
     def _prepare_entity_path(self, entity, apppath=True, logpath=True):
         with systemutils.umask():

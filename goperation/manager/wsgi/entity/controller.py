@@ -133,7 +133,7 @@ class EntityReuest(BaseContorller):
                                                               AgentEntity.entity == entity))
         if show_ports:
             query = query.options(joinedload(AgentEntity.ports, innerjoin=False))
-        _entity = query.one()
+        _entity = query.one_or_none()
         if not _entity:
             raise InvalidArgument('no entity found for %s' % endpoint)
             # return resultutils.results(result='no entity found', resultcode=manager_common.RESULT_ERROR)
@@ -168,7 +168,6 @@ class EntityReuest(BaseContorller):
                     target = targetutils.target_agent_by_string(attributes.get('agent_type'),
                                                                 attributes.get('host'))
                     target.namespace = endpoint
-                    body.setdefault('entity', entity)
                     result += self.notify_delete(target, entity, body)
         return resultutils.results(result=result)
 
@@ -189,6 +188,12 @@ class EntityReuest(BaseContorller):
     def notify_delete(target, entity, body):
         rpc = get_client()
         body.setdefault('entity', entity)
+        token = body.get('token')
+        if token:
+            # send a delete token
+            rpc.cast(target, ctxt={'finishtime': body.pop('finishtime', rpcfinishtime()),
+                                   'entitys': [entity, ]},
+                     msg={'method': 'entity_token', 'args': {'token:': token}})
         delete_ret = rpc.call(target, ctxt={'finishtime': body.pop('finishtime', rpcfinishtime()),
                                             'entitys': [entity, ]},
                               msg={'method': 'delete_entity', 'args': body})
