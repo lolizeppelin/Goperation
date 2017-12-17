@@ -118,10 +118,30 @@ class EntityReuest(BaseContorller):
                     if notify:
                         target = targetutils.target_agent(agent)
                         target.namespace = endpoint
-                        body.setdefault('entity', entity)
                         result += self.notify_create(target, entity, body)
         return resultutils.results(result=result, data=[dict(entity=entity, agent_id=agent_id,
                                                              endpoint=endpoint, port=ports or [])])
+
+    def post_create_entity(self, entity, endpoint):
+        entity = int(entity)
+        endpoint = validateutils.validate_endpoint(endpoint)
+        session = get_session(readonly=True)
+        query = model_query(session, AgentEntity, filter=and_(AgentEntity.endpoint == endpoint,
+                                                              AgentEntity.entity == entity))
+        _entity = query.one()
+        agent_attributes = BaseContorller.agent_attributes(_entity.agent_id)
+        if not agent_attributes:
+            raise RpcPrepareError('Agent not online, can not sen post create')
+        target = targetutils.target_agent_by_string(agent_attributes.get('agent_type'),
+                                                    agent_attributes.get('host'),)
+        target.namespace = endpoint
+        body = dict(entity=entity)
+        rpc = get_client()
+        rpc.cast(target, ctxt={'finishtime': body.pop('finishtime', rpcfinishtime()), 'entitys': [entity, ]},
+                 msg={'method': 'post_create_entity', 'args': body})
+        return resultutils.results(result='notify post create success',
+                                   data=[dict(entity=entity, agent_id=_entity.agent_id,
+                                              endpoint=endpoint)])
 
     def show(self, req, endpoint, entity, body=None):
         body = body or {}

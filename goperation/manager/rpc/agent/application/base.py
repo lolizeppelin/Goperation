@@ -76,11 +76,11 @@ class AppEndpointBase(RpcAgentEndpointBase):
                 apppath = self.apppath(entity)
             if logpath:
                 logpath = self.logpath(entity)
-            entity_user = self.entity_user(entity)
-            entity_root = self.entity_group(entity)
+            _user = self.entity_user(entity)
+            _group = self.entity_group(entity)
             if os.path.exists(entity_home):
                 raise RpcEntityError(self.namespace, entity, 'Entity home %s exist' % entity_home)
             for path in (entity_home, apppath, logpath):
                 if path:
                     os.makedirs(path, 0755)
-                    systemutils.chown(path, entity_user, entity_root)
+                    systemutils.chown(path, _user, _group)
