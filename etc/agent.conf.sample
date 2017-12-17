@@ -7,6 +7,9 @@
 # From agent
 #
 
+# Agent zone mark (string value)
+#zone = all
+
 # Rpc agent can alloc port from this range (port_ranges value)
 #ports_range = <None>
 

@@ -4,8 +4,8 @@
 # From DEFAULT
 #
 
-# The endpoint group name or namespace (multi valued)
-#endpoints =
+# The endpoint group name or namespace (list value)
+#endpoints = <None>
 
 # Goperation local ip address (IP address value)
 #local_ip = <None>
