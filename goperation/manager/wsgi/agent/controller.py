@@ -118,7 +118,7 @@ class AgentReuest(BaseContorller):
                     endpoints[endpoint.endpoint].append(_entity)
                     if show_ports:
                         for port in entity.ports:
-                           _entity['ports'].append(port)
+                           _entity['ports'].append(port['port'])
         result_data = dict(agent_id=agent.agent_id, host=agent.host,
                            status=agent.status,
                            cpu=agent.cpu,
