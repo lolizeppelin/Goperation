@@ -202,7 +202,7 @@ class EntityReuest(BaseContorller):
         if not create_ret:
             raise RpcResultError('create entitys result is None')
         if create_ret.get('resultcode') != manager_common.RESULT_SUCCESS:
-            raise RpcResultError('create entitys fail %s' % create_ret.get('result'))
+            raise RpcResultError('create entity fail %s' % create_ret.get('result'))
         return create_ret.get('result')
 
     @staticmethod
