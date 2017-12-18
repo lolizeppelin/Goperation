@@ -248,9 +248,9 @@ class ManagerClient(HttpClientBase):
                                             resone=results['result'])
         return results
 
-    def ports_add(self, agent_id, endpoint, entity, body=None):
+    def ports_add(self, agent_id, endpoint, entity, ports):
         resp, results = self.retryable_post(action=self.ports_path % (str(agent_id), endpoint, str(entity)),
-                                            body=body)
+                                            body=dict(ports=ports))
         if results['resultcode'] != common.RESULT_SUCCESS:
             raise ServerExecuteRequestError(message='add entitys fail:%d' % results['resultcode'],
                                             code=resp.status_code,

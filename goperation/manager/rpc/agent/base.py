@@ -222,9 +222,9 @@ class RpcAgentEndpointBase(EndpointBase):
 class RpcAgentManager(RpcManagerBase):
 
     def __init__(self):
+        super(RpcAgentManager, self).__init__(target=target_server(self.agent_type, CONF.host, fanout=True))
         global DISK
         DISK = psutil.disk_usage(self.work_path).total/(1024*1024)
-        super(RpcAgentManager, self).__init__(target=target_server(self.agent_type, CONF.host, fanout=True))
         # agent id
         self._agent_id = None
         # port and port and disk space info
@@ -310,7 +310,7 @@ class RpcAgentManager(RpcManagerBase):
                 if ports:
                     if None in ports:
                         raise RuntimeError('None in ports list')
-                    self.frozen_port(endpoint, entity, ports)
+                    self._frozen_ports(endpoint, entity, ports)
         if delete_endpoints:
             self.client.agents_delete_endpoints(agent_id=self.agent_id, endpoint=list(delete_endpoints))
         if add_endpoints:
@@ -358,10 +358,12 @@ class RpcAgentManager(RpcManagerBase):
         delete_endpoints = remote_endpoints - local_endpoints
         return add_endpoints, delete_endpoints
 
-    def frozen_port(self, endpoint, entity, ports):
+    def _frozen_ports(self, endpoint, entity, ports):
         allocked_port = set()
         if not isinstance(ports, (list, tuple, set, frozenset)):
             raise TypeError('ports must be a list')
+        if not ports:
+            raise ValueError('Ports list is empty')
         for port in ports:
             try:
                 if port is not None:
@@ -372,10 +374,28 @@ class RpcAgentManager(RpcManagerBase):
                 LOG.error('Agent allocked port fail')
                 for p in allocked_port:
                     self.left_ports.add(p)
+                    self.allocked_ports[endpoint][entity].remove(p)
                 raise
             self.allocked_ports[endpoint][entity].add(port)
             allocked_port.add(port)
-        return allocked_port
+        return  allocked_port
+
+    @contextlib.contextmanager
+    def frozen_ports(self, endpoint, entity, ports):
+        LOG.info('frozen port for %s:%d' % (endpoint, entity))
+        is_new = False
+        if entity not in self.allocked_ports[endpoint]:
+            is_new = True
+            self.allocked_ports[endpoint][entity] = set()
+        allocked_port = self._frozen_ports(endpoint, entity, ports)
+        try:
+            yield allocked_port
+        except:
+            LOG.info('sub wrok fail, free port from %s:%d' % (endpoint, entity))
+            self.free_ports(allocked_port)
+            if is_new:
+                self.allocked_ports[endpoint].pop(entity)
+            raise
 
     def free_ports(self, ports):
         _ports = set()
