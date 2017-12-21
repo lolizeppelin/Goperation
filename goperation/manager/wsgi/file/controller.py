@@ -48,6 +48,7 @@ class FileReuest(BaseContorller):
                                    data=[downfile.to_dict() for downfile in query.all()])
 
     def create(self, req, body):
+        session = get_session()
         try:
             address = body.pop('address')
             size = body.pop('size')
@@ -68,6 +69,8 @@ class FileReuest(BaseContorller):
                             desc=body.get('desc'),
                             uploadtime=body.get('uploadtime', timeutils.utcnow())
                             )
+        session.add(downfile)
+        session.flush()
         return resultutils.results(result='Add file success', data=[dict(uuid=downfile.uuid,
                                                                          md5=downfile.md5,
                                                                          crc32=downfile.crc32,
@@ -103,7 +106,7 @@ class FileReuest(BaseContorller):
             file_info.setdefault('desc', downfile.desc)
         return resultutils.results(result='Get file success', data=[downfile, ])
 
-    def delete(self, req, file_id, body):
+    def delete(self, req, file_id, body=None):
         session = get_session()
         query = model_query(session, DownFile)
         if uuidutils.is_uuid_like(file_id):

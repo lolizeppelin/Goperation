@@ -198,7 +198,7 @@ class BaseContorller(MiddlewareContorller):
             except DBDuplicateEntry:
                 LOG.warning('Async request rpc call result is None, but recode found')
 
-    def chioces(self, endpoint, exclude, weigher=None):
+    def chioces(self, endpoint, exclude=None, weigher=None):
         rpc = get_client()
         chioces_result = rpc.call(targetutils.target_rpcserver(),
                                   msg={'method': 'chioces',
