@@ -26,7 +26,6 @@ from goperation.manager.utils import targetutils
 from goperation.manager.api import get_global
 from goperation.manager.api import get_session
 from goperation.manager.api import get_client
-from goperation.manager.api import get_cache
 from goperation.manager.api import rpcfinishtime
 from goperation.manager.models import Agent
 from goperation.manager.models import AgentEntity
@@ -76,10 +75,11 @@ class EntityReuest(BaseContorller):
     def create(self, req, agent_id, endpoint, body=None):
         body = body or {}
         endpoint = validateutils.validate_endpoint(endpoint)
-        ports = body.get('ports')
-        notify = body.get('notify', True)
-        desc = body.get('desc')
+        ports = body.pop('ports', None)
+        notify = body.pop('notify', True)
+        desc = body.pop('desc', None)
         session = get_session()
+        attributes = None
         if ports:
             ports = argutils.map_with(ports, validators['type:port'])
             used_ports = model_count_with_key(session, AllocatedPort.port,
@@ -89,10 +89,9 @@ class EntityReuest(BaseContorller):
                 raise InvalidArgument('Ports has been used count %d' % used_ports)
 
         if notify:
-            cache_store = get_cache()
-            host_online_key = targetutils.host_online_key(agent_id)
+            attributes = BaseContorller.agent_attributes(agent_id)
             # make sure agent is online
-            if not cache_store.get(host_online_key):
+            if attributes:
                 raise RpcPrepareError('Can not create entity on a offline agent %d' % agent_id)
 
         entity = 0
@@ -120,6 +119,7 @@ class EntityReuest(BaseContorller):
                         target.namespace = endpoint
                         result += self.notify_create(target, entity, body)
         return resultutils.results(result=result, data=[dict(entity=entity, agent_id=agent_id,
+                                                             attributes=attributes,
                                                              endpoint=endpoint, port=ports or [])])
 
     def post_create_entity(self, entity, endpoint, **kwargs):
@@ -161,8 +161,9 @@ class EntityReuest(BaseContorller):
         return resultutils.results(result='show entity success',
                                    data=[dict(endpoint=_entity.endpoint,
                                               agent_id=_entity.agent_id,
+                                              attributes=BaseContorller.agent_attributes(_entity.agent_id),
                                               entity=_entity.entity,
-                                              ports=[x.port for x in _entity.ports] if show_ports else [])])
+                                              ports=sorted([x.port for x in _entity.ports]) if show_ports else [])])
 
     def delete(self, req, endpoint, entity, body=None):
         body = body or {}
