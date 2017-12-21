@@ -114,23 +114,27 @@ class CheckEndpointRpcCtxt(CheckRpcCtxt):
         endpoint = args[0]
         self.check_status(ctxt)
         self.check_pool(ctxt)
-        # destination entitys count
+        # destination entitys
         # if not set, means all entitys of endpoint in this agent
-        entitys = ctxt.get('entitys', endpoint.entitys)
-        if not isinstance(entitys, list):
-            result = AgentRpcResult(self.manager.agent_id, ctxt,
-                                   resultcode=manager_common.RESULT_ERROR,
-                                   result='ctxt entitys type error')
-            raise exceptions.RpcCtxtException(result=result)
-        if entitys:
-            # check space for entitys
-            target_file = ctxt.pop('file', None)
-            if target_file:
-                if target_file.size * len(entitys) > self.manager.partion_left_size - 100:
-                    result = AgentRpcResult(self.manager.agent_id, ctxt,
-                                           resultcode=manager_common.RESULT_ERROR,
-                                           result='Not enough space for %d entitys' % len(entitys))
-                    raise exceptions.RpcCtxtException(result=result)
+        entitys = ctxt.get('entitys', None)
+        if entitys is not None:
+            if not isinstance(entitys, list):
+                result = AgentRpcResult(self.manager.agent_id, ctxt,
+                                       resultcode=manager_common.RESULT_ERROR,
+                                       result='ctxt entitys type error')
+                raise exceptions.RpcCtxtException(result=result)
+            if not (set(endpoint.entitys) & set(entitys)):
+                raise MessageNotForMe
+        else:
+            entitys = endpoint.entitys
+        # check space for entitys
+        target_file = ctxt.pop('file', None)
+        if target_file:
+            if target_file.size * len(entitys) > self.manager.partion_left_size - 100:
+                result = AgentRpcResult(self.manager.agent_id, ctxt,
+                                       resultcode=manager_common.RESULT_ERROR,
+                                       result='Not enough space for %d entitys' % len(entitys))
+                raise exceptions.RpcCtxtException(result=result)
         return self.func(*args, **kwargs)
 
 
