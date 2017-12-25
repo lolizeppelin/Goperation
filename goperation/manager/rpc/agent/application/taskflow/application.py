@@ -235,16 +235,12 @@ class Application(object):
         @param updatetask:          class: AppTaskBase 升级方法(有别于upgrade, 一般用于特殊的无文件更新)
         """
         if createtask:
-            if not isinstance(createtask, AppTaskBase):
-                raise RuntimeError('create func type error')
             if stoptask or deletetask:
                 raise RuntimeError('do not input create with delete,stop')
         if deletetask:
-            if not isinstance(deletetask, AppTaskBase):
-                raise RuntimeError('delete func type error')
             if upgradetask or updatetask or startstak or createtask:
                 raise RuntimeError('do not input delete with create,update,upgrade,stop')
-        for func in (startstak, stoptask, upgradetask, updatetask):
+        for func in (createtask, startstak, stoptask, upgradetask, updatetask, deletetask):
             if func and not isinstance(func, AppTaskBase):
                 raise RuntimeError('func type error')
         # 创建
