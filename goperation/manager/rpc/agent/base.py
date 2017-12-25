@@ -5,6 +5,8 @@ import six
 import random
 import contextlib
 import psutil
+from netaddr import IPNetwork
+from netaddr import IPAddress
 
 from simpleutil.config import cfg
 from simpleutil.log import log as logging
@@ -223,6 +225,13 @@ class RpcAgentManager(RpcManagerBase):
 
     def __init__(self):
         super(RpcAgentManager, self).__init__(target=target_server(self.agent_type, CONF.host, fanout=True))
+        self.ipnetwork = None
+        for interface, net in six.iteritems(psutil.net_if_addrs()):
+            if net.address == self.local_ip:
+                self.ipnetmask =  IPNetwork('%s/%s' % (self.local_ip, IPAddress(net.address).netmask_bits()))
+                LOG.info('Local ip %s/%s on interface %s' % (self.local_ip, net.address, interface))
+        if not self.ipnetwork:
+            raise RuntimeError('can not find local ip netmask')
         global DISK
         DISK = psutil.disk_usage(self.work_path).total/(1024*1024)
         # agent id
