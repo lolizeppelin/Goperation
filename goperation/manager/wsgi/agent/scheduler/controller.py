@@ -39,7 +39,7 @@ SCHEDULEJOBSCHEMA = {
                                  'revert': {'type': 'string'},
                                  'method': {'type': 'string'},
                                  'rebind': {'type': 'array', 'minItems': 1, 'items': {'type': 'string'}},
-                                 'provides': {'type': 'array', 'minItems': 1, 'items': {'type': 'string'}}
+                                 'provides': {'type': 'array', 'minItems': 1, 'items': {'type': 'string'}}}
                              }
                    },
           'kwargs': {'type': 'object'},                                     # for taskflow args:stone
@@ -51,7 +51,6 @@ SCHEDULEJOBSCHEMA = {
           'revertall': {'type': 'boolean'},                                    # revert all jobs when job fail
           'desc': {'type': 'string'}                                        # job infomation
           }
-     }
 }
 
 
