@@ -230,6 +230,7 @@ class RpcAgentManager(RpcManagerBase):
             if net.address == self.local_ip:
                 self.ipnetmask =  IPNetwork('%s/%s' % (self.local_ip, IPAddress(net.address).netmask_bits()))
                 LOG.info('Local ip %s/%s on interface %s' % (self.local_ip, net.address, interface))
+                break
         if not self.ipnetwork:
             raise RuntimeError('can not find local ip netmask')
         global DISK
@@ -253,7 +254,7 @@ class RpcAgentManager(RpcManagerBase):
         # init attributes
         self._attributes = super(RpcAgentManager, self).attributes
         self._attributes.setdefault('agent_type', self.agent_type)
-        self._attributes.setdefault('zone', CONF[agent_group.name].zone)
+        self._attributes.setdefault('zone', self.zone)
         # init httpclient
         self.client = AgentManagerClient(httpclient=get_http())
         # init filemanager
