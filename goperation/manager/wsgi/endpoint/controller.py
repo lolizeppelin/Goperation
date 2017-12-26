@@ -91,7 +91,7 @@ class EndpointReuest(BaseContorller):
         session = get_session()
         glock = get_global().lock('agents')
         with glock([agent_id, ]):
-            with session.begin(subtransactions=True):
+            with session.begin():
                 if model_count_with_key(session, AgentEntity.entity,
                                         filter=and_(AgentEntity.agent_id == agent_id,
                                                     AgentEntity.endpoint.in_(endpoints))):
@@ -100,10 +100,11 @@ class EndpointReuest(BaseContorller):
                 query = model_query(session, AgentEndpoint,
                                     filter=and_(AgentEndpoint.agent_id == agent_id,
                                                 AgentEndpoint.endpoint.in_(endpoints)))
-                delete_count = query.delete()
+                delete_count = query.delete(synchronize_session=False)
                 need_to_delete = len(endpoints)
                 if delete_count != len(endpoints):
                     LOG.warning('Delete %d endpoints, but expect count is %d' % (delete_count, need_to_delete))
+        session.close()
         return resultutils.results(result='delete endpoints success')
 
     def agents(self, req, endpoint):
