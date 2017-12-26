@@ -226,11 +226,14 @@ class RpcAgentManager(RpcManagerBase):
     def __init__(self):
         super(RpcAgentManager, self).__init__(target=target_server(self.agent_type, CONF.host, fanout=True))
         self.ipnetwork = None
-        for interface, net in six.iteritems(psutil.net_if_addrs()):
-            if net.address == self.local_ip:
-                self.ipnetmask =  IPNetwork('%s/%s' % (self.local_ip, IPAddress(net.address).netmask_bits()))
-                LOG.info('Local ip %s/%s on interface %s' % (self.local_ip, net.address, interface))
+        for interface, nets in six.iteritems(psutil.net_if_addrs()):
+            if self.ipnetwork:
                 break
+            for net in nets:
+                if net.address == self.local_ip:
+                    self.ipnetwork =  IPNetwork('%s/%s' % (self.local_ip, net.netmask))
+                    LOG.info('Local ip %s/%s on interface %s' % (self.local_ip, net.netmask, interface))
+                    break
         if not self.ipnetwork:
             raise RuntimeError('can not find local ip netmask')
         global DISK
