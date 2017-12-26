@@ -103,7 +103,7 @@ class EntityReuest(BaseContorller):
             with elock(endpoint):
                 with session.begin(subtransactions=True):
                     agent = model_query(session, Agent,
-                                        filter=Agent.agent_id == agent_id).optones(joinedload(Agent.endpoints)).one()
+                                        filter=Agent.agent_id == agent_id).options(joinedload(Agent.endpoints)).one()
                     if agent.status != manager_common.ACTIVE:
                         raise InvalidArgument('Create entity fail, agent status is not active')
                     if endpoint not in [_endpoint.endpoint for _endpoint in agent.endpoints]:
