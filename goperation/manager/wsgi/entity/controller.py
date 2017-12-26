@@ -216,7 +216,7 @@ class EntityReuest(BaseContorller):
             # send a delete token
             rpc.cast(target, ctxt={'finishtime': body.pop('finishtime', rpcfinishtime()),
                                    'entitys': [entity, ]},
-                     msg={'method': 'entity_token', 'args': {'token:': token}})
+                     msg={'method': 'entity_token', 'args': {'entity': entity, 'token:': token}})
         delete_ret = rpc.call(target, ctxt={'finishtime': body.pop('finishtime', rpcfinishtime()),
                                             'entitys': [entity, ]},
                               msg={'method': 'delete_entity', 'args': body})
