@@ -92,7 +92,7 @@ class EntityReuest(BaseContorller):
         if notify:
             attributes = BaseContorller.agent_attributes(agent_id)
             # make sure agent is online
-            if attributes:
+            if not attributes:
                 raise RpcPrepareError('Can not create entity on a offline agent %d' % agent_id)
 
         entity = 0
@@ -102,9 +102,13 @@ class EntityReuest(BaseContorller):
         with glock([agent_id, ]):
             with elock(endpoint):
                 with session.begin(subtransactions=True):
-                    agent = model_query(session, Agent, filter=Agent.agent_id == agent_id).one()
+                    agent = model_query(session, Agent,
+                                        filter=Agent.agent_id == agent_id).optones(joinedload(Agent.endpoints)).one()
                     if agent.status != manager_common.ACTIVE:
-                        raise InvalidArgument('Create entity fail, agent status is not active,')
+                        raise InvalidArgument('Create entity fail, agent status is not active')
+                    if endpoint not in [_endpoint.endpoint for _endpoint in agent.endpoints]:
+                        raise InvalidArgument('Create entity fail, agent %d has no endpoint %s' % (agent_id,
+                                                                                                   endpoint))
                     entity = model_autoincrement_id(session, AgentEntity.entity,
                                                     filter=AgentEntity.endpoint == endpoint)
                     session.add(AgentEntity(entity=entity,
