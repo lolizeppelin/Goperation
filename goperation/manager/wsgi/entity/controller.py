@@ -1,4 +1,5 @@
 import webob.exc
+import eventlet
 
 from sqlalchemy.sql import and_
 from sqlalchemy.orm import joinedload
@@ -224,3 +225,26 @@ class EntityReuest(BaseContorller):
         if delete_ret.get('resultcode') != manager_common.RESULT_SUCCESS:
             raise RpcResultError('delete entity fail %s' % delete_ret.get('result'))
         return delete_ret.get('result')
+
+    def _shows(self, endpoint, entitys):
+        endpoint = validateutils.validate_endpoint(endpoint)
+        entitys = argutils.map_to_int(entitys)
+        session = get_session(readonly=True)
+        query = model_query(session, AgentEntity, filter=and_(AgentEntity.endpoint == endpoint,
+                                                              AgentEntity.entity.in_(entitys)))
+        query = query.options(joinedload(AgentEntity.ports, innerjoin=False))
+        agents = set()
+        agents_map = {}
+        entitys_map = {}
+        for _entity in query:
+            agents.add(_entity.agent_id)
+            entitys_map[_entity] = dict(agent_id=_entity.agent_id,
+                                        ports=sorted([x.port for x in _entity.ports]))
+        for agent_id in agents:
+            agents_map[agent_id] = BaseContorller.agent_attributes(agent_id)
+
+        for _entity in entitys_map:
+            agent_id = entitys_map[_entity].get('agent_id')
+            entitys_map[_entity].setdefault('attributes', agents_map[agent_id])
+
+        return entitys_map
