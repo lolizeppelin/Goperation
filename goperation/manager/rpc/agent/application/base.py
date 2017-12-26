@@ -43,8 +43,7 @@ class AppEndpointBase(RpcAgentEndpointBase):
     def entity_home(self, entity):
         return os.path.join(self.endpoint_home, str(entity))
 
-    def rpc_entity_token(self, ctxt, entity, token, **kwargs):
-        exprie = kwargs.get('exprie', 60)
+    def rpc_entity_token(self, ctxt, entity, token, exprie=60):
         if not uuidutils.is_uuid_like(token):
             return
         if entity not in self.entitys:
