@@ -120,6 +120,17 @@ class BaseContorller(MiddlewareContorller):
         return attributes if not attributes else jsonutils.loads_as_bytes(attributes)
 
     @staticmethod
+    def agents_attributes(agents):
+        agents = list(agents)
+        cache_store = get_redis()
+        all_attributes = cache_store.mget(*[targetutils.host_online_key(agent_id) for agent_id in agents])
+        maps = dict.fromkeys(agents, None)
+        for index, attributes in enumerate(all_attributes):
+            if attributes:
+                maps[agents[index]] = jsonutils.loads_as_bytes(attributes)
+        return maps
+
+    @staticmethod
     def agent_attributes_cache_flush(agent_id, attributes):
         cache_store = get_redis()
         agent_ipaddr = attributes.get('local_ip')

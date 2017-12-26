@@ -238,14 +238,13 @@ class EntityReuest(BaseContorller):
                                                               AgentEntity.entity.in_(entitys)))
         query = query.options(joinedload(AgentEntity.ports, innerjoin=False))
         agents = set()
-        agents_map = {}
         entitys_map = {}
         for _entity in query:
             agents.add(_entity.agent_id)
             entitys_map[_entity] = dict(agent_id=_entity.agent_id,
                                         ports=sorted([x.port for x in _entity.ports]))
-        for agent_id in agents:
-            agents_map[agent_id] = BaseContorller.agent_attributes(agent_id)
+
+        agents_map = BaseContorller.agents_attributes(agents)
 
         for _entity in entitys_map:
             agent_id = entitys_map[_entity].get('agent_id')
