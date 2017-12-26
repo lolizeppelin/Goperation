@@ -325,7 +325,7 @@ class RpcAgentManager(RpcManagerBase):
                         raise RuntimeError('None in ports list')
                     self._frozen_ports(endpoint, entity, ports)
         if delete_endpoints:
-            self.client.agents_delete_endpoints(agent_id=self.agent_id, endpoint=list(delete_endpoints))
+            self.client.endpoints_delete(agent_id=self.agent_id, endpoint=list(delete_endpoints))
         if add_endpoints:
             self.client.endpoints_add(agent_id=self.agent_id, endpoints=list(add_endpoints))
         hardware_changes = {}
