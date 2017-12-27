@@ -12,8 +12,6 @@ from simpleflow.retry import REVERT
 from simpleflow.retry import RETRY
 from simpleflow.types import failure
 
-# from zlibstream.tobuffer import async_compress
-# from zlibstream.tofile import async_extract
 
 from goperation.utils import safe_fork
 from goperation.filemanager import TargetFile
@@ -115,12 +113,13 @@ class AppBackUp(StandardTask):
             src = os.path.join(self.middleware.entity_home, self.middleware.apppathname)
             LOG.debug('AppBackUp dump local bakcup from path %s' % src)
             dst = self.backupfile
-            zlibutils.async_compress(src, dst, exclude=None,
-                                     native=native,
-                                     fork=functools.partial(safe_fork,
-                                                            user=self.middleware.entity_user,
-                                                            group=self.middleware.entity_group)
-                                     if systemutils.LINUX else None, timeout=timeout)
+            wait = zlibutils.async_compress(src, dst, exclude=None,
+                                            native=native,
+                                            fork=functools.partial(safe_fork,
+                                                                   user=self.middleware.entity_user,
+                                                                   group=self.middleware.entity_group)
+                                            if systemutils.LINUX else None, timeout=timeout)
+            wait()
             backupfile = self.backupfile
         else:
             raise TypeError('AppBackUp find backupfile type error')
@@ -203,10 +202,11 @@ class AppFileUpgradeByBackupFile(AppFileUpgradeBase):
                           timeout=timeout)
 
     def _extract(self, src, dst, user, group, native=True, timeout=None):
-        zlibutils.async_extract(src, dst, exclude=self.middleware.exteclude, native=native,
-                                timeout=timeout,
-                                fork=functools.partial(safe_fork, user, group)
-                                if systemutils.LINUX else None)
+        wait = zlibutils.async_extract(src, dst, exclude=self.middleware.exteclude, native=native,
+                                       timeout=timeout,
+                                       fork=functools.partial(safe_fork, user, group)
+                                       if systemutils.LINUX else None)
+        wait()
 
 
 class AppUpdateBase(AppTaskBase):
