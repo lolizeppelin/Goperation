@@ -177,21 +177,21 @@ class MysqlUpdate(StandardTask):
                                    poolclass=NullPool,
                                    charset=database.character)
 
-            with engine.begin(close_with_result=True) as conn:
-                LOG.info('MysqlUpdate connect %s:%d/%s mysql success' % (database.host,
-                                                                         database.port,
-                                                                         database.schema))
+            with engine.connect() as conn:
+                LOG.info('MysqlUpdate connect %s:%d/%s mysql success' %
+                         (database.host, database.port, database.schema))
                 for sql in database.update.sql:
                     try:
-                        conn.execute(sql)
+                        r = conn.execute(sql)
+                        r.close()
                         self.executed += 1
                     except Exception as e:
                         LOG.debug('%s : [%s]' % (e.__class__.__name__, sql))
-                        msg = 'execute sql fail, row %d' % (self.executed+1)
+                        msg = 'execute sql fail, index %d' % (self.executed+1)
                         LOG.error(msg)
-                        engine.close()
+                        # engine.close()
                         raise exceptions.DatabaseExecuteError(msg)
-            engine.close()
+            # engine.close()
         # update by execute sql file
         else:
             self.execute_sql_from_file(database.update.realpath)
