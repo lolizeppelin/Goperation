@@ -407,7 +407,7 @@ class RpcAgentManager(RpcManagerBase):
             LOG.info('sub wrok fail, free port from %s:%d' % (endpoint, entity))
             self.free_ports(allocked_port)
             if is_new:
-                self.allocked_ports[endpoint].pop(entity)
+                self.allocked_ports[endpoint].pop(entity, None)
             raise
 
     def free_ports(self, ports):
