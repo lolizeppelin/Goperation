@@ -89,10 +89,12 @@ class AppEndpointBase(RpcAgentEndpointBase):
                             os.makedirs(path, 0755)
                             systemutils.chown(path, _user, _group)
                 except:
-                    shutil.rmtree(entity_home)
+                    if os.path.exists(entity_home):
+                        shutil.rmtree(entity_home)
                     raise
             try:
                 yield
             except:
-                shutil.rmtree(entity_home)
+                if os.path.exists(entity_home):
+                    shutil.rmtree(entity_home)
                 raise

@@ -64,8 +64,8 @@ def flow_factory(session, applications,
     """
     @param session:                 class: sqlalchemy:session
     @param middlewares:             class:list EntityMiddleware
-    @param upgradefile:             class:list AppUpgradeFile
-    @param backupfile:              class:list basestring or AppRemoteBackupFile
+    @param upgradefile:             class:AppUpgradeFile    app upgrade file
+    @param backupfile:              class:basestring/AppRemoteBackupFile  app backup file
     @param store:                   class:dict
     @param db_flow_factory:         class:function
     """
