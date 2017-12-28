@@ -303,6 +303,7 @@ class GlobalData(object):
                 # add new agent_id to cache all agent_id
                 if not self.client.sadd(self.ALL_AGENTS_KEY, str(agent.agent_id)):
                     raise exceptions.CacheStoneError('Cant not add agent_id to redis, key %s' % self.ALL_AGENTS_KEY)
+                agent.endpoints
         return agent
 
     @contextlib.contextmanager

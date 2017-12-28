@@ -113,17 +113,21 @@ class EntityReuest(BaseContorller):
                         if endpoint == e.endpoint:
                             _endpoint = e
                             break
-                    if _endpoint:
+                    if not _endpoint:
                         raise InvalidArgument('Create entity fail, agent %d has no endpoint %s' % (agent_id,
                                                                                                    endpoint))
                     entity = model_autoincrement_id(session, AgentEntity.entity,
                                                     filter=AgentEntity.endpoint == endpoint)
-                    session.add(AgentEntity(entity=entity, endpoint=endpoint,
-                                            agent_id=agent_id, endpoint_id=_endpoint.id, desc=desc))
+                    _entity = AgentEntity(entity=entity, endpoint=endpoint,
+                                          agent_id=agent_id, endpoint_id=_endpoint.id, desc=desc)
+                    session.add(_entity)
                     session.flush()
+                    LOG.info('Create entity with id %s' % str(_entity.id))
                     if ports:
                         for port in ports:
                             session.add(AllocatedPort(port=port, agent_id=agent_id,
+                                                      endpoint_id=_endpoint.id,
+                                                      entity_id=entity.id,
                                                       endpoint=endpoint, entity=entity))
                             session.flush()
                     if notify:
@@ -201,8 +205,8 @@ class EntityReuest(BaseContorller):
                     LOG.warning('Delete no entitys, but expect count 1')
                 else:
                     query.delete()
-                    pquery = model_query(session, AllocatedPort, filter=AllocatedPort._entity == _entity.id)
-                    pquery.delete()
+                    # pquery = model_query(session, AllocatedPort, filter=AllocatedPort._entity == _entity.id)
+                    # pquery.delete()
                 if not force:
                     target = targetutils.target_agent_by_string(attributes.get('agent_type'),
                                                                 attributes.get('host'))
