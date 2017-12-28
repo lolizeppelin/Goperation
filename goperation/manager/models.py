@@ -149,7 +149,7 @@ class AgentEntity(PluginTableBase):
     agent_id = sa.Column(sa.ForeignKey('agents.agent_id', ondelete="CASCADE", onupdate='RESTRICT'),
                          nullable=False)
     desc = sa.Column(VARCHAR(256), nullable=True, default=None)
-    ports = orm.relationship(AllocatedPort, backref='entity', lazy='select',
+    ports = orm.relationship(AllocatedPort, backref='appentity', lazy='select',
                              cascade='delete,delete-orphan,save-update')
     __table_args__ = (
             sa.UniqueConstraint('entity', 'endpoint', name='unique_entity'),
@@ -166,12 +166,8 @@ class AgentEndpoint(PluginTableBase):
     agent_id = sa.Column(sa.ForeignKey('agents.agent_id', ondelete="CASCADE", onupdate='RESTRICT'),
                          nullable=False)
     entitys = orm.relationship(AgentEntity, backref='agentendpoint', lazy='select',
-                               primaryjoin=and_(agent_id == AgentEntity.agent_id,
-                                                endpoint == AgentEntity.endpoint),
                                cascade='delete,delete-orphan,save-update')
     ports = orm.relationship(AllocatedPort, backref='agentendpoint', lazy='select',
-                             primaryjoin=and_(agent_id == AllocatedPort.agent_id,
-                                              endpoint == AllocatedPort.endpoint),
                              cascade='delete,delete-orphan')
     __table_args__ = (
             sa.UniqueConstraint('endpoint', 'agent_id', name='unique_endpoint'),
