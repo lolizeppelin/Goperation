@@ -123,12 +123,14 @@ class AgentResponeBackLog(PluginTableBase):
 class AllocatedPort(PluginTableBase):
     port = sa.Column(SMALLINT(unsigned=True),
                      nullable=False, primary_key=True)
-    agent_id = sa.Column(sa.ForeignKey('agents.agent_id', ondelete="CASCADE", onupdate='RESTRICT'),
+    agent_id = sa.Column(sa.ForeignKey('agents.agent_id', ondelete="RESTRICT", onupdate='RESTRICT'),
                          nullable=False, primary_key=True)
-    endpoint = sa.Column(sa.ForeignKey('agentendpoints.endpoint', ondelete="CASCADE", onupdate='CASCADE'),
-                         nullable=False)
-    entity = sa.Column(sa.ForeignKey('agententitys.entity', ondelete="CASCADE", onupdate='RESTRICT'),
-                       nullable=False)
+    # endpoint = sa.Column(sa.ForeignKey('agentendpoints.endpoint', ondelete="CASCADE", onupdate='CASCADE'),
+    #                      nullable=False)
+    endpoint = sa.Column(VARCHAR(manager_common.MAX_ENDPOINT_NAME_SIZE), nullable=False)
+    # entity = sa.Column(sa.ForeignKey('agententitys.entity', ondelete="CASCADE", onupdate='RESTRICT'),
+    #                    nullable=False)
+    entity = sa.Column(INTEGER(unsigned=True), nullable=False)
     desc = sa.Column(VARCHAR(256), nullable=True, default=None)
     __table_args__ = (
             sa.UniqueConstraint('entity', 'endpoint', 'port', name='unique_entity_port'),

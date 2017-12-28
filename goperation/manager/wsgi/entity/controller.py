@@ -191,6 +191,9 @@ class EntityReuest(BaseContorller):
                 delete_count = query.delete()
                 if not delete_count:
                     LOG.warning('Delete no entitys, but expect count 1')
+                pquery = model_query(session, AllocatedPort, filter=and_(AllocatedPort.entity == entity,
+                                                                         AllocatedPort.endpoint == endpoint))
+                pquery.delete()
                 if not force:
                     target = targetutils.target_agent_by_string(attributes.get('agent_type'),
                                                                 attributes.get('host'))

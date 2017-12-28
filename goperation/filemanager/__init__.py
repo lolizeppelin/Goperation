@@ -118,11 +118,11 @@ class FileManager(object):
                         local_ext = local_file['ext']
                         if local_size != _file_detail.size or local_ext != _file_detail.ext:
                             not_match_files.append(file_path)
-                            _file_detail.delete()
+                            self.session.delete(_file_detail)
                             continue
                     except KeyError:
                         # delete no exist file from database
-                        _file_detail.delete()
+                        self.session.delete(_file_detail)
                         continue
                     self.localfiles[file_path] = dict(crc32=_file_detail.crc32,
                                                       md5=_file_detail.md5,
