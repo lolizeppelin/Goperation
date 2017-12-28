@@ -84,8 +84,8 @@ class EntityReuest(BaseContorller):
         if ports:
             ports = argutils.map_with(ports, validators['type:port'])
             used_ports = model_count_with_key(session, AllocatedPort.port,
-                                              filter=and_(AllocatedPort.port.in_(ports),
-                                                          AllocatedPort.agent_id == agent_id))
+                                              filter=and_(AllocatedPort.agent_id == agent_id,
+                                                          AllocatedPort.port.in_(ports)))
             if used_ports:
                 raise InvalidArgument('Ports has been used count %d' % used_ports)
 
@@ -102,17 +102,24 @@ class EntityReuest(BaseContorller):
         with glock([agent_id, ]):
             with elock(endpoint):
                 with session.begin(subtransactions=True):
-                    agent = model_query(session, Agent,
-                                        filter=Agent.agent_id == agent_id).options(joinedload(Agent.endpoints)).one()
+                    query = model_query(session, Agent, filter=Agent.agent_id == agent_id)
+                    query = query.options(joinedload(Agent.endpoints, innerjoin=False))
+                    agent = query.one()
                     if agent.status != manager_common.ACTIVE:
                         raise InvalidArgument('Create entity fail, agent status is not active')
-                    if endpoint not in [_endpoint.endpoint for _endpoint in agent.endpoints]:
+
+                    _endpoint = None
+                    for e in agent.endpoints:
+                        if endpoint == e.endpoint:
+                            _endpoint = e
+                            break
+                    if _endpoint:
                         raise InvalidArgument('Create entity fail, agent %d has no endpoint %s' % (agent_id,
                                                                                                    endpoint))
                     entity = model_autoincrement_id(session, AgentEntity.entity,
                                                     filter=AgentEntity.endpoint == endpoint)
-                    session.add(AgentEntity(entity=entity,
-                                            agent_id=agent_id, endpoint=endpoint, desc=desc))
+                    session.add(AgentEntity(entity=entity, endpoint=endpoint,
+                                            agent_id=agent_id, endpoint_id=_endpoint.id, desc=desc))
                     session.flush()
                     if ports:
                         for port in ports:
@@ -188,12 +195,14 @@ class EntityReuest(BaseContorller):
                     attributes = BaseContorller.agent_attributes(agent_id)
                     if not attributes:
                         raise InvalidArgument('Agent not online or not exist')
-                delete_count = query.delete()
-                if not delete_count:
+                _entity = query.one_or_none()
+
+                if not _entity:
                     LOG.warning('Delete no entitys, but expect count 1')
-                pquery = model_query(session, AllocatedPort, filter=and_(AllocatedPort.entity == entity,
-                                                                         AllocatedPort.endpoint == endpoint))
-                pquery.delete()
+                else:
+                    query.delete()
+                    pquery = model_query(session, AllocatedPort, filter=AllocatedPort._entity == _entity.id)
+                    pquery.delete()
                 if not force:
                     target = targetutils.target_agent_by_string(attributes.get('agent_type'),
                                                                 attributes.get('host'))

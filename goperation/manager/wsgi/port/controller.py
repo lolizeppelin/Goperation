@@ -17,6 +17,7 @@ from goperation.manager.utils import resultutils
 from goperation.manager.api import get_global
 from goperation.manager.api import get_session
 from goperation.manager.models import AllocatedPort
+from goperation.manager.models import AgentEntity
 from goperation.manager.wsgi.contorller import BaseContorller
 from goperation.manager.exceptions import CacheStoneError
 from goperation.manager.wsgi.exceptions import RpcPrepareError
@@ -45,7 +46,6 @@ class PortReuest(BaseContorller):
         return resultutils.results(result='list ports success', data=[dict(port=p.port, desc=p.desc,
                                                                            ) for p in query.all()])
 
-
     def index(self, req, agent_id, endpoint, entity):
         session = get_session(readonly=True)
         query = model_query(session, AllocatedPort, filter=and_(AllocatedPort.agent_id == agent_id,
@@ -63,8 +63,15 @@ class PortReuest(BaseContorller):
         glock = get_global().lock('agents')
         with glock([agent_id, ]):
             with session.begin():
+                query = model_query(session, AgentEntity,
+                                    filter=and_(AgentEntity.endpoint == endpoint,
+                                                AgentEntity.entity == entity))
+                _entity = query.one()
                 for port in ports:
-                    session.add(AllocatedPort(agent_id=agent_id, port=port, endpoint=endpoint, entity=entity))
+                    session.add(AllocatedPort(agent_id=agent_id, port=port,
+                                              endpoint_id=_entity.endpoint_id,
+                                              entity_id=_entity.id,
+                                              endpoint=endpoint, entity=entity))
                     session.flush()
         return resultutils.results(result='edit ports success')
 

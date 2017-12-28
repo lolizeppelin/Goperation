@@ -291,9 +291,9 @@ class GlobalData(object):
             agent_id = model_autoincrement_id(session, Agent.agent_id)
             with session.begin():
                 agent.agent_id = agent_id
-                if agent.endpoints:
-                    for endpoint in agent.endpoints:
-                        endpoint.agent_id = agent_id
+                # if agent.endpoints:
+                #     for endpoint in agent.endpoints:
+                #         endpoint.agent_id = agent_id
                 session.add(agent)
                 session.flush()
                 if endpoints:

@@ -125,34 +125,34 @@ class AllocatedPort(PluginTableBase):
                      nullable=False, primary_key=True)
     agent_id = sa.Column(sa.ForeignKey('agents.agent_id', ondelete="RESTRICT", onupdate='RESTRICT'),
                          nullable=False, primary_key=True)
-    # endpoint = sa.Column(sa.ForeignKey('agentendpoints.endpoint', ondelete="CASCADE", onupdate='CASCADE'),
-    #                      nullable=False)
+    entity_id = sa.Column(sa.ForeignKey('agententitys.id', ondelete="CASCADE", onupdate='RESTRICT'),
+                          nullable=False)
+    endpoint_id = sa.Column(sa.ForeignKey('agentendpoints.id', ondelete="CASCADE", onupdate='CASCADE'),
+                            nullable=False)
     endpoint = sa.Column(VARCHAR(manager_common.MAX_ENDPOINT_NAME_SIZE), nullable=False)
-    # entity = sa.Column(sa.ForeignKey('agententitys.entity', ondelete="CASCADE", onupdate='RESTRICT'),
-    #                    nullable=False)
     entity = sa.Column(INTEGER(unsigned=True), nullable=False)
     desc = sa.Column(VARCHAR(256), nullable=True, default=None)
     __table_args__ = (
-            sa.UniqueConstraint('entity', 'endpoint', 'port', name='unique_entity_port'),
+            sa.Index('agent_index', 'agent_id'),
             sa.Index('ports_index', 'agent_id', 'endpoint', 'entity'),
             InnoDBTableBase.__table_args__
     )
 
 
 class AgentEntity(PluginTableBase):
+    id = sa.Column(BIGINT(unsigned=True), nullable=False, primary_key=True, autoincrement=True)
     entity = sa.Column(INTEGER(unsigned=True),
-                       nullable=False, primary_key=True)
-    endpoint = sa.Column(sa.ForeignKey('agentendpoints.endpoint', ondelete="CASCADE", onupdate='CASCADE'),
-                         nullable=False, primary_key=True)
+                       nullable=False)
+    endpoint = sa.Column(VARCHAR(manager_common.MAX_ENDPOINT_NAME_SIZE), nullable=False)
+    endpoint_id = sa.Column(sa.ForeignKey('agentendpoints.id', ondelete="CASCADE", onupdate='CASCADE'),
+                            nullable=False)
     agent_id = sa.Column(sa.ForeignKey('agents.agent_id', ondelete="CASCADE", onupdate='RESTRICT'),
                          nullable=False)
     desc = sa.Column(VARCHAR(256), nullable=True, default=None)
-    ports = orm.relationship(AllocatedPort, backref='agententity', lazy='select',
-                             primaryjoin=and_(agent_id == AllocatedPort.agent_id,
-                                              endpoint == AllocatedPort.endpoint,
-                                              entity == AllocatedPort.entity),
+    ports = orm.relationship(AllocatedPort, backref='entity', lazy='select',
                              cascade='delete,delete-orphan,save-update')
     __table_args__ = (
+            sa.UniqueConstraint('entity', 'endpoint', name='unique_entity'),
             sa.Index('endpoint_index', 'endpoint'),
             sa.Index('entitys_index', 'endpoint', 'agent_id'),
             InnoDBTableBase.__table_args__
@@ -160,11 +160,11 @@ class AgentEntity(PluginTableBase):
 
 
 class AgentEndpoint(PluginTableBase):
+    id = sa.Column(BIGINT(unsigned=True), nullable=False, primary_key=True, autoincrement=True)
     endpoint = sa.Column(VARCHAR(manager_common.MAX_ENDPOINT_NAME_SIZE),
-                         nullable=False, primary_key=True)
+                         nullable=False)
     agent_id = sa.Column(sa.ForeignKey('agents.agent_id', ondelete="CASCADE", onupdate='RESTRICT'),
-                         nullable=False,
-                         primary_key=True)
+                         nullable=False)
     entitys = orm.relationship(AgentEntity, backref='agentendpoint', lazy='select',
                                primaryjoin=and_(agent_id == AgentEntity.agent_id,
                                                 endpoint == AgentEntity.endpoint),
@@ -174,6 +174,7 @@ class AgentEndpoint(PluginTableBase):
                                               endpoint == AllocatedPort.endpoint),
                              cascade='delete,delete-orphan')
     __table_args__ = (
+            sa.UniqueConstraint('endpoint', 'agent_id', name='unique_endpoint'),
             sa.Index('endpoint_index', 'endpoint'),
             InnoDBTableBase.__table_args__
     )

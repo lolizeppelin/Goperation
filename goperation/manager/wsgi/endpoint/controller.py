@@ -129,12 +129,12 @@ class EndpointReuest(BaseContorller):
         session = get_session(readonly=True)
         endpoint = validateutils.validate_endpoint(endpoint)
         query = model_query(session, AgentEntity, filter=AgentEntity.endpoint == endpoint)
+        query = query.options(joinedload(AgentEntity.ports, innerjoin=False))
         return resultutils.results(result='get endpoint %s entitys success' % endpoint,
                                    data=[dict(agent_id=entity.agent_id,
                                               entity=entity.entity,
                                               ports=[port.port for port in entity.ports])
-                                         for entity in query.options(joinedload(AgentEntity.ports,
-                                                                                innerjoin=False)).all()])
+                                         for entity in query])
 
     def count(self, req, endpoint):
         session = get_session(readonly=True)
