@@ -81,7 +81,7 @@ class OnlinTaskReporter(IntervalLoopinTask):
         super(OnlinTaskReporter, self).__init__(periodic_interval=interval,
                                                 initial_delay=random.randint(0, 10),
                                                 stop_on_exception=False)
-        self.last_interrupt = None
+        self.cpu_stat = None
 
     def __call__(self, *args, **kwargs):
 
@@ -98,16 +98,14 @@ class OnlinTaskReporter(IntervalLoopinTask):
 
     def get_interrupt(self):
         cpu_stat = psutil.cpu_stats()
-        if not self.interrupt:
-            self.interrupt = (cpu_stat.ctx_switches, cpu_stat.interrupts, cpu_stat.soft_interrupts)
+        if self.cpu_stat is None:
+            self.cpu_stat = cpu_stat
             return 0, 0, 0
         else:
-            cur_interrupt = (cpu_stat.ctx_switches, cpu_stat.interrupts, cpu_stat.soft_interrupts)
-
-            interrupt = (cur_interrupt[0] - self.last_interrupt[0],
-                         cur_interrupt[1] - self.last_interrupt[1],
-                         cur_interrupt[2] - self.last_interrupt[2])
-            self.last_interrupt = interrupt
+            interrupt = (cpu_stat.ctx_switches - self.cpu_stat.ctx_switches,
+                         cpu_stat.interrupts - self.cpu_stat.interrupts,
+                         cpu_stat.soft_interrupts - self.cpu_stat.soft_interrupts)
+            self.cpu_stat = cpu_stat
             return interrupt
 
     def performance_snapshot(self):
@@ -117,6 +115,7 @@ class OnlinTaskReporter(IntervalLoopinTask):
         sleeping = 0
         num_fds = 0
         num_threads = 0
+        listen = 0
         syn = 0
         enable = 0
         closeing = 0
@@ -131,11 +130,13 @@ class OnlinTaskReporter(IntervalLoopinTask):
             else:
                 LOG.error('process status not sleeping or running')
             for conn in proc.info.get('connections'):
-                if conn.status == 'syn':
+                if conn.status == 'LISTEN':
+                    listen += 1
+                if conn.status == 'SYN_SENT':
                     syn += 1
-                elif conn.status == 'enable':
+                elif conn.status == 'ESTABLISHED':
                     enable += 1
-                elif conn.status == 'closeing':
+                elif conn.status == 'CLOSING':
                     closeing += 1
         context, interrupts, sinterrupts = self.get_interrupt()
         cpu_time = psutil.cpu_times_percent(0.5)
@@ -148,7 +149,7 @@ class OnlinTaskReporter(IntervalLoopinTask):
                     used=memory.used/(1024*1024), cached=memory.cached/(1024*1024),
                     buffers=memory.buffers/(1024*1024), free=memory.free/(1024*1024),
                     left=self.manager.partion_left_size,
-                    syn=syn, enable=enable, closeing=closeing)
+                    listen=listen, syn=syn, enable=enable, closeing=closeing)
 
 
 class RpcAgentEndpointBase(EndpointBase):

@@ -260,6 +260,7 @@ class AgentReportLog(PluginTableBase):
     left = sa.Column(BIGINT(unsigned=True), nullable=False)
     # network  count
     # psutil.net_connections()  count(*)
+    listen = sa.Column(INTEGER(unsigned=True), nullable=False)
     syn = sa.Column(INTEGER(unsigned=True), nullable=False)
     enable = sa.Column(INTEGER(unsigned=True), nullable=False)
     closeing = sa.Column(INTEGER(unsigned=True), nullable=False)
