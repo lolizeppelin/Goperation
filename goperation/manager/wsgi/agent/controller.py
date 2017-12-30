@@ -1,3 +1,4 @@
+import eventlet
 import webob.exc
 
 from sqlalchemy.sql import and_
@@ -294,7 +295,8 @@ class AgentReuest(BaseContorller):
         body = body or {}
         agent_attributes = body.pop('attributes')
         snapshot = body.get('snapshot')
-        BaseContorller.agent_attributes_cache_flush(agent_id, agent_attributes)
+        eventlet.spawn_n(BaseContorller.agent_attributes_cache_flush, agent_id, agent_attributes)
+        # BaseContorller.agent_attributes_cache_flush(agent_id, agent_attributes)
         if snapshot:
             snapshot.setdefault('agent_id', agent_id)
             def wapper():

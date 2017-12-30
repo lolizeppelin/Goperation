@@ -1,10 +1,16 @@
+# -*- coding:utf-8 -*-
 import time
+import six
 import eventlet
 
+from sqlalchemy import func
+from sqlalchemy.sql import and_
+from sqlalchemy.orm import joinedload
 
 from simpleutil.config import cfg
 from simpleutil.log import log as logging
 from simpleutil.utils.timeutils import realnow
+from simpleutil.common.exceptions import InvalidArgument
 
 from simpleservice.rpc.target import Target
 from simpleservice.rpc.exceptions import AMQPDestinationNotFound
@@ -21,9 +27,13 @@ from goperation.manager.api import get_session
 from goperation.manager.api import get_cache
 from goperation.manager.models import AsyncRequest
 from goperation.manager.models import AgentEndpoint
+from goperation.manager.models import AgentEntity
 from goperation.manager.models import Agent
 from goperation.manager.utils import targetutils
 from goperation.manager.utils import responeutils
+from goperation.manager.utils import resultutils
+
+from goperation.manager.rpc.server import utils
 
 from goperation.manager.rpc.base import RpcManagerBase
 
@@ -31,6 +41,21 @@ from goperation.manager.rpc.base import RpcManagerBase
 LOG = logging.getLogger(__name__)
 
 CONF = cfg.CONF
+
+NONE = object()
+
+
+class ChiocesResult(resultutils.ServerRpcResult):
+
+    def __init__(self, chioces):
+        super(ChiocesResult, self).__init__(host=CONF.host, resultcode=manager_common.RESULT_SUCCESS,
+                                            result='chioces agents success')
+        self.agents = [agent.agent_id for agent in chioces]
+
+    def to_dict(self):
+        result = super(ChiocesResult, self).to_dict()
+        result.setdefault('agents', self.agents)
+        return result
 
 
 class ExpiredAgentStatusTask(IntervalLoopinTask):
@@ -199,15 +224,74 @@ class RpcServerManager(RpcManagerBase):
         """remove agent from change list"""
         self.agents_loads.pop(agent_id)
 
-    def rpc_chioces(self, ctxt, target, exclude=None, weigher=None):
+    def _sort_by_weigher(self, chioces, weighters):
+
+        def _weight(agent):
+            loads = self.agents_loads[agent.agent_id]
+            sorts = []
+            for weighter in weighters:
+                target, _value = six.iteritems(weighter)
+                keys = target.split('.')
+                value = loads
+                for key in keys:
+                    value = value.get(key, NONE)
+                    if value is NONE:
+                        raise InvalidArgument('weighter error, key not found')
+                if not value:
+                    sorts.append(_value)
+                else:
+                    sorts.append(_value/value)
+            return sorts
+
+        chioces.sort(key=_weight)
+
+    def _exclud_filter(self, includes, chioces):
+        _includes = utils.include(includes)
+        for agent in chioces:
+            include = False
+            for target in _includes:
+                _operator, match = _includes[target]
+                keys = target.split('.')
+                value = self.agents_loads[agent.agent_id]
+                for key in keys:
+                    value = value.get(key, NONE)
+                    if value is NONE:
+                        break
+                if value is None:
+                    value = 'None'
+                if _operator(value, match):
+                    include = True
+            if not include:
+                chioces.remove(agent)
+
+    def rpc_chioces(self, ctxt, target, includes=None, weighters=None):
         """chioce best best performance agent for endpoint"""
-        include = set()
         session = get_session(readonly=True)
-        for _endpoint in model_query(session, AgentEndpoint, filter=AgentEndpoint.endpoint == target):
-            include.add(_endpoint.agent_id)
-        for agent_id in self.agents_loads:
-            if agent_id not in include:
-                continue
-            if exclude and agent_id in exclude:
-                continue
-        return []
+        query = model_query(session, Agent,
+                            filter=and_(Agent.status == manager_common.ACTIVE,
+                                        AgentEndpoint.endpoint == target))
+        query = query.options(joinedload(Agent.endpoints))
+        # 可以选取的服务器列表
+        chioces = []
+        for agent in query:
+            if agent.agent_id in self.agents_loads:
+                chioces.append(agent)
+
+        # 有包含规则
+        if includes:
+            self._exclud_filter(includes, chioces)
+        # 没有排序规则
+        if not weighters:
+            # 统计agent的entitys数量
+            query = model_query(session, (AgentEntity.agent_id, func.count(AgentEntity.id)),
+                                filter=AgentEntity.agent_id.in_([agent.agent_id for agent in chioces]))
+            query.group_by(AgentEntity.agent_id)
+            count = {}
+            for r in query:
+                count[r[0]] = r[1]
+            # 按照entitys数量排序
+            chioces.sort(key=lambda agent: count.get(agent.agent_id, 0))
+        else:
+            # 按照排序规则排序
+            self._sort_by_weigher(chioces, weighters)
+        return ChiocesResult(chioces)

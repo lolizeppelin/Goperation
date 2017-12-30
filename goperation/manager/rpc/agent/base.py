@@ -6,7 +6,7 @@ import random
 import contextlib
 import psutil
 from netaddr import IPNetwork
-from netaddr import IPAddress
+from collections import namedtuple
 
 from simpleutil.config import cfg
 from simpleutil.log import log as logging
@@ -45,6 +45,10 @@ CPU = psutil.cpu_count()
 MEMORY = psutil.virtual_memory().total/(1024*1024)
 DISK = 0
 
+CPUINFO = ['irq', 'softirq', 'user', 'system', 'nice', 'iowait']
+
+scputimes = namedtuple('scputimes', CPUINFO)
+
 
 class AgentManagerClient(GopHttpClientApi):
 
@@ -77,11 +81,12 @@ class OnlinTaskReporter(IntervalLoopinTask):
         self.manager = manager
         self.with_performance = CONF[manager_common.AGENT].report_performance
         interval = CONF[manager_common.AGENT].online_report_interval*60
-        # TODO delay time
+        # TODO delay time!!!!!
         super(OnlinTaskReporter, self).__init__(periodic_interval=interval,
                                                 initial_delay=random.randint(0, 10),
                                                 stop_on_exception=False)
         self.cpu_stat = None
+        self.cpu_times = None
 
     def __call__(self, *args, **kwargs):
 
@@ -96,21 +101,45 @@ class OnlinTaskReporter(IntervalLoopinTask):
             self.sinterrupts = 0
             raise
 
-    def get_interrupt(self):
+    def get_cpuinfo(self):
         cpu_stat = psutil.cpu_stats()
+        cpu_times = psutil.cpu_times()
+
         if self.cpu_stat is None:
             self.cpu_stat = cpu_stat
-            return 0, 0, 0
+            self.cpu_times = cpu_times
+            return None, None
         else:
             interrupt = (cpu_stat.ctx_switches - self.cpu_stat.ctx_switches,
                          cpu_stat.interrupts - self.cpu_stat.interrupts,
                          cpu_stat.soft_interrupts - self.cpu_stat.soft_interrupts)
+
+            # count cpu times, copy from psutil
+            all_delta = sum(cpu_times) - sum(self.cpu_times)
+            nums = []
+            for field in CPUINFO:
+                field_delta = getattr(cpu_times, field) - getattr(self.cpu_times, field)
+                try:
+                    field_perc = (100 * field_delta) / all_delta
+                except ZeroDivisionError:
+                    field_perc = 0
+                field_perc = int(field_perc)
+                if field_perc > 100:
+                    field_perc = 100
+                elif field_perc <= 0:
+                    field_perc = 0
+                nums.append(field_perc)
+
             self.cpu_stat = cpu_stat
-            return interrupt
+            self.cpu_times = cpu_times
+            return interrupt, scputimes._make(nums)
 
     def performance_snapshot(self):
         if not self.with_performance:
             return None
+        interrupt, cputimes = self.get_cpuinfo()
+        if interrupt is None:
+            return
         running = 0
         sleeping = 0
         num_fds = 0
@@ -138,14 +167,12 @@ class OnlinTaskReporter(IntervalLoopinTask):
                     enable += 1
                 elif conn.status == 'CLOSING':
                     closeing += 1
-        context, interrupts, sinterrupts = self.get_interrupt()
-        cpu_time = psutil.cpu_times_percent(0.5)
         memory = psutil.virtual_memory()
         return dict(running=running, sleeping=sleeping, num_fds=num_fds, num_threads=num_threads,
-                    context=context, interrupts=interrupts, sinterrupts=sinterrupts,
-                    irq=int(cpu_time.irq), sirq=int(cpu_time.softirq),
-                    user=int(cpu_time.user), system=int(cpu_time.system),
-                    nice=int(cpu_time.nice), iowait=int(cpu_time.iowait),
+                    context=interrupt[0], interrupts=interrupt[1], sinterrupts=interrupt[2],
+                    irq=cputimes.irq, sirq=cputimes.softirq,
+                    user=cputimes.user, system=cputimes.system,
+                    nice=cputimes.nice, iowait=cputimes.iowait,
                     used=memory.used/(1024*1024), cached=memory.cached/(1024*1024),
                     buffers=memory.buffers/(1024*1024), free=memory.free/(1024*1024),
                     left=self.manager.partion_left_size,

@@ -25,6 +25,9 @@ class Routers(router.RoutersBase):
         self._add_resource(mapper, controller_intance,
                    path='/%s/{endpoint}/count' % self.collection_name,
                    get_action='count')
+        self._add_resource(mapper, controller_intance,
+                   path='/%s/{endpoint}/chioces' % self.collection_name,
+                   get_action='chioces')
         collection = mapper.collection(collection_name=self.collection_name,
                                        resource_name=self.resource_name,
                                        controller=controller_intance,

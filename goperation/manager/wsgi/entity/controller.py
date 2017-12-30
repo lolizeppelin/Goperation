@@ -246,12 +246,22 @@ class EntityReuest(BaseContorller):
             raise RpcResultError('delete entity fail %s' % delete_ret.get('result'))
         return delete_ret.get('result')
 
-    def _shows(self, endpoint, entitys):
+    @staticmethod
+    def shows(endpoint, entitys=None, agents=None):
         endpoint = validateutils.validate_endpoint(endpoint)
-        entitys = argutils.map_to_int(entitys)
         session = get_session(readonly=True)
-        query = model_query(session, AgentEntity, filter=and_(AgentEntity.endpoint == endpoint,
-                                                              AgentEntity.entity.in_(entitys)))
+        filters = [AgentEntity.endpoint == endpoint]
+        if entitys:
+            entitys = argutils.map_to_int(entitys)
+            filters.append(AgentEntity.entity.in_(entitys))
+        if agents:
+            agents = argutils.map_to_int(agents)
+            filters.append(AgentEntity.agent_id.in_(agents))
+        if len(filters) > 1:
+            filter = and_(*filters)
+        else:
+            filter = filters[0]
+        query = model_query(session, AgentEntity, filter=filter)
         query = query.options(joinedload(AgentEntity.ports, innerjoin=False))
         agents = set()
         entitys_map = {}

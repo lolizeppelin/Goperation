@@ -144,3 +144,9 @@ class EndpointReuest(BaseContorller):
             data.append(dict(endpoint=endpoint,
                              count=count))
         return resultutils.results(result='count endpoint for success', data=data)
+
+    def select(self, req, endpoint, body=None):
+        includes = body.get('includes')
+        weigher = body.get('weigher')
+        return resultutils.results(result='select endpoint for %s success' % endpoint,
+                                   data=self.chioces(endpoint, includes, weigher))

@@ -6,7 +6,7 @@ from goperation.filemanager.config import filemanager_opts
 
 CONF = cfg.CONF
 
-agent_group = cfg.OptGroup(name=manager_common.AGENT, title='AGENT base options group')
+agent_group = cfg.OptGroup(name=manager_common.AGENT, title='Agent base options group')
 CONF.register_group(agent_group)
 
 
@@ -20,8 +20,8 @@ rpc_agent_opts = [
                  help='Rpc agent can alloc port from this range'),
     cfg.IntOpt('online_report_interval',
                min=1,
-               max=10,
-               default=5,
+               max=60,
+               default=10,
                help='Rpc agent online report interval time in minute'),
     cfg.BoolOpt('report_performance',
                 default=False,

@@ -209,11 +209,14 @@ class BaseContorller(MiddlewareContorller):
             except DBDuplicateEntry:
                 LOG.warning('Async request rpc call result is None, but recode found')
 
-    def chioces(self, endpoint, exclude=None, weigher=None):
+    @staticmethod
+    def chioces(endpoint, includes=None, weighters=None):
+        """return a agents list sort by weigher"""
         rpc = get_client()
         chioces_result = rpc.call(targetutils.target_rpcserver(),
                                   msg={'method': 'chioces',
-                                       'args': {'target': endpoint, 'exclude': exclude, 'weigher': weigher}})
+                                       'args': {'target': endpoint, 'includes': includes,
+                                                'weighters': weighters}})
         if not chioces_result:
             raise RpcResultError('Active agent chioces result is None')
         if chioces_result.pop('resultcode') != manager_common.RESULT_SUCCESS:
