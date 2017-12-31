@@ -10,7 +10,7 @@ OPERATIORS = {'<': operator.lt,
               '>=': operator.ge,
               }
 
-regx = re.compile('([a-zA-Z]*?[a-zA-Z0-9.]*?[a-zA-Z0-1])?([\<\>\!\=]+)?([0-9a-zA-Z.]+)?$')
+regx = re.compile('([a-zA-Z]*?[a-zA-Z0-9._]*?[a-zA-Z0-1])?([\<\>\!\=]+)?([0-9a-zA-Z._]+)?$')
 
 
 def include(includes):

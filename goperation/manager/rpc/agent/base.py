@@ -148,7 +148,7 @@ class OnlinTaskReporter(IntervalLoopinTask):
         interrupt, cputimes = self.get_cpuinfo()
         if interrupt is None:
             return
-        now = time.gmtime()
+        now = time.gmtime(int(time.time())-time.timezone)
         date = '%04d-%02d-%02d' % (now.tm_year, now.tm_mon, now.tm_mday)
         hour = now.tm_hour
         min = now.tm_min
