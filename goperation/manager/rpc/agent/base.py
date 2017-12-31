@@ -2,7 +2,6 @@ import os
 import time
 import eventlet
 import six
-import random
 import contextlib
 import psutil
 from netaddr import IPNetwork
@@ -30,7 +29,6 @@ from goperation.manager.utils.targetutils import target_endpoint
 from goperation.manager.utils.resultutils import AgentRpcResult
 from goperation.manager.rpc.base import RpcManagerBase
 from goperation.manager.rpc.exceptions import RpcTargetLockException
-from goperation.manager.rpc.agent.config import agent_group
 from goperation.manager.rpc.agent.ctxtdescriptor import CheckManagerRpcCtxt
 from goperation.manager.rpc.agent.ctxtdescriptor import CheckThreadPoolRpcCtxt
 from goperation.manager.rpc.agent.config import rpc_endpoint_opts
@@ -80,10 +78,22 @@ class OnlinTaskReporter(IntervalLoopinTask):
     def __init__(self, manager):
         self.manager = manager
         self.with_performance = CONF[manager_common.AGENT].report_performance
-        interval = CONF[manager_common.AGENT].online_report_interval*60
-        # TODO delay time!!!!!
-        super(OnlinTaskReporter, self).__init__(periodic_interval=interval,
-                                                initial_delay=random.randint(0, 10),
+
+        interval = CONF[manager_common.AGENT].online_report_interval
+
+        _now = time.time()
+        fix = _now - int(_now)
+        now = time.gmtime()
+        min = now.tm_min
+        sec = now.tm_sec + fix
+        times, mod = divmod(min, interval)
+        if times > 0:
+            delay = ((times+1)*interval - min)*60 - sec
+        else:
+            delay = (interval-min)*60 - sec
+
+        super(OnlinTaskReporter, self).__init__(periodic_interval=interval*60,
+                                                initial_delay=delay,
                                                 stop_on_exception=False)
         self.cpu_stat = None
         self.cpu_times = None
@@ -96,9 +106,6 @@ class OnlinTaskReporter(IntervalLoopinTask):
             self.manager.client.agent_report(self.manager.agent_id, body)
         except Exception:
             LOG.warning('Agent report fail')
-            self.context = 0
-            self.interrupts = 0
-            self.sinterrupts = 0
             raise
 
     def get_cpuinfo(self):
@@ -140,6 +147,10 @@ class OnlinTaskReporter(IntervalLoopinTask):
         interrupt, cputimes = self.get_cpuinfo()
         if interrupt is None:
             return
+        now = time.gmtime()
+        date = '%04d-%02d-%02d' % (now.tm_year, now.tm_mon, now.tm_mday)
+        hour = now.tm_hour
+        min = now.tm_min
         running = 0
         sleeping = 0
         num_fds = 0
@@ -168,7 +179,8 @@ class OnlinTaskReporter(IntervalLoopinTask):
                 elif conn.status == 'CLOSING':
                     closeing += 1
         memory = psutil.virtual_memory()
-        return dict(running=running, sleeping=sleeping, num_fds=num_fds, num_threads=num_threads,
+        return dict(date=date, hour=hour, min=min,
+                    running=running, sleeping=sleeping, num_fds=num_fds, num_threads=num_threads,
                     context=interrupt[0], interrupts=interrupt[1], sinterrupts=interrupt[2],
                     irq=cputimes.irq, sirq=cputimes.softirq,
                     user=cputimes.user, system=cputimes.system,

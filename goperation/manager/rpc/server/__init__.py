@@ -273,9 +273,12 @@ class RpcServerManager(RpcManagerBase):
         query = query.options(joinedload(Agent.endpoints))
         # 可以选取的服务器列表
         chioces = []
+        timeline = int(time.time()) - 30*60
         for agent in query:
             if agent.agent_id in self.agents_loads:
-                chioces.append(agent)
+                loads = self.agents_loads[agent.agent_id]
+                if loads.get('time') and loads.get('time') > timeline:
+                    chioces.append(agent)
 
         # 有包含规则
         if includes:

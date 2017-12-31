@@ -247,7 +247,8 @@ class EntityReuest(BaseContorller):
         return delete_ret.get('result')
 
     @staticmethod
-    def shows(endpoint, entitys=None, agents=None):
+    def shows(endpoint, entitys=None, agents=None,
+              ports=True, attributes=True):
         endpoint = validateutils.validate_endpoint(endpoint)
         session = get_session(readonly=True)
         filters = [AgentEntity.endpoint == endpoint]
@@ -262,18 +263,21 @@ class EntityReuest(BaseContorller):
         else:
             filter = filters[0]
         query = model_query(session, AgentEntity, filter=filter)
-        query = query.options(joinedload(AgentEntity.ports, innerjoin=False))
+        if ports:
+            query = query.options(joinedload(AgentEntity.ports, innerjoin=False))
         agents = set()
         entitys_map = {}
         for _entity in query:
             agents.add(_entity.agent_id)
-            entitys_map[_entity] = dict(agent_id=_entity.agent_id,
-                                        ports=sorted([x.port for x in _entity.ports]))
-
-        agents_map = BaseContorller.agents_attributes(agents)
+            entitys_map[_entity] = dict(agent_id=_entity.agent_id),
+            if ports:
+                entitys_map[_entity].setdefault(ports=sorted([x.port for x in _entity.ports]))
+        if attributes:
+            agents_map = BaseContorller.agents_attributes(agents)
 
         for _entity in entitys_map:
             agent_id = entitys_map[_entity].get('agent_id')
-            entitys_map[_entity].setdefault('attributes', agents_map[agent_id])
+            if attributes:
+                entitys_map[_entity].setdefault('attributes', agents_map[agent_id])
 
         return entitys_map

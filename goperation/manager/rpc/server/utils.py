@@ -23,6 +23,8 @@ def include(includes):
         key = OPERATIORS[match.group(0)]
         _operator = OPERATIORS[match.group(1)]
         value = OPERATIORS[match.group(2)]
+        if value.isdigit():
+            value = int(value)
         try:
             _includes[key].append((_operator, value))
         except KeyError:

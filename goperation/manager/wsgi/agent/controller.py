@@ -1,4 +1,5 @@
 import eventlet
+import random
 import webob.exc
 
 from sqlalchemy.sql import and_
@@ -300,6 +301,7 @@ class AgentReuest(BaseContorller):
         if snapshot:
             snapshot.setdefault('agent_id', agent_id)
             def wapper():
+                eventlet.sleep(random.randint(0, 5))
                 # save report log
                 session = get_session()
                 report = AgentReportLog(**snapshot)

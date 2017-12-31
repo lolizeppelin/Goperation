@@ -16,9 +16,13 @@ filemanager测试                                                               
 调度器拆分异步请求结果检查代码                                                              完成
 编写调度器                                                                                  差调度器载入任务
 调度器taskflow编写                                                                          完成
-调度器RPC测试, RPC descriptor 测试  -- 基本完成,剩余部分需要endpoint调试                    准备中
+调度器RPC测试, RPC descriptor 测试  -- 基本完成,剩余部分需要endpoint调试                    完成
+spec文件编写,linux安装测试                                                                  完成
 
-spec文件编写,linux安装测试                                                                  spec完成,安装测试压后
+自动选取服务器                                                                              完成
+自动选取数据库                                                                              完成
+优化上报记录存储结构                                                                        完成
+第一次上报时间延迟至整点                                                                    完成
 
 agent升级rpm编写                                                                            压后
 websocket实现文件发送与tail文件                                                             压后

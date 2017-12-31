@@ -234,6 +234,9 @@ class AgentReportLog(PluginTableBase):
     # status()
     # num_fds()
     # num_threads()  num_threads()
+    date = sa.Column(CHAR(10), nullable=False)
+    hour = sa.Column(TINYINT(unsigned=True), nullable=False)
+    min = sa.Column(TINYINT(unsigned=True), nullable=False)
     running = sa.Column(INTEGER(unsigned=True), nullable=False)
     sleeping = sa.Column(INTEGER(unsigned=True), nullable=False)
     num_fds = sa.Column(INTEGER(unsigned=True), nullable=False)
@@ -243,7 +246,7 @@ class AgentReportLog(PluginTableBase):
     context = sa.Column(INTEGER(unsigned=True), nullable=False)
     interrupts = sa.Column(INTEGER(unsigned=True), nullable=False)
     sinterrupts = sa.Column(INTEGER(unsigned=True), nullable=False)
-    # psutil.cpu_times_percent(0.5) irq softirq user system nice iowait
+    # psutil.cpu_times irq softirq user system nice iowait
     irq = sa.Column(INTEGER(unsigned=True), nullable=False)
     sirq = sa.Column(INTEGER(unsigned=True), nullable=False)
     user = sa.Column(TINYINT(unsigned=True), nullable=False)
@@ -265,7 +268,9 @@ class AgentReportLog(PluginTableBase):
     enable = sa.Column(INTEGER(unsigned=True), nullable=False)
     closeing = sa.Column(INTEGER(unsigned=True), nullable=False)
     __table_args__ = (
-            sa.Index('agent_id_index', 'agent_id'),
+            sa.Index('agent_id_index', agent_id),
+            sa.Index('date_index', date),
+            sa.Index('hour_index', hour),
             MyISAMTableBase.__table_args__
     )
 
