@@ -307,17 +307,17 @@ class AgentReuest(BaseContorller):
                 report = AgentReportLog(**snapshot)
                 session.add(report)
                 session.flush()
+                session.close()
                 process = snapshot.get('running') + snapshot.get('sleeping')
                 free = snapshot.get('free') + snapshot.get('cached')
                 conns = snapshot.get('syn') + snapshot.get('enable')
                 cputime = snapshot.get('iowait') + snapshot.get('user') \
                           + snapshot.get('system') + snapshot.get('nice')\
                           + snapshot.get('irq') + snapshot.get('sirq')
-                session.close()
                 rpc = get_client()
                 # send to rpc server
                 rpc.cast(targetutils.target_rpcserver(fanout=True),
-                         cxtx = {},
+                         ctxt = {},
                          msg={'method': 'changesource',
                               'args': {'agent_id': agent_id,
                                        'free':  free,

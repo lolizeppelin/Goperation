@@ -19,8 +19,6 @@ rpc_agent_opts = [
                  item_type=cfg.types.PortRange(),
                  help='Rpc agent can alloc port from this range'),
     cfg.IntOpt('online_report_interval',
-               min=1,
-               max=60,
                default=10,
                choices=[1, 3, 4, 5, 6, 10, 12, 15, 20, 30, 60],
                help='Rpc agent online report interval time in minute'),

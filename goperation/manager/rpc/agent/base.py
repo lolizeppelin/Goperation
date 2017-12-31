@@ -80,10 +80,11 @@ class OnlinTaskReporter(IntervalLoopinTask):
         self.with_performance = CONF[manager_common.AGENT].report_performance
 
         interval = CONF[manager_common.AGENT].online_report_interval
+        self.interval = interval*60
 
         _now = time.time()
         fix = _now - int(_now)
-        now = time.gmtime()
+        now = time.gmtime(int(_now)-time.timezone)
         min = now.tm_min
         sec = now.tm_sec + fix
         times, mod = divmod(min, interval)
@@ -92,7 +93,7 @@ class OnlinTaskReporter(IntervalLoopinTask):
         else:
             delay = (interval-min)*60 - sec
 
-        super(OnlinTaskReporter, self).__init__(periodic_interval=interval*60,
+        super(OnlinTaskReporter, self).__init__(periodic_interval=self.interval,
                                                 initial_delay=delay,
                                                 stop_on_exception=False)
         self.cpu_stat = None
@@ -117,9 +118,9 @@ class OnlinTaskReporter(IntervalLoopinTask):
             self.cpu_times = cpu_times
             return None, None
         else:
-            interrupt = (cpu_stat.ctx_switches - self.cpu_stat.ctx_switches,
-                         cpu_stat.interrupts - self.cpu_stat.interrupts,
-                         cpu_stat.soft_interrupts - self.cpu_stat.soft_interrupts)
+            interrupt = ((cpu_stat.ctx_switches - self.cpu_stat.ctx_switches)/self.interval,
+                         (cpu_stat.interrupts - self.cpu_stat.interrupts)/self.interval,
+                         (cpu_stat.soft_interrupts - self.cpu_stat.soft_interrupts)/self.interval)
 
             # count cpu times, copy from psutil
             all_delta = sum(cpu_times) - sum(self.cpu_times)
