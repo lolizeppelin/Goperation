@@ -1,3 +1,4 @@
+# -*- coding:utf-8 -*-
 import os
 import time
 import random
@@ -82,6 +83,7 @@ class OnlinTaskReporter(IntervalLoopinTask):
     def __init__(self, manager):
         self.manager = manager
         self.with_performance = CONF[manager_common.AGENT].report_performance
+        self.probability = CONF[manager_common.AGENT].probability - 1
 
         interval = CONF[manager_common.AGENT].online_report_interval
         self.interval = interval*60
@@ -116,9 +118,10 @@ class OnlinTaskReporter(IntervalLoopinTask):
 
     @property
     def metadata(self):
+        # 除第一次外,随机更新元数据
         if not self.cpu_stat:
             return self.manager.metadata
-        if not random.randint(0, 5):
+        if not random.randint(0, self.probability):
             return self.manager.metadata
         return None
 
