@@ -80,7 +80,7 @@ class EntityReuest(BaseContorller):
         notify = body.pop('notify', True)
         desc = body.pop('desc', None)
         session = get_session()
-        attributes = None
+        metadata = None
         if ports:
             ports = argutils.map_with(ports, validators['type:port'])
             used_ports = model_count_with_key(session, AllocatedPort.port,
@@ -90,9 +90,9 @@ class EntityReuest(BaseContorller):
                 raise InvalidArgument('Ports has been used count %d' % used_ports)
 
         if notify:
-            attributes = BaseContorller.agent_attributes(agent_id)
+            metadata = BaseContorller.agent_metadata(agent_id)
             # make sure agent is online
-            if not attributes:
+            if not metadata:
                 raise RpcPrepareError('Can not create entity on a offline agent %d' % agent_id)
 
         entity = 0
@@ -135,7 +135,7 @@ class EntityReuest(BaseContorller):
                         target.namespace = endpoint
                         result += self.notify_create(target, entity, body)
         return resultutils.results(result=result, data=[dict(entity=entity, agent_id=agent_id,
-                                                             attributes=attributes,
+                                                             metadata=metadata,
                                                              endpoint=endpoint, port=ports or [])])
 
     def post_create_entity(self, entity, endpoint, **kwargs):
@@ -145,11 +145,11 @@ class EntityReuest(BaseContorller):
         query = model_query(session, AgentEntity, filter=and_(AgentEntity.endpoint == endpoint,
                                                               AgentEntity.entity == entity))
         _entity = query.one()
-        agent_attributes = BaseContorller.agent_attributes(_entity.agent_id)
-        if not agent_attributes:
+        metadata = BaseContorller.agent_metadata(_entity.agent_id)
+        if not metadata:
             raise RpcPrepareError('Agent not online, can not sen post create')
-        target = targetutils.target_agent_by_string(agent_attributes.get('agent_type'),
-                                                    agent_attributes.get('host'),)
+        target = targetutils.target_agent_by_string(metadata.get('agent_type'),
+                                                    metadata.get('host'),)
         target.namespace = endpoint
         body = dict(entity=entity)
         body.update(kwargs)
@@ -177,7 +177,7 @@ class EntityReuest(BaseContorller):
         return resultutils.results(result='show entity success',
                                    data=[dict(endpoint=_entity.endpoint,
                                               agent_id=_entity.agent_id,
-                                              attributes=BaseContorller.agent_attributes(_entity.agent_id),
+                                              metadata=BaseContorller.agent_metadata(_entity.agent_id),
                                               entity=_entity.entity,
                                               ports=sorted([x.port for x in _entity.ports]) if show_ports else [])])
 
@@ -196,8 +196,8 @@ class EntityReuest(BaseContorller):
                                                 AgentEntity.entity == entity))
                 if not force:
                     agent_id = agents.pop()
-                    attributes = BaseContorller.agent_attributes(agent_id)
-                    if not attributes:
+                    metadata = BaseContorller.agent_metadata(agent_id)
+                    if not metadata:
                         raise InvalidArgument('Agent not online or not exist')
                 _entity = query.one_or_none()
 
@@ -208,8 +208,8 @@ class EntityReuest(BaseContorller):
                     # pquery = model_query(session, AllocatedPort, filter=AllocatedPort._entity == _entity.id)
                     # pquery.delete()
                 if not force:
-                    target = targetutils.target_agent_by_string(attributes.get('agent_type'),
-                                                                attributes.get('host'))
+                    target = targetutils.target_agent_by_string(metadata.get('agent_type'),
+                                                                metadata.get('host'))
                     target.namespace = endpoint
                     result += self.notify_delete(target, entity, body)
         return resultutils.results(result=result)
@@ -248,7 +248,7 @@ class EntityReuest(BaseContorller):
 
     @staticmethod
     def shows(endpoint, entitys=None, agents=None,
-              ports=True, attributes=True):
+              ports=True, metadata=True):
         endpoint = validateutils.validate_endpoint(endpoint)
         session = get_session(readonly=True)
         filters = [AgentEntity.endpoint == endpoint]
@@ -272,12 +272,12 @@ class EntityReuest(BaseContorller):
             entitys_map[_entity] = dict(agent_id=_entity.agent_id),
             if ports:
                 entitys_map[_entity].setdefault(ports=sorted([x.port for x in _entity.ports]))
-        if attributes:
-            agents_map = BaseContorller.agents_attributes(agents)
+        if metadata:
+            agents_map = BaseContorller.agents_metadata(agents)
 
         for _entity in entitys_map:
             agent_id = entitys_map[_entity].get('agent_id')
-            if attributes:
-                entitys_map[_entity].setdefault('attributes', agents_map[agent_id])
+            if metadata:
+                entitys_map[_entity].setdefault('metadata', agents_map[agent_id])
 
         return entitys_map

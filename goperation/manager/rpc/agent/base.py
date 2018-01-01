@@ -1,5 +1,6 @@
 import os
 import time
+import random
 import eventlet
 import six
 import contextlib
@@ -51,7 +52,10 @@ scputimes = namedtuple('scputimes', CPUINFO)
 class AgentManagerClient(GopHttpClientApi):
 
     def agent_init_self(self,  manager):
-        agent_id = self.cache_online(manager.agent_type, manager.attributes)['data'][0]['agent_id']
+        interval = CONF[manager_common.AGENT].online_report_interval
+        agent_id = self.cache_online(agent_type=manager.agent_type,
+                                     metadata=manager.metadata,
+                                     expire=interval*60)['data'][0]['agent_id']
         if agent_id is None:
             self.agent_create_self(manager)
         else:
@@ -101,13 +105,22 @@ class OnlinTaskReporter(IntervalLoopinTask):
 
     def __call__(self, *args, **kwargs):
 
-        body = {'attributes': self.manager.attributes,
+        body = {'metadata': self.metadata,
+                'expire': self.interval,
                 'snapshot': self.performance_snapshot()}
         try:
             self.manager.client.agent_report(self.manager.agent_id, body)
         except Exception:
             LOG.warning('Agent report fail')
             raise
+
+    @property
+    def metadata(self):
+        if not self.cpu_stat:
+            return self.manager.metadata
+        if not random.randint(0, 5):
+            return self.manager.metadata
+        return None
 
     def get_cpuinfo(self):
         cpu_stat = psutil.cpu_stats()
@@ -295,10 +308,10 @@ class RpcAgentManager(RpcManagerBase):
             for port in xrange(up, down):
                 self.left_ports.add(port)
 
-        # init attributes
-        self._attributes = super(RpcAgentManager, self).attributes
-        self._attributes.setdefault('agent_type', self.agent_type)
-        self._attributes.setdefault('zone', self.zone)
+        # init metadata
+        self._metadata = super(RpcAgentManager, self).metadata
+        self._metadata.setdefault('agent_type', self.agent_type)
+        self._metadata.setdefault('zone', self.zone)
         # init httpclient
         self.client = AgentManagerClient(httpclient=get_http())
         # init filemanager
@@ -339,7 +352,7 @@ class RpcAgentManager(RpcManagerBase):
         # add online report periodic tasks
         self._periodic_tasks.insert(0, OnlinTaskReporter(self))
         for endpoint in self.endpoints:
-            endpoint.pre_start(self._attributes)
+            endpoint.pre_start(self._metadata)
 
     def post_start(self):
         agent_info = self.client.agent_show(self.agent_id, body={'ports': True, 'entitys': True})['data'][0]
@@ -612,5 +625,5 @@ class RpcAgentManager(RpcManagerBase):
                              result='getfile success')
 
     @property
-    def attributes(self):
-        return self._attributes
+    def metadata(self):
+        return self._metadata

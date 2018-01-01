@@ -59,7 +59,7 @@ class RpcManagerBase(ManagerBase):
         return get_partion_free_bytes(self.work_path)/(1024*1024)
 
     @property
-    def attributes(self):
+    def metadata(self):
         return dict(local_ip=self.local_ip,
                     external_ips=self.external_ips,
                     host=self.host)

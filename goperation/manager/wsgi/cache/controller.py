@@ -69,7 +69,8 @@ class CacheReuest(BaseContorller):
         try:
             host = validators['type:hostname'](host)
             agent_type = body.pop('agent_type')
-            attributes = body.pop('attributes')
+            metadata = body.pop('metadata')
+            expire = body.pop('expire')
         except KeyError as e:
             raise InvalidArgument('Can not find argument: %s' % e.message)
         except ValueError as e:
@@ -85,8 +86,8 @@ class CacheReuest(BaseContorller):
             LOG.info('Cache online called but no Agent found')
             ret = {'agent_id': None}
         else:
-            local_ip = attributes.get('local_ip')
-            external_ips = str(attributes.get('external_ips'))
+            local_ip = metadata.get('local_ip')
+            external_ips = str(metadata.get('external_ips'))
             LOG.debug('Cache online called. agent_id:%(agent_id)s, type:%(agent_type)s, '
                       'host:%(host)s, local_ip:%(local_ip)s, external_ips:%(external_ips)s' %
                       {'agent_id': agent.agent_id,
@@ -95,7 +96,7 @@ class CacheReuest(BaseContorller):
                        'local_ip': local_ip,
                        'external_ips': external_ips})
             ret = {'agent_id': agent.agent_id}
-            BaseContorller.agent_attributes_cache_flush(agent.agent_id, attributes)
+            BaseContorller.agent_metadata_flush(agent.agent_id, metadata, expire=expire)
         result = resultutils.results(result='Cache online function run success')
         result['data'].append(ret)
         return result

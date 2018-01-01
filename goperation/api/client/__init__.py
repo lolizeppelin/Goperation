@@ -389,11 +389,12 @@ class ManagerClient(HttpClientBase):
                                             resone=results['result'])
         return results
 
-    def cache_online(self, agent_type, attributes):
-        body = dict(host=attributes.get('host'),
+    def cache_online(self, agent_type, metadata, expire):
+        body = dict(host=metadata.get('host'),
                     agent_type=agent_type,
-                    attributes=attributes)
-        resp, results = self.retryable_post(self.online_path % attributes.get('host'), body)
+                    metadata=metadata,
+                    expire=expire)
+        resp, results = self.retryable_post(self.online_path % metadata.get('host'), body)
         if results['resultcode'] != common.RESULT_SUCCESS:
             raise ServerExecuteRequestError(message='agent declare online fail:%d' % results['resultcode'],
                                             code=resp.status_code,

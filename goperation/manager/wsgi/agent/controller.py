@@ -1,3 +1,4 @@
+# -*- coding:utf-8 -*-
 import eventlet
 import random
 import webob.exc
@@ -128,7 +129,7 @@ class AgentReuest(BaseContorller):
                            disk=agent.disk,
                            ports_range=jsonutils.safe_loads_as_bytes(agent.ports_range) or [],
                            endpoints=endpoints,
-                           attributes=BaseContorller.agent_attributes(agent_id),
+                           metadata=BaseContorller.agent_metadata(agent_id),
                            )
         result['data'].append(result_data)
         return result
@@ -161,13 +162,13 @@ class AgentReuest(BaseContorller):
         force = body.get('force', False)
         rpc = get_client()
         global_data = get_global()
-        agent_attributes = None
+        metadata = None
         with global_data.delete_agent(agent_id) as agent:
             if not force:
-                agent_attributes = BaseContorller.agent_attributes(agent.agent_id)
-                if agent_attributes is None:
+                metadata = BaseContorller.agent_metadata(agent.agent_id)
+                if metadata is None:
                     raise RpcPrepareError('Can not delete offline agent, try force')
-                agent_ipaddr = agent_attributes.get('local_ip')
+                agent_ipaddr = metadata.get('local_ip')
                 secret = uuidutils.generate_uuid()
                 # tell agent wait delete
                 delete_agent_precommit = rpc.call(targetutils.target_agent(agent),
@@ -204,7 +205,7 @@ class AgentReuest(BaseContorller):
                                      data=[dict(agent_id=agent.agent_id,
                                                 host=agent.host,
                                                 status=agent.status,
-                                                attributes=agent_attributes,
+                                                metadata=metadata,
                                                 ports_range=jsonutils.safe_loads_as_bytes(agent.ports_range) or [])
                                            ])
         return result
@@ -244,10 +245,10 @@ class AgentReuest(BaseContorller):
                                         Agent.status > manager_common.DELETED))
         agent = query.one()
         # make sure agent is online
-        agent_attributes = BaseContorller.agent_attributes(agent.agent_id)
-        if agent_attributes is None:
+        metadata = BaseContorller.agent_metadata(agent.agent_id)
+        if metadata is None:
             raise RpcPrepareError('Can not active or unactive a offline agent: %d' % agent_id)
-        agent_ipaddr = agent_attributes.get('local_ip')
+        agent_ipaddr = metadata.get('local_ip')
         with session.begin():
             agent.update({'status': status})
             active_agent = rpc.call(targetutils.target_agent(agent),
@@ -264,7 +265,7 @@ class AgentReuest(BaseContorller):
             result = resultutils.results(result=active_agent.pop('result'),
                                          data=[dict(agent_id=agent.agent_id,
                                                     host=agent.host,
-                                                    attributes=agent_attributes,
+                                                    metadata=metadata,
                                                     status=agent.status)
                                                ])
             return result
@@ -294,10 +295,21 @@ class AgentReuest(BaseContorller):
     @BaseContorller.AgentIdformater
     def report(self, req, agent_id, body=None):
         body = body or {}
-        agent_attributes = body.pop('attributes')
+        # agent元数据
+        metadata = body.pop('metadata')
+        # 元数据缓存时间
+        expire = body.pop('expire')
+        # 性能快照
         snapshot = body.get('snapshot')
-        eventlet.spawn_n(BaseContorller.agent_attributes_cache_flush, agent_id, agent_attributes)
-        # BaseContorller.agent_attributes_cache_flush(agent_id, agent_attributes)
+        # 随机延迟最长时间是15秒,所以expire时间增加15秒
+        if metadata:
+            # 有元数据传入,更新缓存中元数据
+            eventlet.spawn_n(BaseContorller.agent_metadata_flush, agent_id, metadata, expire+15)
+        else:
+            # 没有元数据,延长缓存中的元数据持续时间
+            # 随机延迟3-15秒,避免所有agent在同一时间更新metadata
+            delay = random.randint(0, min(15, expire/10))
+            eventlet.spawn_after(delay, BaseContorller.agent_metadata_expire(agent_id, expire+15))
         if snapshot:
             snapshot.setdefault('agent_id', agent_id)
             def wapper():
@@ -327,7 +339,7 @@ class AgentReuest(BaseContorller):
                                        'left': snapshot.get('left'),
                                        'fds': snapshot.get('num_fds'),
                                        'conns': conns,
-                                       'attributes': agent_attributes,
+                                       'metadata': metadata,
                                        }})
             threadpool.add_thread(safe_func_wrapper, wapper, LOG)
         return resultutils.results(result='report success')

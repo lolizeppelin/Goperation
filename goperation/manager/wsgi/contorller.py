@@ -114,61 +114,69 @@ class BaseContorller(MiddlewareContorller):
         return new_request
 
     @staticmethod
-    def agent_attributes(agent_id):
+    def agent_metadata(agent_id):
         cache_store = get_redis()
-        attributes = cache_store.get(targetutils.host_online_key(agent_id))
-        return attributes if not attributes else jsonutils.loads_as_bytes(attributes)
+        metadata = cache_store.get(targetutils.host_online_key(agent_id))
+        return metadata if not metadata else jsonutils.loads_as_bytes(metadata)
 
     @staticmethod
-    def agents_attributes(agents):
+    def agents_metadata(agents):
         agents = list(agents)
         cache_store = get_redis()
-        all_attributes = cache_store.mget(*[targetutils.host_online_key(agent_id) for agent_id in agents])
+        metadatas = cache_store.mget(*[targetutils.host_online_key(agent_id) for agent_id in agents])
         maps = dict.fromkeys(agents, None)
-        for index, attributes in enumerate(all_attributes):
-            if attributes:
-                maps[agents[index]] = jsonutils.loads_as_bytes(attributes)
+        for index, metadata in enumerate(metadatas):
+            if metadata:
+                maps[agents[index]] = jsonutils.loads_as_bytes(metadata)
         return maps
 
     @staticmethod
-    def agent_attributes_cache_flush(agent_id, attributes):
+    def agent_metadata_flush(agent_id, metadata, expire):
         cache_store = get_redis()
-        agent_ipaddr = attributes.get('local_ip')
+        agent_ipaddr = metadata.get('local_ip')
         host_online_key = targetutils.host_online_key(agent_id)
         with cache_store.pipeline() as pipe:
             pipe.watch(host_online_key)
             pipe.multi()
             pipe.get(host_online_key)
             pipe.ttl(host_online_key)
-            pipe.expire(host_online_key, manager_common.ONLINE_EXIST_TIME)
+            pipe.expire(host_online_key, expire or manager_common.ONLINE_EXIST_TIME)
             try:
                 results = pipe.execute()
             except WatchError:
                 raise InvalidArgument('Host changed')
-        exist_agent_iattributes, ttl, expire_result = results
-        if exist_agent_iattributes is not None:
-            exist_agent_iattributes = jsonutils.loads_as_bytes(exist_agent_iattributes)
-            if exist_agent_iattributes.get('local_ip') != agent_ipaddr:
+        exist_agent_metadata, ttl, expire_result = results
+        if exist_agent_metadata is not None:
+            exist_agent_metadata = jsonutils.loads_as_bytes(exist_agent_metadata)
+            if exist_agent_metadata.get('local_ip') != agent_ipaddr:
                 LOG.error('Host call online with %s, but %s alreday exist with same key' %
-                          (agent_ipaddr, exist_agent_iattributes.get('local_ip')))
+                          (agent_ipaddr, exist_agent_metadata.get('local_ip')))
                 if ttl > 3:
                     if not cache_store.expire(host_online_key, ttl):
                         LOG.error('Revet ttl of %s fail' % host_online_key)
                 raise InvalidArgument('Agent %d with ipaddr %s alreday eixst' %
-                                      (agent_id, exist_agent_iattributes.get('local_ip')))
+                                      (agent_id, exist_agent_metadata.get('local_ip')))
             else:
-                # replace attributes
-                if exist_agent_iattributes != attributes:
-                    LOG.warning('Agent %d attributes change' % agent_id)
-                    if not cache_store.set(host_online_key, jsonutils.dumps_as_bytes(attributes),
-                                           ex=manager_common.ONLINE_EXIST_TIME):
+                # replace metadata
+                if exist_agent_metadata != metadata:
+                    LOG.warning('Agent %d metadata change' % agent_id)
+                    if not cache_store.set(host_online_key, jsonutils.dumps_as_bytes(metadata),
+                                           ex=expire or manager_common.ONLINE_EXIST_TIME):
                         raise InvalidArgument('Another agent login with same host or '
                                               'someone set key %s' % host_online_key)
         else:
-            if not cache_store.set(host_online_key, jsonutils.dumps_as_bytes(attributes),
-                                   ex=manager_common.ONLINE_EXIST_TIME, nx=True):
+            if not cache_store.set(host_online_key, jsonutils.dumps_as_bytes(metadata),
+                                   ex=expire or manager_common.ONLINE_EXIST_TIME, nx=True):
                 raise InvalidArgument('Another agent login with same host or '
                                       'someone set key %s' % host_online_key)
+
+
+    @staticmethod
+    def agent_metadata_expire(agent_id, expire):
+        cache_store = get_redis()
+        host_online_key = targetutils.host_online_key(agent_id)
+        cache_store.expire(host_online_key, expire)
+
 
     @staticmethod
     def send_asyncrequest(asyncrequest, rpc_target,

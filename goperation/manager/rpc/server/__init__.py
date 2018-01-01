@@ -50,7 +50,7 @@ class ChiocesResult(resultutils.ServerRpcResult):
     def __init__(self, chioces):
         super(ChiocesResult, self).__init__(host=CONF.host, resultcode=manager_common.RESULT_SUCCESS,
                                             result='chioces agents success')
-        self.agents = [agent.agent_id for agent in chioces]
+        self.agents = chioces
 
     def to_dict(self):
         result = super(ChiocesResult, self).to_dict()
@@ -201,7 +201,7 @@ class RpcServerManager(RpcManagerBase):
 
         threadpool.add_thread(safe_func_wrapper, check_respone, LOG)
 
-    def rpc_changesource(self, ctxt, agent_id, fds, conns, free, process, cputime, iowait, left, attributes):
+    def rpc_changesource(self, ctxt, agent_id, fds, conns, free, process, cputime, iowait, left, metadata):
         """agent status of performance change"""
         if agent_id not in self.agents_loads:
             session = get_session(readonly=True)
@@ -217,7 +217,7 @@ class RpcServerManager(RpcManagerBase):
                       'cputime': cputime, 'iowait': iowait,
                       'left': left, 'fds': fds, 'conns': conns,
                       'time': int(time.time()),
-                      'attributes': attributes}
+                      'metadata': metadata}
         self.agents_loads[agent_id].update(new_status)
 
     def rpc_deletesource(self, ctxt, agent_id):
@@ -226,8 +226,8 @@ class RpcServerManager(RpcManagerBase):
 
     def _sort_by_weigher(self, chioces, weighters):
 
-        def _weight(agent):
-            loads = self.agents_loads[agent.agent_id]
+        def _weight(agent_id):
+            loads = self.agents_loads[agent_id]
             sorts = []
             for weighter in weighters:
                 target, _value = six.iteritems(weighter)
@@ -247,12 +247,12 @@ class RpcServerManager(RpcManagerBase):
 
     def _exclud_filter(self, includes, chioces):
         _includes = utils.include(includes)
-        for agent in chioces:
+        for agent_id in chioces:
             include = False
             for target in _includes:
                 _operator, match = _includes[target]
                 keys = target.split('.')
-                value = self.agents_loads[agent.agent_id]
+                value = self.agents_loads[agent_id]
                 for key in keys:
                     value = value.get(key, NONE)
                     if value is NONE:
@@ -262,7 +262,7 @@ class RpcServerManager(RpcManagerBase):
                 if _operator(value, match):
                     include = True
             if not include:
-                chioces.remove(agent)
+                chioces.remove(agent_id)
 
     def rpc_chioces(self, ctxt, target, includes=None, weighters=None):
         """chioce best best performance agent for endpoint"""
@@ -273,12 +273,12 @@ class RpcServerManager(RpcManagerBase):
         query = query.options(joinedload(Agent.endpoints))
         # 可以选取的服务器列表
         chioces = []
-        timeline = int(time.time()) - 30*60
+        timeline = int(time.time()) - (30*60 + 30)
         for agent in query:
             if agent.agent_id in self.agents_loads:
                 loads = self.agents_loads[agent.agent_id]
                 if loads.get('time') and loads.get('time') > timeline:
-                    chioces.append(agent)
+                    chioces.append(agent.agent_id)
 
         # 有包含规则
         if includes:
@@ -287,13 +287,13 @@ class RpcServerManager(RpcManagerBase):
         if not weighters:
             # 统计agent的entitys数量
             query = model_query(session, (AgentEntity.agent_id, func.count(AgentEntity.id)),
-                                filter=AgentEntity.agent_id.in_([agent.agent_id for agent in chioces]))
+                                filter=AgentEntity.agent_id.in_(chioces))
             query.group_by(AgentEntity.agent_id)
             count = {}
             for r in query:
                 count[r[0]] = r[1]
             # 按照entitys数量排序
-            chioces.sort(key=lambda agent: count.get(agent.agent_id, 0))
+            chioces.sort(key=lambda agent_id: count.get(agent_id, 0))
         else:
             # 按照排序规则排序
             self._sort_by_weigher(chioces, weighters)
