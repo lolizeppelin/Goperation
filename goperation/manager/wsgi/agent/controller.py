@@ -55,6 +55,7 @@ FAULT_MAP = {InvalidArgument: webob.exc.HTTPClientError,
              MultipleResultsFound: webob.exc.HTTPInternalServerError
              }
 
+RANDOMDELAYMAX = 15
 
 @singleton.singleton
 class AgentReuest(BaseContorller):
@@ -304,12 +305,15 @@ class AgentReuest(BaseContorller):
         # 随机延迟最长时间是15秒,所以expire时间增加15秒
         if metadata:
             # 有元数据传入,更新缓存中元数据
-            eventlet.spawn_n(BaseContorller.agent_metadata_flush, agent_id, metadata, expire+15)
+            eventlet.spawn_n(BaseContorller.agent_metadata_flush, agent_id, metadata,
+                             expire+manager_common.ONLINE_EXIST_EXPAND)
         else:
             # 没有元数据,延长缓存中的元数据持续时间
-            # 随机延迟3-15秒,避免所有agent在同一时间更新metadata
-            delay = random.randint(0, min(15, expire/10))
-            eventlet.spawn_after(delay, BaseContorller.agent_metadata_expire(agent_id, expire+15))
+            # 随机延迟3~RANDOMDELAYMAX秒
+            # 避免所有agent在同一时间调用redis延长key
+            delay = random.randint(0, min(RANDOMDELAYMAX, expire/10))
+            fix = manager_common.ONLINE_EXIST_EXPAND - delay
+            eventlet.spawn_after(delay, BaseContorller.agent_metadata_expire(agent_id, expire+fix))
         if snapshot:
             snapshot.setdefault('agent_id', agent_id)
             def wapper():

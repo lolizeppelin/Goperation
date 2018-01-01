@@ -224,45 +224,59 @@ class RpcServerManager(RpcManagerBase):
         """remove agent from change list"""
         self.agents_loads.pop(agent_id)
 
-    def _sort_by_weigher(self, chioces, weighters):
+    def _sort_by_weigher(self, weighters, chioces):
 
         def _weight(agent_id):
             loads = self.agents_loads[agent_id]
             sorts = []
             for weighter in weighters:
-                target, _value = six.iteritems(weighter)
+                target, _value = weighter.items()[0]
                 keys = target.split('.')
                 value = loads
                 for key in keys:
                     value = value.get(key, NONE)
                     if value is NONE:
                         raise InvalidArgument('weighter error, key not found')
-                if not value:
-                    sorts.append(_value)
+                if not _value:
+                    sorts.append(value)
                 else:
-                    sorts.append(_value/value)
+                    sorts.append(value/_value)
             return sorts
 
         chioces.sort(key=_weight)
 
     def _exclud_filter(self, includes, chioces):
         _includes = utils.include(includes)
+        removes = set()
         for agent_id in chioces:
             include = False
             for target in _includes:
-                _operator, match = _includes[target]
-                keys = target.split('.')
-                value = self.agents_loads[agent_id]
-                for key in keys:
-                    value = value.get(key, NONE)
+                include = True
+                for baselines in _includes[target]:
+                    if not include:
+                        break
+                    _operator, baseline = baselines
+                    keys = target.split('.')
+                    value = self.agents_loads[agent_id]
+                    for key in keys:
+                        value = value.get(key, NONE)
+                        if value is NONE:
+                            include = False
+                            break
                     if value is NONE:
                         break
-                if value is None:
-                    value = 'None'
-                if _operator(value, match):
-                    include = True
+                    if value is None:
+                        value = 'None'
+                    if not _operator(value, baseline):
+                        include = False
+                        break
+                if not include:
+                    break
             if not include:
-                chioces.remove(agent_id)
+                removes.add(agent_id)
+        for agent_id in removes:
+            chioces.remove(agent_id)
+        removes.clear()
 
     def rpc_chioces(self, ctxt, target, includes=None, weighters=None):
         """chioce best best performance agent for endpoint"""
@@ -273,6 +287,7 @@ class RpcServerManager(RpcManagerBase):
         query = query.options(joinedload(Agent.endpoints))
         # 可以选取的服务器列表
         chioces = []
+        # 30分钟以内上报过数据的都可以被选取
         timeline = int(time.time()) - (30*60 + 30)
         for agent in query:
             if agent.agent_id in self.agents_loads:
@@ -296,5 +311,5 @@ class RpcServerManager(RpcManagerBase):
             chioces.sort(key=lambda agent_id: count.get(agent_id, 0))
         else:
             # 按照排序规则排序
-            self._sort_by_weigher(chioces, weighters)
+            self._sort_by_weigher(weighters, chioces)
         return ChiocesResult(chioces)

@@ -20,14 +20,13 @@ def include(includes):
         match = re.match(regx, include)
         if not match:
             raise InvalidArgument('Include string match fail')
-        key = OPERATIORS[match.group(0)]
-        _operator = OPERATIORS[match.group(1)]
-        value = OPERATIORS[match.group(2)]
+        key = match.group(1)
+        _operator = OPERATIORS[match.group(2)]
+        value = match.group(3)
         if value.isdigit():
             value = int(value)
         try:
             _includes[key].append((_operator, value))
         except KeyError:
             _includes[key] = [(_operator, value)]
-
     return _includes

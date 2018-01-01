@@ -41,6 +41,7 @@ UNFINISH = 0
 
 # default time of agent status key in redis
 ONLINE_EXIST_TIME = 600
+ONLINE_EXIST_EXPAND = 60
 
 MAX_REQUEST_RESULT = 256
 MAX_DETAIL_RESULT = 8192
