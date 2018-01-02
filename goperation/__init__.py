@@ -8,6 +8,8 @@ except ImportError:
     raise
 
 import contextlib
+import psutil
+from simpleutil import systemutils
 from simpleutil.utils import lockutils
 from simpleutil.utils.threadgroup import ThreadGroup
 
@@ -32,4 +34,59 @@ def tlock(target, timeout):
             _lock.release()
     else:
         raise KeyError('alloc lock %s fail' % target)
+
+
+if systemutils.LINUX and '4.1.0'<= psutil.__version__ <= '5.5.0':
+    import socket
+    import errno
+    from psutil import _pslinux
+
+
+    def retrieve_iter(self, kind, pid):
+        if kind not in self.tmap:
+            raise ValueError("invalid %r kind argument; choose between %s"
+                             % (kind, ', '.join([repr(x) for x in self.tmap])))
+        self._procfs_path = _pslinux.get_procfs_path()
+        inodes = self.get_proc_inodes(pid)
+        if not inodes:
+            # no connections for this process
+            raise StopIteration
+        for f, family, type_ in self.tmap[kind]:
+            if family in (socket.AF_INET, socket.AF_INET6):
+                ls = self.process_inet(
+                    "%s/net/%s" % (self._procfs_path, f),
+                    family, type_, inodes, filter_pid=pid)
+            else:
+                ls = self.process_unix(
+                    "%s/net/%s" % (self._procfs_path, f),
+                    family, inodes, filter_pid=pid)
+            for fd, family, type_, laddr, raddr, status, bound_pid in ls:
+                if pid:
+                    conn = _pslinux._common.pconn(fd, family, type_, laddr, raddr,
+                                         status)
+                else:
+                    conn = _pslinux._common.sconn(fd, family, type_, laddr, raddr,
+                                         status, bound_pid)
+                yield conn
+    setattr(_pslinux.Connections, 'retrieve_iter', retrieve_iter)
+
+
+    def conn_iter(self, kind='inet'):
+        try:
+            for conn in _pslinux._connections.retrieve_iter(kind, self.pid):
+                yield conn
+        except EnvironmentError as err:
+            if err.errno in (errno.ENOENT, errno.ESRCH):
+                raise psutil.NoSuchProcess(self.pid, self._name)
+            if err.errno in (errno.EPERM, errno.EACCES):
+                raise psutil.AccessDenied(self.pid, self._name)
+            raise
+    setattr(_pslinux.Process, 'conn_iter', conn_iter)
+
+
+    def connection_iter(self, kind='inet'):
+        for conn in self._proc.conn_iter(kind):
+            yield conn
+    setattr(psutil.Process, 'connection_iter', connection_iter)
+
 

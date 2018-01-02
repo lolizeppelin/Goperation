@@ -187,10 +187,13 @@ class OnlinTaskReporter(IntervalLoopinTask):
             else:
                 LOG.error('process status not sleeping or running')
             # for conn in proc.info.get('connections'):
-            # TODO connections not iter
             count = 0
+            if hasattr(proc, 'connection_iter'):
+                proc_iter = proc.connection_iter
+            else:
+                proc_iter = proc.connections
             try:
-                for conn in proc.connections():
+                for conn in proc_iter():
                     if not (count % 100):
                         eventlet.sleep(0)
                     if conn.status == 'LISTEN':
@@ -202,7 +205,7 @@ class OnlinTaskReporter(IntervalLoopinTask):
                     elif conn.status == 'CLOSING':
                         closeing += 1
                     count += 1
-            except psutil.NoSuchProcess:
+            except (psutil.NoSuchProcess):
                 continue
         memory = psutil.virtual_memory()
         return dict(date=date, hour=hour, min=min,
