@@ -176,7 +176,7 @@ class OnlinTaskReporter(IntervalLoopinTask):
         syn = 0
         enable = 0
         closeing = 0
-        for proc in psutil.process_iter(attrs=['status', 'num_fds', 'num_threads', 'connections']):
+        for proc in psutil.process_iter(attrs=['status', 'num_fds', 'num_threads']):
             num_threads += proc.info.get('num_threads')
             num_fds += proc.info.get('num_fds')
             status = proc.info.get('status')
@@ -186,15 +186,24 @@ class OnlinTaskReporter(IntervalLoopinTask):
                 running += 1
             else:
                 LOG.error('process status not sleeping or running')
-            for conn in proc.info.get('connections'):
-                if conn.status == 'LISTEN':
-                    listen += 1
-                if conn.status == 'SYN_SENT':
-                    syn += 1
-                elif conn.status == 'ESTABLISHED':
-                    enable += 1
-                elif conn.status == 'CLOSING':
-                    closeing += 1
+            # for conn in proc.info.get('connections'):
+            # TODO connections not iter
+            count = 0
+            try:
+                for conn in proc.connections():
+                    if not (count % 100):
+                        eventlet.sleep(0)
+                    if conn.status == 'LISTEN':
+                        listen += 1
+                    if conn.status == 'SYN_SENT':
+                        syn += 1
+                    elif conn.status == 'ESTABLISHED':
+                        enable += 1
+                    elif conn.status == 'CLOSING':
+                        closeing += 1
+                    count += 1
+            except psutil.NoSuchProcess:
+                continue
         memory = psutil.virtual_memory()
         return dict(date=date, hour=hour, min=min,
                     running=running, sleeping=sleeping, num_fds=num_fds, num_threads=num_threads,
