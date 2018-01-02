@@ -1,5 +1,5 @@
 from simpleutil.utils import uuidutils
-from goperation.api.client import AgentManagerClient
+from goperation.api.client import ManagerClient
 
 from simpleservice.plugin.exceptions import AfterRequestError
 
@@ -14,7 +14,7 @@ wsgi_port = 7999
 
 
 
-client = AgentManagerClient(wsgi_url, wsgi_port,
+client = ManagerClient(wsgi_url, wsgi_port,
                             host=host,
                             local_ip=local_ip,
                             agent_type=common.APPLICATION)

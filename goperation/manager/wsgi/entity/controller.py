@@ -1,5 +1,4 @@
 import webob.exc
-import eventlet
 
 from sqlalchemy.sql import and_
 from sqlalchemy.orm import joinedload
@@ -133,7 +132,7 @@ class EntityReuest(BaseContorller):
                     if notify:
                         target = targetutils.target_agent(agent)
                         target.namespace = endpoint
-                        result += self.notify_create(target, entity, body)
+                        result += self.notify_create(target, agent.agent_id, entity, body)
         return resultutils.results(result=result, data=[dict(entity=entity, agent_id=agent_id,
                                                              metadata=metadata,
                                                              endpoint=endpoint, port=ports or [])])
@@ -211,15 +210,15 @@ class EntityReuest(BaseContorller):
                     target = targetutils.target_agent_by_string(metadata.get('agent_type'),
                                                                 metadata.get('host'))
                     target.namespace = endpoint
-                    result += self.notify_delete(target, entity, body)
+                    result += self.notify_delete(target, agent_id, entity, body)
         return resultutils.results(result=result)
 
     @staticmethod
-    def notify_create(target, entity, body):
+    def notify_create(target, agent_id, entity, body):
         rpc = get_client()
         body.setdefault('entity', entity)
         create_ret = rpc.call(target, ctxt={'finishtime': body.pop('finishtime', rpcfinishtime()),
-                                            'entitys': [entity, ]},
+                                            'agents': [agent_id, ], 'entitys': [entity, ]},
                               msg={'method': 'create_entity', 'args': body})
         if not create_ret:
             raise RpcResultError('create entitys result is None')
@@ -228,7 +227,7 @@ class EntityReuest(BaseContorller):
         return create_ret.get('result')
 
     @staticmethod
-    def notify_delete(target, entity, body):
+    def notify_delete(target, agent_id, entity, body):
         rpc = get_client()
         body.setdefault('entity', entity)
         token = body.get('token')
@@ -238,7 +237,7 @@ class EntityReuest(BaseContorller):
                                    'entitys': [entity, ]},
                      msg={'method': 'entity_token', 'args': {'entity': entity, 'token': token}})
         delete_ret = rpc.call(target, ctxt={'finishtime': body.pop('finishtime', rpcfinishtime()),
-                                            'entitys': [entity, ]},
+                                            'agents': [agent_id, ], 'entitys': [entity, ]},
                               msg={'method': 'delete_entity', 'args': body})
         if not delete_ret:
             raise RpcResultError('delete entity result is None')
