@@ -37,6 +37,7 @@ def tlock(target, timeout):
 
 
 if systemutils.LINUX and '4.1.0'<= psutil.__version__ <= '5.5.0':
+    # patch psutil for iter connections
     import socket
     import errno
     from psutil import _pslinux
