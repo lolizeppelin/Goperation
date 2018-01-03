@@ -1,6 +1,5 @@
 # -*- coding:utf-8 -*-
 import time
-import six
 import eventlet
 
 from sqlalchemy import func
@@ -216,8 +215,10 @@ class RpcServerManager(RpcManagerBase):
         new_status = {'free': free, 'process': process,
                       'cputime': cputime, 'iowait': iowait,
                       'left': left, 'fds': fds, 'conns': conns,
-                      'time': int(time.time()),
-                      'metadata': metadata}
+                      'time': int(time.time())}
+        # 元数据为None时不更新元数据
+        if metadata is not None:
+            new_status['metadata'] = metadata
         self.agents_loads[agent_id].update(new_status)
 
     def rpc_deletesource(self, ctxt, agent_id):
@@ -234,6 +235,8 @@ class RpcServerManager(RpcManagerBase):
                 keys = target.split('.')
                 value = loads
                 for key in keys:
+                    if value is None:
+                        raise InvalidArgument('weighter key %s is None' % key)
                     value = value.get(key, NONE)
                     if value is NONE:
                         raise InvalidArgument('weighter error, key not found')
@@ -259,6 +262,8 @@ class RpcServerManager(RpcManagerBase):
                     keys = target.split('.')
                     value = self.agents_loads[agent_id]
                     for key in keys:
+                        if value is None:
+                            raise InvalidArgument('exclud key %s is None' % key)
                         value = value.get(key, NONE)
                         if value is NONE:
                             include = False
