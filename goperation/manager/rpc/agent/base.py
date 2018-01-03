@@ -194,7 +194,8 @@ class OnlinTaskReporter(IntervalLoopinTask):
                 proc_iter = proc.connections
             try:
                 for conn in proc_iter():
-                    if not (count % 100):
+                    if count >= 100:
+                        count = 0
                         eventlet.sleep(0)
                     if conn.status == 'LISTEN':
                         listen += 1
