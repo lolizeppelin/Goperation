@@ -25,7 +25,7 @@ rpc_agent_opts = [
     cfg.BoolOpt('report_performance',
                 default=True,
                 help='Rpc agent online report with system performance'),
-    cfg.BoolOpt('metadata_flush_probability',
+    cfg.IntOpt('metadata_flush_probability',
                 min=1,
                 default=10,
                 help='Agent metadata flush cache probability, 10 means 1/10'),

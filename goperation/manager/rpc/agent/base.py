@@ -83,7 +83,7 @@ class OnlinTaskReporter(IntervalLoopinTask):
     def __init__(self, manager):
         self.manager = manager
         self.with_performance = CONF[manager_common.AGENT].report_performance
-        self.probability = CONF[manager_common.AGENT].probability - 1
+        self.probability = CONF[manager_common.AGENT].metadata_flush_probability - 1
 
         interval = CONF[manager_common.AGENT].online_report_interval
         self.interval = interval*60

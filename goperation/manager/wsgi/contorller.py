@@ -222,6 +222,7 @@ class BaseContorller(MiddlewareContorller):
         """return a agents list sort by weigher"""
         rpc = get_client()
         chioces_result = rpc.call(targetutils.target_rpcserver(),
+                                  ctxt = {},
                                   msg={'method': 'chioces',
                                        'args': {'target': endpoint, 'includes': includes,
                                                 'weighters': weighters}})
