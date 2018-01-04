@@ -301,14 +301,14 @@ class AgentReuest(BaseContorller):
         # 元数据缓存时间
         expire = body.pop('expire')
         # 性能快照
-        snapshot = body.get('snapshot')
-        # 随机延迟最长时间是15秒,所以expire时间增加15秒
+        snapshot = body.pop('snapshot', None)
+        # 有元数据传入,更新缓存中元数据
         if metadata:
-            # 有元数据传入,更新缓存中元数据
+            # 随机延迟最长时间是15秒,所以expire时间增加15秒
             eventlet.spawn_n(BaseContorller.agent_metadata_flush, agent_id, metadata,
                              expire+manager_common.ONLINE_EXIST_EXPAND)
+        # 没有元数据,延长缓存中的元数据持续时间
         else:
-            # 没有元数据,延长缓存中的元数据持续时间
             # 随机延迟3~RANDOMDELAYMAX秒
             # 避免所有agent在同一时间调用redis延长key
             delay = random.randint(0, min(RANDOMDELAYMAX, expire/10))

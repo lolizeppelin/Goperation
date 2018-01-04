@@ -2,12 +2,12 @@
 import time
 import eventlet
 
+from sqlalchemy import and_
 from sqlalchemy import func
-from sqlalchemy.sql import and_
-from sqlalchemy.orm import joinedload
 
 from simpleutil.config import cfg
 from simpleutil.log import log as logging
+from simpleutil.utils import jsonutils
 from simpleutil.utils.timeutils import realnow
 from simpleutil.common.exceptions import InvalidArgument
 
@@ -24,6 +24,7 @@ from goperation.manager import common as manager_common
 from goperation.manager.api import get_client
 from goperation.manager.api import get_session
 from goperation.manager.api import get_cache
+from goperation.manager.api import get_redis
 from goperation.manager.models import AsyncRequest
 from goperation.manager.models import AgentEndpoint
 from goperation.manager.models import AgentEntity
@@ -219,6 +220,13 @@ class RpcServerManager(RpcManagerBase):
         # 元数据为None时不更新元数据
         if metadata is not None:
             new_status['metadata'] = metadata
+        else:
+            # 当前agent没有元数据,尝试获取元数据
+            if not self.agents_loads[agent_id].get('metadata'):
+                cache_store = get_redis()
+                metadata = cache_store.get(targetutils.host_online_key(agent_id))
+                new_status['metadata'] = metadata if not metadata else jsonutils.loads_as_bytes(metadata)
+
         self.agents_loads[agent_id].update(new_status)
 
     def rpc_deletesource(self, ctxt, agent_id):
@@ -251,6 +259,15 @@ class RpcServerManager(RpcManagerBase):
     def _exclud_filter(self, includes, chioces):
         _includes = utils.include(includes)
         removes = set()
+        # 元数据丢失, rpc服务器重启过
+        metadata_miss = set()
+        for agent_id in chioces:
+            if not self.agents_loads[agent_id].get('metadata'):
+                metadata_miss.add(agent_id)
+        if metadata_miss:
+            pass
+
+
         for agent_id in chioces:
             include = False
             for target in _includes:
@@ -286,23 +303,29 @@ class RpcServerManager(RpcManagerBase):
     def rpc_chioces(self, ctxt, target, includes=None, weighters=None):
         """chioce best best performance agent for endpoint"""
         session = get_session(readonly=True)
-        query = model_query(session, Agent,
-                            filter=and_(Agent.status == manager_common.ACTIVE,
-                                        AgentEndpoint.endpoint == target))
-        query = query.options(joinedload(Agent.endpoints))
+        query = session.query(Agent.agent_id).join(AgentEndpoint,
+                                                   and_(Agent.agent_id == AgentEndpoint.agent_id,
+                                                        AgentEndpoint.endpoint == target))
         # 可以选取的服务器列表
         chioces = []
-        # 30分钟以内上报过数据的都可以被选取
+        # 30分钟以内上报过数据的服务器才可以被选取
         timeline = int(time.time()) - (30*60 + 30)
         for agent in query:
             if agent.agent_id in self.agents_loads:
                 loads = self.agents_loads[agent.agent_id]
                 if loads.get('time') and loads.get('time') > timeline:
                     chioces.append(agent.agent_id)
-
+        if not chioces:
+            LOG.info('Not agent found for endpoint %s, maybe report overtime?' % target)
         # 有包含规则
         if includes:
             self._exclud_filter(includes, chioces)
+        if not chioces:
+            LOG.info('Not agent found for endpoint %s with includes' % target)
+            if LOG.isEnabledFor(logging.DEBUG):
+                LOG.debug('No agent found includes %s', includes)
+                LOG.debug('No agent found weighters %s', weighters)
+            return ChiocesResult(chioces)
         # 没有排序规则
         if not weighters:
             # 统计agent的entitys数量
