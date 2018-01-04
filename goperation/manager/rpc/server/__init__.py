@@ -317,6 +317,7 @@ class RpcServerManager(RpcManagerBase):
                     chioces.append(agent.agent_id)
         if not chioces:
             LOG.info('Not agent found for endpoint %s, maybe report overtime?' % target)
+            return ChiocesResult(chioces)
         # 有包含规则
         if includes:
             self._exclud_filter(includes, chioces)
