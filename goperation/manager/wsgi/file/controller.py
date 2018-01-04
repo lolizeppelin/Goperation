@@ -41,8 +41,8 @@ class FileReuest(BaseContorller):
 
     SCHEMA = {
         'type': 'object',
+        'required': ['address', 'size', 'md5', 'crc32'],
         'properties': {
-            'required': ['address', 'size', 'md5', 'crc32'],
             'crc32': {'type': 'string',
                       'pattern': '^[0-9]+?$'},
             'md5': {'type': 'string', 'format': 'md5'},
@@ -110,15 +110,15 @@ class FileReuest(BaseContorller):
                      'address': downfile.address,
                      'ext': downfile.ext,
                      'size': downfile.size,
-                     'uploadtime': downfile.uploadtime,
-                     'marks': {'uuid': downfile.address,
+                     'uploadtime': str(downfile.uploadtime),
+                     'marks': {'uuid': downfile.uuid,
                                'md5': downfile.md5,
                                'crc32': downfile.crc32}}
         if downfile.adapter_args:
-            file_info.setdefault('adapter_args', downfile.adapter_args)
+            file_info.setdefault('adapter_args', jsonutils.dumps_as_bytes(downfile.adapter_args))
         if downfile.desc:
             file_info.setdefault('desc', downfile.desc)
-        return resultutils.results(result='Get file success', data=[downfile, ])
+        return resultutils.results(result='Get file success', data=[file_info, ])
 
     def delete(self, req, file_id, body=None):
         session = get_session()
@@ -162,7 +162,6 @@ class FileReuest(BaseContorller):
         threadpool.add_thread(safe_func_wrapper, wapper, LOG)
         return resultutils.results(result='Send file to agents thread spawning',
                                    data=[asyncrequest.to_dict()])
-
 
     @BaseContorller.AgentIdformater
     def list(self, req, agent_id, body):

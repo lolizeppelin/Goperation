@@ -9,6 +9,7 @@ from simpleutil.utils import uuidutils
 from simpleutil.utils import digestutils
 from simpleutil.utils import jsonutils
 from simpleutil.utils.singleton import singleton
+from simpleutil.log import log as logging
 
 from simpleservice.ormdb.engines import create_engine
 from simpleservice.ormdb.orm import get_maker
@@ -18,6 +19,9 @@ from goperation.filemanager import common
 from goperation.filemanager import exceptions
 from goperation.filemanager import models
 from goperation.filemanager import downloader
+
+
+LOG = logging.getLogger(__name__)
 
 
 class TargetFile(object):
@@ -36,6 +40,7 @@ class FileManager(object):
     # file info schema
     SCHEMA = {
         'type': 'object',
+        'required': ['address', 'ext', 'size', 'uploadtime', 'marks'],
         'properties': {
             "downloader": {'type': 'string'},
             "adapter_args": {'type': 'array'},
@@ -53,8 +58,7 @@ class FileManager(object):
                     },
                 'required': ['uuid', 'crc32', 'md5']
             }
-        },
-        'required': ['address', 'ext', 'size', 'uploadtime', 'marks']
+        }
     }
 
     def __init__(self, conf, threadpool, infoget):
@@ -210,11 +214,15 @@ class FileManager(object):
 
     def _download(self, mark, timeout):
         file_info = self.infoget(mark)
+        LOG.debug('Try download file of %s' % str(file_info))
         jsonutils.schema_validate(file_info, FileManager.SCHEMA)
         for mark in six.itervalues(file_info['marks']):
             if mark in self.downloading:
                 th = self.downloading[mark]
-                th.wait()
+                try:
+                    th.wait()
+                finally:
+                    self.downloading.pop(mark, None)
                 return
         address = file_info['address']
         local_file_name = file_info['marks']['uuid'] + os.extsep + file_info['ext']
@@ -227,9 +235,11 @@ class FileManager(object):
         ev = event.Event()
         self.downloading[mark] = ev
         # async downloading thread start
+        LOG.info('Download %s with %s' % (address, _downloader.__class__.__name__))
         th = self.threadpool.add_thread(_downloader.download, address, local_path, timeout)
         try:
-            crc32, md5, size = th.wait()
+            crc32, md5 = th.wait()
+            size = os.path.getsize(local_path)
             if crc32 != file_info['marks']['crc32'] \
                     or md5 != file_info['marks']['md5'] \
                     or size != file_info['size']:
@@ -260,7 +270,7 @@ class FileManager(object):
                 ev.send(exc=e)
                 raise
         finally:
-            self.downloading.pop(mark)
+            self.downloading.pop(mark, None)
 
 
 def downloader_factory(adapter_cls, cls_args):

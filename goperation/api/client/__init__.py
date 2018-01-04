@@ -361,7 +361,7 @@ class ManagerClient(HttpClientBase):
                                             resone=results['result'])
         return results
 
-    def add_file_to_agents(self, agent_id, file_id, body):
+    def send_file_to_agents(self, agent_id, file_id, body):
         resp, results = self.put(action=self.file_ext_path % (','.join(argutils.map_with(agent_id, str)), file_id),
                                  body=body)
         if results['resultcode'] != common.RESULT_SUCCESS:

@@ -634,7 +634,7 @@ class RpcAgentManager(RpcManagerBase):
 
     @CheckManagerRpcCtxt
     @CheckThreadPoolRpcCtxt
-    def getfile(self, ctxt, mark, timeout):
+    def rpc_getfile(self, ctxt, mark, timeout):
         timeout - time.time()
         self.filemanager.get(mark, download=True, timeout=timeout)
         return AgentRpcResult(self.agent_id, ctxt, resultcode=manager_common.RESULT_SUCCESS,
