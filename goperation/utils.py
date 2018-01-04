@@ -48,39 +48,38 @@ if systemutils.LINUX:
         # copy from subprocess.py
         gc_was_enabled = gc.isenabled()
         gc.disable()
-        try:
-            pid = os.fork()
-        except:
-            if gc_was_enabled:
-                gc.enable()
-            raise
+        pid = os.fork()
         if pid == 0:
-            posix.linux.drop_privileges(group, user)
-            os.umask(umask)
+            # force stop eventlet loop
+            def sysexit():
+                os._exit(1)
+
+            hub = hubs.get_hub()
+            try:
+                hub.abort(wait=False)
+            except Exception:
+                sysexit()
+
+            # start new eventlet hub
+            hubs.use_hub()
+            hubs.get_hub()
+
             # set close exec for loggin
             logging.set_filehandler_close_exec()
             logging.set_syslog_handler_close_exec()
+
             # igonre all signal on man loop
             signal_handler = SignalHandler()
             signal_handler.clear()
-
-            def sysexit():
-                os._exit(1)
 
             # add all signal to exit process
             signal_handler.add_handler('SIGTERM', sysexit)
             signal_handler.add_handler('SIGINT', sysexit)
             signal_handler.add_handler('SIGHUP', sysexit)
             signal_handler.add_handler('SIGALRM', sysexit)
-            hub = hubs.get_hub()
-            # force stop eventlet loop
-            try:
-                hub.abort(wait=False)
-            except Exception:
-                sysexit()
-            # start new eventlet hub
-            hubs.use_hub()
-            hubs.get_hub()
+
+            posix.linux.drop_privileges(user, group)
+            os.umask(umask)
 
         else:
             if gc_was_enabled:
