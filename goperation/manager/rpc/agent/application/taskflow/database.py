@@ -184,6 +184,7 @@ class MysqlUpdate(StandardTask):
                 for sql in database.update.sql:
                     try:
                         r = conn.execute(sql)
+                        # count = r.rowcount
                         r.close()
                         self.executed += 1
                     except Exception as e:

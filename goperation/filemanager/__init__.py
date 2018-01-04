@@ -2,6 +2,7 @@ import os
 import six
 
 import eventlet
+import datetime
 from eventlet import event
 from eventlet.semaphore import Semaphore
 
@@ -123,10 +124,12 @@ class FileManager(object):
                         if local_size != _file_detail.size or local_ext != _file_detail.ext:
                             not_match_files.append(file_path)
                             self.session.delete(_file_detail)
+                            self.session.flush()
                             continue
                     except KeyError:
                         # delete no exist file from database
                         self.session.delete(_file_detail)
+                        self.session.flush()
                         continue
                     self.localfiles[file_path] = dict(crc32=_file_detail.crc32,
                                                       md5=_file_detail.md5,
@@ -145,6 +148,7 @@ class FileManager(object):
                                                      desc='add from scanning')
                     # add file record into database
                     self.session.add(_file_detail)
+                    self.session.flush()
                     self.localfiles[file_path] = dict(crc32=crc32,
                                                       md5=md5,
                                                       uuid=uuid)
@@ -255,6 +259,9 @@ class FileManager(object):
         else:
             uuid = file_info['marks']['uuid']
             LOG.info('Download file %s success, wirte to local database' % uuid)
+            uploadtime = file_info.get('uploadtime')
+            if uploadtime:
+                uploadtime = datetime.datetime.strptime(uploadtime, '%Y-%m-%d %H:%M:%S')
             self.localfiles[local_path] = dict(crc32=crc32,
                                                md5=md5,
                                                uuid=uuid)
@@ -263,10 +270,10 @@ class FileManager(object):
                                            ext=file_info['ext'],
                                            desc=file_info.get('desc', 'unkonwn file'),
                                            address=file_info['address'],
-                                           uploadtime=file_info.get('uploadtime'))
+                                           uploadtime=uploadtime)
             try:
                 self.session.add(file_detil)
-                self.flush()
+                self.session.flush()
                 ev.send(result=None)
             except Exception as e:
                 ev.send(exc=e)
