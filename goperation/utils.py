@@ -84,6 +84,11 @@ if systemutils.LINUX:
         else:
             if gc_was_enabled:
                 gc.enable()
+            # force loop 100 times
+            # wait sub processs stop hub
+            i = 0
+            while i < 100:
+                i += 1
         return pid
 
     wait = posix.wait
