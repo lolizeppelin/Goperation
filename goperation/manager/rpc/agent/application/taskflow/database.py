@@ -58,7 +58,8 @@ class Database(object):
         self.host = kwargs['host']
         self.port = kwargs['port']
         self.schema = kwargs['schema']
-        self.character = kwargs.get('character', None)
+        self.character_set = kwargs.get('character_set', 'utf8')
+        self.collation_type = kwargs.get('collation_type', None)
         self.retry = 0
 
 
@@ -96,7 +97,7 @@ class MysqlDump(StandardTask):
             raise RuntimeError('Schema value error')
         mysqldump = systemutils.find_executable('mysqldump')
         args = [mysqldump,
-                '--default-character-set=%s' % (database.character or 'utf8'),
+                '--default-character-set=%s' % (database.character_set or 'utf8'),
                 '-u%s' % database.user, '-p%s' % database.passwd,
                 '-h%s' % database.host, '-P%d' % database.port,
                 database.schema]
@@ -135,7 +136,7 @@ class MysqlUpdate(StandardTask):
         database = self.database
         mysql = systemutils.find_executable('mysql')
         args = [mysql,
-                '--default-character-set=%s' % (database.character or 'utf8'),
+                '--default-character-set=%s' % (database.character_set or 'utf8'),
                 '-u%s' % database.user, '-p%s' % database.passwd,
                 '-h%s' % database.host, '-P%d' % database.port,
                 database.schema]
@@ -175,7 +176,7 @@ class MysqlUpdate(StandardTask):
             database_connection = connformater % db_info
             engine = create_engine(database_connection, thread_checkin=False,
                                    poolclass=NullPool,
-                                   charset=database.character)
+                                   charset=database.character_set)
 
             with engine.connect() as conn:
                 LOG.info('MysqlUpdate connect %s:%d/%s mysql success' %
@@ -228,7 +229,7 @@ class MysqlUpdate(StandardTask):
                     database_connection = connformater % db_info
                     engine = create_engine(database_connection, thread_checkin=False,
                                            poolclass=NullPool,
-                                           charset=database.character)
+                                           charset=database.character_set)
                     LOG.warning('Database %s will drop and re create in %s:%d' % (database.schema,
                                                                                   database.host,
                                                                                   database.port))

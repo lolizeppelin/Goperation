@@ -214,7 +214,7 @@ class FileManager(object):
 
     def _download(self, mark, timeout):
         file_info = self.infoget(mark)
-        LOG.debug('Try download file of %s' % str(file_info))
+        LOG.info('Try download file of %s' % str(file_info))
         jsonutils.schema_validate(file_info, FileManager.SCHEMA)
         for mark in six.itervalues(file_info['marks']):
             if mark in self.downloading:
@@ -238,7 +238,7 @@ class FileManager(object):
         LOG.info('Download %s with %s' % (address, _downloader.__class__.__name__))
         th = self.threadpool.add_thread(_downloader.download, address, local_path, timeout)
         try:
-            crc32, md5 = th.wait()
+            md5, crc32 = th.wait()
             size = os.path.getsize(local_path)
             if crc32 != file_info['marks']['crc32'] \
                     or md5 != file_info['marks']['md5'] \
@@ -253,10 +253,12 @@ class FileManager(object):
             ev.send(exc=e)
             raise
         else:
+            uuid = file_info['marks']['uuid']
+            LOG.info('Download file %s success, wirte to local database' % uuid)
             self.localfiles[local_path] = dict(crc32=crc32,
                                                md5=md5,
-                                               uuid=file_info['uuid'])
-            file_detil = models.FileDetail(uuid=file_info['uuid'], size=size,
+                                               uuid=uuid)
+            file_detil = models.FileDetail(uuid=uuid, size=size,
                                            crc32=crc32, md5=md5,
                                            ext=file_info['ext'],
                                            desc=file_info.get('desc', 'unkonwn file'),
