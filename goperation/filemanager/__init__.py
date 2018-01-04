@@ -48,7 +48,7 @@ class FileManager(object):
                 'type': 'object',
                 'properties': {
                     'uuid': {'type': 'string', 'format': 'uuid'},
-                    'crc32': {'type': 'string', 'format': 'crc32'},
+                    'crc32': {'type': 'string'},
                     'md5': {'type': 'string', 'format': 'md5'},
                     },
                 'required': ['uuid', 'crc32', 'md5']

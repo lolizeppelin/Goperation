@@ -1,4 +1,3 @@
-import functools
 import webob.exc
 
 
@@ -40,6 +39,23 @@ FAULT_MAP = {InvalidArgument: webob.exc.HTTPClientError,
 @singleton.singleton
 class FileReuest(BaseContorller):
 
+    SCHEMA = {
+        'type': 'object',
+        'properties': {
+            'required': ['address', 'size', 'md5', 'crc32'],
+            'crc32': {'type': 'string',
+                      'pattern': '^[0-9]+?$'},
+            'md5': {'type': 'string', 'format': 'md5'},
+            "downloader": {'type': 'string'},
+            "adapter_args": {'type': 'array'},
+            "address": {'type': 'string'},
+            "ext": {'type': 'string'},
+            "size": {'type': 'integer'},
+            "desc": {'type': 'string'},
+            "uploadtime": {'type': 'string', 'format': 'date-time'},
+        },
+    }
+
 
     def index(self, req):
         session = get_session(readonly=True)
@@ -49,13 +65,11 @@ class FileReuest(BaseContorller):
 
     def create(self, req, body):
         session = get_session()
-        try:
-            address = body.pop('address')
-            size = body.pop('size')
-            md5 = body.pop('md5')
-            crc32 = body.pop('crc32')
-        except KeyError:
-            raise InvalidArgument('Add file miss some keywords')
+        jsonutils.schema_validate(body, FileReuest.SCHEMA)
+        address = body.pop('address')
+        size = body.pop('size')
+        md5 = body.pop('md5')
+        crc32 = body.pop('crc32')
         ext = body.get('ext')
         if not ext:
             ext = address.split('.')[-1]
@@ -85,7 +99,7 @@ class FileReuest(BaseContorller):
             query = query.filter_by(uuid=file_id)
         elif jsonutils.is_md5_like(file_id):
             query = query.filter_by(md5=file_id)
-        elif jsonutils.is_crc32_like(file_id):
+        elif file_id.isdigit():
             query = query.filter_by(crc32=file_id)
         else:
             raise InvalidArgument('File id not uuid or md5 or crc32')
@@ -113,7 +127,7 @@ class FileReuest(BaseContorller):
             query = query.filter_by(uuid=file_id)
         elif jsonutils.is_md5_like(file_id):
             query = query.filter_by(md5=file_id)
-        elif jsonutils.is_crc32_like(file_id):
+        elif file_id.isdigit():
             query = query.filter_by(crc32=file_id)
         else:
             raise InvalidArgument('File id not uuid or md5 or crc32')
