@@ -13,7 +13,7 @@ OPERATIORS = {'<': operator.lt,
               '%': operator.mod
               }
 
-regx = re.compile('([a-zA-Z]*?[a-zA-Z0-9._]*?[a-zA-Z0-1])?([\<\>\!\=]+|&+|%+|\\|+)?([0-9a-zA-Z._]+)?$')
+regx = re.compile('([a-zA-Z]*?[a-zA-Z0-9-._]*?[a-zA-Z0-1])?([\<\>\!\=]+|&+|%+|\\|+)?([0-9a-zA-Z._]+)?$')
 
 
 def include(includes):
