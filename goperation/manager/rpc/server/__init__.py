@@ -259,15 +259,6 @@ class RpcServerManager(RpcManagerBase):
     def _exclud_filter(self, includes, chioces):
         _includes = utils.include(includes)
         removes = set()
-        # 元数据丢失, rpc服务器重启过
-        metadata_miss = set()
-        for agent_id in chioces:
-            if not self.agents_loads[agent_id].get('metadata'):
-                metadata_miss.add(agent_id)
-        if metadata_miss:
-            pass
-
-
         for agent_id in chioces:
             include = False
             for target in _includes:

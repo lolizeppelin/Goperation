@@ -627,6 +627,7 @@ class RpcAgentManager(RpcManagerBase):
             self.status = manager_common.HARDBUSY
             # TODO call rpm Uvh then restart self
             self.status = last_status
+            # 'yum -y --disablerepo=* --enablerepo=goputil update'
             return AgentRpcResult(self.agent_id, ctxt, resultcode=manager_common.RESULT_SUCCESS,
                                  result='upgrade call rpm Uvh success')
 
