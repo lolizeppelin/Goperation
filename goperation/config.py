@@ -1,8 +1,12 @@
+import os
+import ConfigParser
 import logging as defalut_logging
 
 from simpleutil.log import log as logging
 from simpleutil.config import cfg
 from simpleutil.config import types
+from simpleutil.utils import systemutils
+
 
 from simpleservice import config as base_config
 
@@ -23,6 +27,8 @@ service_base_opts = [
     cfg.FolderPathOpt('work_path',
                       required=True,
                       help='Goperation work in this path'),
+    cfg.StrOpt('repo',
+               help='Goperation rpm repo address'),
 ]
 
 def set_all_default():
@@ -65,6 +71,25 @@ def configure(name, config_files, config_dirs=None):
     # set log config
     logging.setup(CONF, group.name)
     defalut_logging.captureWarnings(True)
+    if systemutils.LINUX:
+        if not CONF.repo:
+            raise RuntimeError('rpm repo is not set')
+        repofile = '/etc/yum.repos.d/goputil.repo'
+        cf = ConfigParser.ConfigParser()
+        if not os.path.exists(repofile):
+            cf.add_section('goputil')
+            cf.set('goputil', 'name', 'Goperation util rpm source')
+            cf.set('goputil', 'baseurl', CONF.repo)
+            cf.set('goputil', 'enabled', '1')
+            cf.set('goputil', 'gpgcheck', '0')
+            with open(repofile, 'wb') as f:
+                cf.write(f)
+        else:
+            cf.read(repofile)
+            if cf.get('goputil', 'baseurl') != CONF.repo:
+                cf.set('goputil', 'baseurl', CONF.repo)
+            with open(repofile, 'wb') as f:
+                cf.write(f)
     return group
 
 
