@@ -8,6 +8,9 @@ OPERATIORS = {'<': operator.lt,
               '!=': operator.ne,
               '<=': operator.le,
               '>=': operator.ge,
+              '&': operator.and_,
+              '|': operator.or_,
+              '%': operator.mod
               }
 
 regx = re.compile('([a-zA-Z]*?[a-zA-Z0-9._]*?[a-zA-Z0-1])?([\<\>\!\=]+)?([0-9a-zA-Z._]+)?$')
