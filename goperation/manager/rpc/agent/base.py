@@ -347,8 +347,6 @@ class RpcAgentManager(RpcManagerBase):
                                             self.agent_type.capitalize())
                 try:
                     cls = importutils.import_class(endpoint_class)
-                    # if not isinstance(cls, RpcEndpointBase):
-                    #     raise TypeError('Endpoint class string %s not RpcEndpointBase' % endpoint_class)
                 except Exception:
                     LOG.error('Import class %s of %s fail' % (endpoint_class, endpoint_group.name))
                     raise
@@ -473,7 +471,7 @@ class RpcAgentManager(RpcManagerBase):
         allocked_port = self._frozen_ports(endpoint, entity, ports)
         try:
             yield allocked_port
-        except:
+        except Exception:
             LOG.info('sub wrok fail, free port from %s:%d' % (endpoint, entity))
             self.free_ports(allocked_port)
             if is_new:
