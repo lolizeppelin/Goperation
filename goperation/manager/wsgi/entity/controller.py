@@ -270,7 +270,7 @@ class EntityReuest(BaseContorller):
             agents.add(_entity.agent_id)
             entitys_map[_entity.entity] = dict(agent_id=_entity.agent_id)
             if ports:
-                entitys_map[_entity.entity].setdefault(ports=sorted([x.port for x in _entity.ports]))
+                entitys_map[_entity.entity].setdefault('ports', sorted([x.port for x in _entity.ports]))
         if metadata:
             agents_map = BaseContorller.agents_metadata(agents)
 
