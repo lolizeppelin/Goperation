@@ -1,3 +1,4 @@
+import time
 import webob.exc
 
 from sqlalchemy.sql import and_
@@ -153,7 +154,7 @@ class EntityReuest(BaseContorller):
         body = dict(entity=entity)
         body.update(kwargs)
         rpc = get_client()
-        rpc.cast(target, ctxt={'finishtime': body.pop('finishtime', rpcfinishtime()), 'entitys': [entity, ]},
+        rpc.cast(target, ctxt={'finishtime': body.pop('finishtime', rpcfinishtime()[0]), 'entitys': [entity, ]},
                  msg={'method': 'post_create_entity', 'args': body})
         return resultutils.results(result='notify post create success',
                                    data=[dict(entity=entity, agent_id=_entity.agent_id,
@@ -217,9 +218,17 @@ class EntityReuest(BaseContorller):
     def notify_create(target, agent_id, entity, body):
         rpc = get_client()
         body.setdefault('entity', entity)
-        create_ret = rpc.call(target, ctxt={'finishtime': body.pop('finishtime', rpcfinishtime()),
+        finishtime = body.pop('finishtime', None)
+        if finishtime is None:
+            finishtime, timeout = rpcfinishtime()
+        else:
+            timeout = finishtime - int(time.time()) + 1
+        if timeout < 3:
+            raise InvalidArgument('Timeout less then 3')
+        create_ret = rpc.call(target, ctxt={'finishtime': finishtime,
                                             'agents': [agent_id, ], 'entitys': [entity, ]},
-                              msg={'method': 'create_entity', 'args': body})
+                              msg={'method': 'create_entity', 'args': body},
+                              timeout=timeout)
         if not create_ret:
             raise RpcResultError('create entitys result is None')
         if create_ret.get('resultcode') != manager_common.RESULT_SUCCESS:
@@ -231,14 +240,22 @@ class EntityReuest(BaseContorller):
         rpc = get_client()
         body.setdefault('entity', entity)
         token = body.get('token')
+        finishtime = body.pop('finishtime', None)
+        if finishtime is None:
+            finishtime, timeout = rpcfinishtime()
+        else:
+            timeout = finishtime - int(time.time()) + 1
+        if timeout < 3:
+            raise InvalidArgument('Timeout less then 3')
         if token:
             # send a delete token
-            rpc.cast(target, ctxt={'finishtime': body.pop('finishtime', rpcfinishtime()),
+            rpc.cast(target, ctxt={'finishtime': finishtime,
                                    'entitys': [entity, ]},
                      msg={'method': 'entity_token', 'args': {'entity': entity, 'token': token}})
-        delete_ret = rpc.call(target, ctxt={'finishtime': body.pop('finishtime', rpcfinishtime()),
+        delete_ret = rpc.call(target, ctxt={'finishtime': finishtime,
                                             'agents': [agent_id, ], 'entitys': [entity, ]},
-                              msg={'method': 'delete_entity', 'args': body})
+                              msg={'method': 'delete_entity', 'args': body},
+                              timeout=timeout)
         if not delete_ret:
             raise RpcResultError('delete entity result is None')
         if delete_ret.get('resultcode') != manager_common.RESULT_SUCCESS:

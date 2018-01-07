@@ -172,15 +172,16 @@ class AgentReuest(BaseContorller):
                 agent_ipaddr = metadata.get('local_ip')
                 secret = uuidutils.generate_uuid()
                 # tell agent wait delete
+                finishtime, timeout = rpcfinishtime()
                 delete_agent_precommit = rpc.call(targetutils.target_agent(agent),
-                                                  ctxt={'finishtime': rpcfinishtime()},
+                                                  ctxt={'finishtime': finishtime},
                                                   msg={'method': 'delete_agent_precommit',
                                                        'args': {'agent_id': agent.agent_id,
                                                                 'agent_type': agent.agent_type,
                                                                 'host': agent.host,
                                                                 'agent_ipaddr': agent_ipaddr,
                                                                 'secret': secret}
-                                                       })
+                                                       }, timeout=timeout)
                 if not delete_agent_precommit:
                     raise RpcResultError('delete_agent_precommit result is None')
                 if delete_agent_precommit.get('resultcode') != manager_common.RESULT_SUCCESS:
@@ -188,9 +189,10 @@ class AgentReuest(BaseContorller):
                                                resultcode=manager_common.RESULT_ERROR)
         # if not force:
                 # tell agent delete itself
+                finishtime = rpcfinishtime()[0]
                 LOG.info('Delete agent %s postcommit with secret %s' % (agent_ipaddr, secret))
                 rpc.cast(targetutils.target_agent(agent),
-                         ctxt={'finishtime': rpcfinishtime()},
+                         ctxt={'finishtime': finishtime},
                          msg={'method': 'delete_agent_postcommit',
                               'args': {'agent_id': agent.agent_id,
                                        'agent_type': agent.agent_type,

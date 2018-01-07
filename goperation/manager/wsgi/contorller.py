@@ -93,7 +93,7 @@ class BaseContorller(MiddlewareContorller):
         if finishtime:
             finishtime = int(finishtime) + offset_time
         else:
-            finishtime = rpcfinishtime(request_time)
+            finishtime = rpcfinishtime(request_time)[0]
         if finishtime - request_time < 3:
             raise InvalidArgument('Job can not be finished in 3 second')
         deadline = body.pop('deadline', None)
