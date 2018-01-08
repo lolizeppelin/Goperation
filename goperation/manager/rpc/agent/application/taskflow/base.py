@@ -28,10 +28,10 @@ class StandardTask(Task):
     def revert(self, *args, **kwargs):
         result = kwargs.get('result') or args[0]
         if isinstance(result, failure.Failure):
-            self.middleware.set_return(self.__class__.__name__, common.EXECUTE_FAIL)
+            self.middleware.set_return(self.taskname, common.EXECUTE_FAIL)
 
     def post_execute(self):
-        self.middleware.set_return(self.__class__.__name__, common.EXECUTE_SUCCESS)
+        self.middleware.set_return(self.taskname, common.EXECUTE_SUCCESS)
 
 
 class EntityTask(Task):

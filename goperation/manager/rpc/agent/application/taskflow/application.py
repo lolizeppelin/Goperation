@@ -74,7 +74,7 @@ class AppUpgradeFileGet(StandardTask):
         self.upgradefile = upgradefile
 
     def execute(self, timeout):
-        if self.middleware.is_success(self.__class__.__name__):
+        if self.middleware.is_success(self.taskname):
             return
         if not self.upgradefile.realpath:
             self.middleware.filemanager.get(self.upgradefile, download=True, timeout=timeout)
