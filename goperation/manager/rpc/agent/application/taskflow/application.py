@@ -113,13 +113,13 @@ class AppBackUp(StandardTask):
             src = os.path.join(self.middleware.entity_home, self.middleware.apppathname)
             LOG.debug('AppBackUp dump local bakcup from path %s' % src)
             dst = self.backupfile
-            wait = zlibutils.async_compress(src, dst, exclude=None,
-                                            native=native,
-                                            fork=functools.partial(safe_fork,
-                                                                   user=self.middleware.entity_user,
-                                                                   group=self.middleware.entity_group)
-                                            if systemutils.LINUX else None, timeout=timeout)
-            wait()
+            waiter = zlibutils.async_compress(src, dst, exclude=None,
+                                              native=native,
+                                              fork=functools.partial(safe_fork,
+                                                                     user=self.middleware.entity_user,
+                                                                     group=self.middleware.entity_group)
+                                              if systemutils.LINUX else None, timeout=timeout)
+            waiter.wait()
             backupfile = self.backupfile
         else:
             raise TypeError('AppBackUp find backupfile type error')
@@ -202,11 +202,11 @@ class AppFileUpgradeByBackupFile(AppFileUpgradeBase):
                           timeout=timeout)
 
     def _extract(self, src, dst, user, group, native=True, timeout=None):
-        wait = zlibutils.async_extract(src, dst, exclude=self.middleware.exteclude, native=native,
-                                       timeout=timeout,
-                                       fork=functools.partial(safe_fork, user, group)
-                                       if systemutils.LINUX else None)
-        wait()
+        waiter = zlibutils.async_extract(src, dst, exclude=self.middleware.exteclude, native=native,
+                                         timeout=timeout,
+                                         fork=functools.partial(safe_fork, user, group)
+                                         if systemutils.LINUX else None)
+        waiter.wait()
 
 
 class AppUpdateBase(AppTaskBase):
