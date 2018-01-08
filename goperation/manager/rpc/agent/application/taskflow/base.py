@@ -10,15 +10,20 @@ from goperation.taskflow import common
 
 class StandardTask(Task):
 
+    @property
+    def taskname(self):
+        return self.__class__.__name__
+
+
     def __init__(self, middleware, provides=None,
                  rebind=None, requires=None,
                  revert_rebind=None, revert_requires=None):
-        super(StandardTask, self).__init__(name='%s_%d' % (self.__class__.__name__,  middleware.entity),
+        super(StandardTask, self).__init__(name='%s_%d' % (self.taskname,  middleware.entity),
                                            provides=provides,
                                            rebind=rebind, requires=requires,
                                            revert_rebind=revert_rebind, revert_requires=revert_requires)
         self.middleware = middleware
-        middleware.set_return(self.__class__.__name__)
+        middleware.set_return(self.taskname)
 
     def revert(self, *args, **kwargs):
         result = kwargs.get('result') or args[0]

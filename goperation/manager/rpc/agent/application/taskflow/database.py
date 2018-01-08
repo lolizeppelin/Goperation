@@ -86,10 +86,14 @@ class DbUpdateSqlGet(StandardTask):
 
 class MysqlDump(StandardTask):
 
+    @property
+    def taskname(self):
+        return self.__class__.__name__ + '-' + self.database.schema
+
     def __init__(self, middleware, database, rebind=None):
         """backup app database"""
-        super(MysqlDump, self).__init__(middleware, rebind=rebind)
         self.database = database
+        super(MysqlDump, self).__init__(middleware, rebind=rebind)
 
     def execute(self, timeout):
         database = self.database
@@ -238,7 +242,7 @@ class MysqlUpdate(StandardTask):
                     self.execute_sql_from_file(database.backup)
                     self.executed = 0
                     LOG.info('Revert database success')
-                self.middleware.set_return(self.__class__.__name__, common.REVERTED)
+                self.middleware.set_return(self.taskname, common.REVERTED)
 
 
 def mysql_flow_factory(app, store):

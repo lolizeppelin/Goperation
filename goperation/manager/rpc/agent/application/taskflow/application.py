@@ -84,9 +84,9 @@ class AppUpgradeFileGet(StandardTask):
         super(AppUpgradeFileGet, self).revert(result, **kwargs)
         if isinstance(result, failure.Failure):
             if self.middleware.application.upgrade.realpath:
-                self.middleware.set_return(self.__class__.__name__, common.REVERT_FAIL)
+                self.middleware.set_return(self.taskname, common.REVERT_FAIL)
                 self.middleware.application.upgrade.clean()
-            self.middleware.set_return(self.__class__.__name__, common.REVERTED)
+            self.middleware.set_return(self.taskname, common.REVERTED)
 
 
 class AppBackUp(StandardTask):
@@ -97,7 +97,7 @@ class AppBackUp(StandardTask):
         self.backupfile = backupfile
 
     def execute(self, timeout, native=True):
-        if self.middleware.is_success(self.__class__.__name__):
+        if self.middleware.is_success(self.taskname):
             return
         # download remote backup file and check it
         if isinstance(self.backupfile, AppRemoteBackupFile):
@@ -139,7 +139,7 @@ class AppBackUp(StandardTask):
             elif isinstance(self.backupfile, basestring):
                 if os.path.exists(self.backupfile):
                     os.remove(self.middleware.application.backup)
-            self.middleware.set_return(self.__class__.__name__, common.REVERTED)
+            self.middleware.set_return(self.taskname, common.REVERTED)
 
 
 class AppTaskBase(StandardTask):
