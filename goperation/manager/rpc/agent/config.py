@@ -45,7 +45,7 @@ rpc_endpoint_opts = [
     cfg.ImportStringOpt('module',
                         help='Manager extend rpc endpoint module string'),
     cfg.IntOpt('max_lock',
-               default=5,
+               default=100,
                help='Endpoint max lock size'),
 ]
 
