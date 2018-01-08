@@ -122,7 +122,7 @@ class EntityReuest(BaseContorller):
                                           agent_id=agent_id, endpoint_id=_endpoint.id, desc=desc)
                     session.add(_entity)
                     session.flush()
-                    LOG.info('Create entity with id %s' % str(_entity.id))
+                    LOG.info('Create entity %s.%d with entity id %s' % (endpoint, entity, _entity.id))
                     if ports:
                         for port in ports:
                             session.add(AllocatedPort(port=port, agent_id=agent_id,
