@@ -26,7 +26,7 @@ class StandardTask(Task):
         middleware.set_return(self.taskname)
 
     def revert(self, *args, **kwargs):
-        result = kwargs.get('result') or args[0]
+        result = kwargs.get('result') if 'result' in kwargs else args[0]
         if isinstance(result, failure.Failure):
             self.middleware.set_return(self.taskname, common.EXECUTE_FAIL)
 
