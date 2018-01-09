@@ -5,6 +5,7 @@ from redis.exceptions import WatchError
 from simpleutil.utils import timeutils
 from simpleutil.utils import argutils
 from simpleutil.utils import uuidutils
+from simpleutil.utils import attributes
 from simpleutil.utils import jsonutils
 from simpleutil.log import log as logging
 from simpleutil.common.exceptions import InvalidArgument
@@ -63,7 +64,7 @@ class BaseContorller(MiddlewareContorller):
 
     @staticmethod
     def request_id_check(request_id):
-        if not uuidutils.is_uuid_like(request_id):
+        if not attributes.is_uuid_like(request_id):
             raise InvalidArgument('Request id is not uuid like')
         return request_id
 

@@ -5,6 +5,7 @@ from simpleutil.common.exceptions import InvalidArgument
 from simpleutil.log import log as logging
 from simpleutil.utils import jsonutils
 from simpleutil.utils import uuidutils
+from simpleutil.utils import attributes
 from simpleutil.utils import timeutils
 from simpleutil.utils import singleton
 
@@ -95,9 +96,9 @@ class FileReuest(BaseContorller):
     def show(self, req, file_id):
         session = get_session(readonly=True)
         query = model_query(session, DownFile)
-        if uuidutils.is_uuid_like(file_id):
+        if attributes.is_uuid_like(file_id):
             query = query.filter_by(uuid=file_id)
-        elif jsonutils.is_md5_like(file_id):
+        elif attributes.is_md5_like(file_id):
             query = query.filter_by(md5=file_id)
         elif file_id.isdigit():
             query = query.filter_by(crc32=file_id)

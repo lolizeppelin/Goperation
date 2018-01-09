@@ -5,7 +5,7 @@ import eventlet
 
 from simpleutil.config import cfg
 from simpleutil.utils import systemutils
-from simpleutil.utils import uuidutils
+from simpleutil.utils import attributes
 
 from goperation.manager.rpc.agent.base import RpcAgentEndpointBase
 from goperation.manager.rpc.exceptions import RpcEntityError
@@ -44,7 +44,7 @@ class AppEndpointBase(RpcAgentEndpointBase):
         return os.path.join(self.endpoint_home, str(entity))
 
     def rpc_entity_token(self, ctxt, entity, token, exprie=60):
-        if not uuidutils.is_uuid_like(token):
+        if not attributes.is_uuid_like(token):
             return
         if entity not in self.entitys:
             return None

@@ -6,7 +6,7 @@ import datetime
 from eventlet import event
 from eventlet.semaphore import Semaphore
 
-from simpleutil.utils import uuidutils
+from simpleutil.utils import attributes
 from simpleutil.utils import digestutils
 from simpleutil.utils import jsonutils
 from simpleutil.utils.singleton import singleton
@@ -101,7 +101,7 @@ class FileManager(object):
                         if strict:
                             raise RuntimeError('File with name %s ext value error' % filename)
                         continue
-                    if not uuidutils.is_uuid_like(uuid):
+                    if not attributes.is_uuid_like(uuid):
                         if strict:
                             raise RuntimeError('File with name %s is not uuid' % filename)
                         continue
