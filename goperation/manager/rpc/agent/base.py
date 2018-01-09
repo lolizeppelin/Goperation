@@ -108,7 +108,7 @@ class OnlinTaskReporter(IntervalLoopinTask):
     def __call__(self, *args, **kwargs):
 
         body = {'metadata': self.metadata,
-                'expire': self.interval,
+                'expire': self.interval * 2,
                 'snapshot': self.performance_snapshot()}
         try:
             self.manager.client.agent_report(self.manager.agent_id, body)
@@ -301,7 +301,7 @@ class RpcAgentManager(RpcManagerBase):
                 break
             for net in nets:
                 if net.address == self.local_ip:
-                    self.ipnetwork =  IPNetwork('%s/%s' % (self.local_ip, net.netmask))
+                    self.ipnetwork = IPNetwork('%s/%s' % (self.local_ip, net.netmask))
                     LOG.info('Local ip %s/%s on interface %s' % (self.local_ip, net.netmask, interface))
                     break
         if not self.ipnetwork:
@@ -459,7 +459,7 @@ class RpcAgentManager(RpcManagerBase):
                 raise
             self.allocked_ports[endpoint][entity].add(port)
             allocked_port.add(port)
-        return  allocked_port
+        return allocked_port
 
     @contextlib.contextmanager
     def frozen_ports(self, endpoint, entity, ports):
@@ -537,62 +537,62 @@ class RpcAgentManager(RpcManagerBase):
     def rpc_active_agent(self, ctxt, **kwargs):
         if kwargs.get('agent_id') != self.agent_id or kwargs.get('agent_ipaddr') != self.local_ip:
             return AgentRpcResult(self.agent_id, ctxt,
-                                 resultcode=manager_common.RESULT_ERROR,
-                                 result='ACTIVE agent failure, agent id or ip not match')
+                                  resultcode=manager_common.RESULT_ERROR,
+                                  result='ACTIVE agent failure, agent id or ip not match')
         status = kwargs.get('status')
         if not isinstance(status, (int, long)) or status <= manager_common.SOFTBUSY:
             return AgentRpcResult(self.agent_id, ctxt,
-                                 resultcode=manager_common.RESULT_ERROR,
-                                 result='Agent change status failure, status code value error')
+                                  resultcode=manager_common.RESULT_ERROR,
+                                  result='Agent change status failure, status code value error')
         if not self.set_status(status):
             return AgentRpcResult(self.agent_id, ctxt,
-                                 resultcode=manager_common.RESULT_ERROR,
-                                 result='ACTIVE agent failure, can not set stauts now')
+                                  resultcode=manager_common.RESULT_ERROR,
+                                  result='ACTIVE agent failure, can not set stauts now')
         return AgentRpcResult(self.agent_id, ctxt,
-                             resultcode=manager_common.RESULT_SUCCESS, result='ACTIVE agent success')
+                              resultcode=manager_common.RESULT_SUCCESS, result='ACTIVE agent success')
 
     @CheckManagerRpcCtxt
     def rpc_status_agent(self, ctxt, **kwargs):
         return AgentRpcResult(self.agent_id, ctxt,
-                             resultcode=manager_common.RESULT_SUCCESS,
-                             result='Get status from %s success' % self.local_ip,
-                             details=[dict(detail_id=index, resultcode=manager_common.RESULT_SUCCESS,
-                                           result=dict(endpoint=endpoint.namespace,
-                                                       entitys=endpoint.entitys,
-                                                       locked=len(endpoint.semaphores),
-                                                       frozen=endpoint.frozen))
-                                      for index, endpoint in enumerate(self.endpoints)])
+                              resultcode=manager_common.RESULT_SUCCESS,
+                              result='Get status from %s success' % self.local_ip,
+                              details=[dict(detail_id=index, resultcode=manager_common.RESULT_SUCCESS,
+                                            result=dict(endpoint=endpoint.namespace,
+                                                        entitys=endpoint.entitys,
+                                                        locked=len(endpoint.semaphores),
+                                                        frozen=endpoint.frozen))
+                                       for index, endpoint in enumerate(self.endpoints)])
 
     @CheckManagerRpcCtxt
     def rpc_delete_agent_precommit(self, ctxt, **kwargs):
         with self.work_lock.priority(0):
             if threadpool.threads:
                 return AgentRpcResult(self.agent_id, ctxt,
-                                     resultcode=manager_common.RESULT_ERROR,
-                                     result='Thread pool is not empty')
+                                      resultcode=manager_common.RESULT_ERROR,
+                                      result='Thread pool is not empty')
             for endpont in self.endpoints:
                 endpont.frozen = True
             if self.status <= manager_common.SOFTBUSY:
                 return AgentRpcResult(self.agent_id, ctxt,
-                                     resultcode=manager_common.RESULT_ERROR,
-                                     result='Can not change status now')
+                                      resultcode=manager_common.RESULT_ERROR,
+                                      result='Can not change status now')
             if kwargs['agent_id'] != self.agent_id \
                     or kwargs['agent_type'] != self.agent_type \
                     or kwargs['host'] != CONF.host \
                     or kwargs['agent_ipaddr'] != self.local_ip:
                 return AgentRpcResult(self.agent_id, ctxt,
-                                     resultcode=manager_common.RESULT_ERROR,
-                                     result='Not match this agent')
+                                      resultcode=manager_common.RESULT_ERROR,
+                                      result='Not match this agent')
             for endpont in self.endpoints:
                 if endpont.entitys:
                     return AgentRpcResult(self.agent_id, ctxt,
-                                         resultcode=manager_common.RESULT_ERROR,
-                                         result='Endpoint %s is not empty' % endpont.name)
+                                          resultcode=manager_common.RESULT_ERROR,
+                                          result='Endpoint %s is not empty' % endpont.name)
             self.status = manager_common.PERDELETE
             msg = 'Agent %s with id %d wait delete' % (CONF.host, self.agent_id)
             LOG.info(msg)
             return AgentRpcResult(self.agent_id, ctxt,
-                                 resultcode=manager_common.RESULT_SUCCESS, result=msg)
+                                  resultcode=manager_common.RESULT_SUCCESS, result=msg)
 
     @CheckManagerRpcCtxt
     def rpc_delete_agent_postcommit(self, ctxt, **kwargs):
@@ -602,25 +602,25 @@ class RpcAgentManager(RpcManagerBase):
                             kwargs['host'] != CONF.host or \
                             kwargs['agent_ipaddr'] != self.local_ip:
                 return AgentRpcResult(self.agent_id, ctxt,
-                                     resultcode=manager_common.RESULT_ERROR, result='Not match this agent')
+                                      resultcode=manager_common.RESULT_ERROR, result='Not match this agent')
             if self.status == manager_common.PERDELETE:
                 self.status = manager_common.DELETED
                 msg = 'Agent %s with id %d set status to DELETED success' % (CONF.host, self.agent_id)
                 suicide(delay=3)
                 return AgentRpcResult(self.agent_id, ctxt,
-                                     resultcode=manager_common.RESULT_SUCCESS, result=msg)
+                                      resultcode=manager_common.RESULT_SUCCESS, result=msg)
             else:
                 msg = 'Agent status is not PERDELETE, status is %d' % self.status
                 return AgentRpcResult(self.agent_id, ctxt,
-                                     resultcode=manager_common.RESULT_ERROR, result=msg)
+                                      resultcode=manager_common.RESULT_ERROR, result=msg)
 
     @CheckManagerRpcCtxt
     def rpc_upgrade_agent(self, ctxt, **kwargs):
         with self.work_lock.priority(0):
             if threadpool.threads or self.status < manager_common.SOFTBUSY:
                 return AgentRpcResult(self.agent_id, ctxt,
-                                     resultcode=manager_common.RESULT_ERROR,
-                                     result='upgrade fail public thread pool not empty or status error')
+                                      resultcode=manager_common.RESULT_ERROR,
+                                      result='upgrade fail public thread pool not empty or status error')
             for endpont in self.endpoints:
                 endpont.frozen = True
             last_status = self.status
@@ -629,7 +629,7 @@ class RpcAgentManager(RpcManagerBase):
             self.status = last_status
             # 'yum -y --disablerepo=* --enablerepo=goputil update'
             return AgentRpcResult(self.agent_id, ctxt, resultcode=manager_common.RESULT_SUCCESS,
-                                 result='upgrade call rpm Uvh success')
+                                  result='upgrade call rpm Uvh success')
 
     @CheckManagerRpcCtxt
     @CheckThreadPoolRpcCtxt
@@ -637,7 +637,7 @@ class RpcAgentManager(RpcManagerBase):
         timeout - time.time()
         self.filemanager.get(mark, download=True, timeout=timeout)
         return AgentRpcResult(self.agent_id, ctxt, resultcode=manager_common.RESULT_SUCCESS,
-                             result='getfile success')
+                              result='getfile success')
 
     @property
     def metadata(self):
