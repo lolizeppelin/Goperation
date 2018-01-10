@@ -6,7 +6,6 @@ websocket_opts = [
                short='t',
                help='webesocket socket connect token'),
     cfg.StrOpt('home',
-               short='h',
                required=True,
                help='webesocket home path'
                ),
@@ -21,7 +20,7 @@ websocket_opts = [
     cfg.BoolOpt('strict',
                 default=True,
                 help='webesocket use strict mode'),
-    cfg.IPOpt('heartbeat',
-              default=5,
-              help='webesocket socket connect timeout'),
+    cfg.IntOpt('heartbeat',
+               default=5,
+               help='webesocket socket connect timeout'),
 ]

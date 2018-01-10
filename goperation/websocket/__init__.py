@@ -25,6 +25,12 @@ import six.moves.urllib.parse as urlparse
 from six.moves import http_cookies as Cookie
 from websockify import websocket
 
+try:
+    from http.server import SimpleHTTPRequestHandler
+except:
+    from SimpleHTTPServer import SimpleHTTPRequestHandler
+
+
 from simpleutil.config import cfg
 from simpleutil.utils.tailutils import TailWithF
 from simpleutil.utils.threadgroup import ThreadGroup
@@ -33,9 +39,10 @@ CONF = cfg.CONF
 
 
 class FileSendRequestHandler(websocket.WebSocketRequestHandler):
-    timeout = CONF.heartbeat * 3
+
 
     def __init__(self, req, addr, server):
+        self.timeout = CONF.heartbeat * 3
         websocket.WebSocketRequestHandler.__init__(self, req, addr, server)
         self.lastpush = 0
         self.lastsend = 0
@@ -44,10 +51,15 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
 
         if '..' in self.path:
             raise ValueError('Path value is illegal')
+
+        path = self.translate_path(self.path)
+        if path == '/':
+            raise ValueError('Home value error')
         # 校验token
         parse = urlparse.urlparse(self.path)
-        if parse.scheme != 'http':
-            raise ValueError('Just for http')
+        # if parse.scheme != 'http':
+        #     self.server.ws_connection = True
+        #     raise ValueError('Just for http')
         # query = parse.query
         # token = urlparse.parse_qs(query).get("token", [""]).pop()
         # if not token:
@@ -58,33 +70,29 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
         #         if 'token' in cookie:
         #             token = cookie['token'].value
 
-        path = self.translate_path(self.path)
-        if os.path.isdir(path):
-            # raise ValueError('Path is dir')
-            f = self.list_directory(path)
-            try:
-                self.copyfile(f, self.wfile)
-            finally:
-                self.server.ws_connection = False
-                f.close()
-            return
-        self.handle_websocket()
-        self.close_connection = 1
+        if not self.handle_websocket():
+            if self.only_upgrade:
+                self.send_error(405, "Method Not Allowed")
+            else:
+                if os.path.isdir(path):
+                    SimpleHTTPRequestHandler.do_GET(self)
+                else:
+                    self.send_error(405, "Method Not Allowed")
+
+
 
     def new_websocket_client(self):
+        self.close_connection = 1
 
-        """
-        Proxy client WebSocket to normal target socket.
-        """
         cqueue = []
         rlist = [self.request]
         wlist = [self.request]
 
-        if self.server.heartbeat:
-            now = time.time()
-            self.heartbeat = now + self.server.heartbeat
-        else:
-            self.heartbeat = None
+        # if self.server.heartbeat:
+        #     now = time.time()
+        #     self.heartbeat = now + self.server.heartbeat
+        # else:
+        #     self.heartbeat = None
 
         def pause():
             if len(cqueue) > 1000:
@@ -101,7 +109,7 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
 
         def output(buf):
             cqueue.append(buf)
-            self.lastpush = time.time()
+            self.lastpush = int(time.time())
 
         path = self.translate_path(self.path)
         tailf = TailWithF(path=path, output=output, pause=pause)
@@ -149,10 +157,9 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
 
 class FileReadWebSocketServer(websocket.WebSocketServer):
     def __init__(self, RequestHandlerClass=FileSendRequestHandler):
-        if CONF.home == '/':
-            raise ValueError('Home value error')
         super(FileReadWebSocketServer, self).__init__(RequestHandlerClass=RequestHandlerClass,
                                                       web=CONF.home, run_once=True,
-                                                      listen_port=CONF.listen, listen_host=CONF.home,
-                                                      timeout=CONF.home,
-                                                      tcp_keepalive=False, strict_mode=CONF.strict)
+                                                      listen_host=CONF.listen, listen_port=CONF.port,
+                                                      timeout=CONF.home, cert='none_none_none',
+                                                      # strict_mode=CONF.strict,
+                                                      tcp_keepalive=False)
