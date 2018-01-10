@@ -112,7 +112,8 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
             self.lastpush = int(time.time())
 
         path = self.translate_path(self.path)
-        tailf = TailWithF(path=path, output=output, pause=pause)
+        tailf = TailWithF(path=path, output=output, pause=pause,
+                          logger=logging.error)
         pool = ThreadGroup()
         tailf.start(pool)
         try:
