@@ -48,6 +48,8 @@ Game operation framework
 %{python_sitelib}/%{proj_name}/cmd/db/*
 %dir %{python_sitelib}/%{proj_name}/filemanager/
 %{python_sitelib}/%{proj_name}/filemanager/*
+%dir %{python_sitelib}/%{proj_name}/websocket/
+%{python_sitelib}/%{proj_name}/websocket/*
 %dir %{python_sitelib}/%{proj_name}/redis/
 %{python_sitelib}/%{proj_name}/redis/*
 %dir %{python_sitelib}/%{proj_name}/taskflow/
@@ -65,6 +67,7 @@ Game operation framework
 %{python_sitelib}/%{proj_name}-%{version}-*.egg-info/*
 %dir %{python_sitelib}/%{proj_name}-%{version}-*.egg-info/
 %{_sysconfdir}/%{proj_name}/goperation.conf.sample
+%{_bindir}/gop-websocket
 %dir %{_sysconfdir}/%{proj_name}/
 %dir %{_sysconfdir}/%{proj_name}/endpoints/
 %dir %{logdir}
@@ -180,7 +183,8 @@ install -p -D -m 0755 gop-application %{buildroot}%{_initrddir}/gop-application
 install -p -D -m 0755 gop-scheduler %{buildroot}%{_initrddir}/gop-scheduler
 
 install -d %{buildroot}%{_sbindir}
-install -p -D -m 0754 bin/* %{buildroot}%{_sbindir}
+install -p -D -m 0754 sbin/* %{buildroot}%{_sbindir}
+install -p -D -m 0754 bin/* %{buildroot}%{_bindir}
 
 %clean
 %{__rm} -rf %{buildroot}
