@@ -150,8 +150,10 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
                     bufs, closed = self.recv_frames()
                     if closed:
                         logging.info('Client send close')
-                        raise self.CClose(closed['code'], closed['reason'])
-                    return
+                        return
+                    if bufs:
+                        logging.info('Client send buffer')
+                        return
         finally:
             tailf.stop()
 
@@ -162,5 +164,5 @@ class FileReadWebSocketServer(websocket.WebSocketServer):
                                                       web=CONF.home, run_once=True,
                                                       listen_host=CONF.listen, listen_port=CONF.port,
                                                       timeout=CONF.home, cert='none_none_none',
-                                                      # strict_mode=CONF.strict,
+                                                      strict_mode=CONF.strict,
                                                       tcp_keepalive=False)
