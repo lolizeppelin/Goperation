@@ -38,4 +38,6 @@ class Routers(router.RoutersBase):
         collection.member.link('clean', method='POST')
         # agent report system info
         collection.member.link('report', method='POST')
+        # get agent logs
+        collection.member.link('logs', method='GET')
         return collection

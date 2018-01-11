@@ -397,3 +397,24 @@ class AgentReuest(BaseContorller):
         threadpool.add_thread(safe_func_wrapper, wapper, LOG)
         return resultutils.results(result='Upgrade agent async request thread spawning',
                                    data=[asyncrequest.to_dict()])
+
+    @BaseContorller.AgentIdformater
+    def logs(self, req, agent_id, body=None):
+        """call by agent"""
+        body = body or {}
+        rpc = get_client()
+        metadata = BaseContorller.agent_metadata(agent_id)
+        if metadata is None:
+            raise RpcPrepareError('Can not get log from offline agent: %d' % agent_id)
+
+        session = get_session()
+        query = model_query(session, Agent, filter=Agent.agent_id == agent_id)
+        agent = query.one()
+        rpc_ret = rpc.call(targetutils.target_agent(agent),
+                           ctxt={'finishtime': rpcfinishtime()},
+                           msg={'method': 'readlog'})
+        if not rpc_ret:
+            raise RpcResultError('Get log agent rpc result is None')
+        if rpc_ret.get('resultcode') != manager_common.RESULT_SUCCESS:
+            raise RpcResultError('Get log agent rpc result: ' + rpc_ret.get('result'))
+        return resultutils.results(result=rpc_ret.get('result'), data=[rpc_ret.get('dst')])

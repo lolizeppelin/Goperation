@@ -1,18 +1,25 @@
 # -*- coding:utf-8 -*-
 import os
+import sys
 import time
 import random
-import eventlet
 import six
 import contextlib
 import psutil
+import subprocess
 from netaddr import IPNetwork
 from collections import namedtuple
+
+import eventlet
+from eventlet import hubs
 
 from simpleutil.config import cfg
 from simpleutil.log import log as logging
 from simpleutil.utils import lockutils
 from simpleutil.utils import importutils
+from simpleutil.utils import systemutils
+from simpleutil.utils import uuidutils
+from simpleutil.utils.systemutils import subwait
 from simpleutil.utils.attributes import validators
 
 from simpleservice.loopingcall import IntervalLoopinTask
@@ -21,6 +28,7 @@ from simpleservice.plugin.base import EndpointBase
 
 from goperation import threadpool
 from goperation.utils import suicide
+from goperation.utils import safe_fork
 from goperation.api.client import GopHttpClientApi
 from goperation.filemanager import FileManager
 from goperation.manager.api import get_http
@@ -29,6 +37,7 @@ from goperation.manager.utils.validateutils import validate_endpoint
 from goperation.manager.utils.targetutils import target_server
 from goperation.manager.utils.targetutils import target_endpoint
 from goperation.manager.utils.resultutils import AgentRpcResult
+from goperation.manager.utils.resultutils import WebSocketResult
 from goperation.manager.rpc.base import RpcManagerBase
 from goperation.manager.rpc.exceptions import RpcTargetLockException
 from goperation.manager.rpc.agent.ctxtdescriptor import CheckManagerRpcCtxt
@@ -36,10 +45,12 @@ from goperation.manager.rpc.agent.ctxtdescriptor import CheckThreadPoolRpcCtxt
 from goperation.manager.rpc.agent.config import rpc_endpoint_opts
 
 
+
 CONF = cfg.CONF
 
 LOG = logging.getLogger(__name__)
 
+WEBSOCKETREADER = 'gop-websocket'
 
 CPU = psutil.cpu_count()
 MEMORY = psutil.virtual_memory().total/(1024*1024)
@@ -356,6 +367,11 @@ class RpcAgentManager(RpcManagerBase):
                         raise TypeError('Endpoint string %s not base from RpcEndpointBase')
                     self.endpoints.add(obj)
         self.endpoint_lock = lockutils.Semaphores()
+        self.websockets = []
+
+    @property
+    def metadata(self):
+        return self._metadata
 
     def pre_start(self, external_objects):
         super(RpcAgentManager, self).pre_start(external_objects)
@@ -639,6 +655,71 @@ class RpcAgentManager(RpcManagerBase):
         return AgentRpcResult(self.agent_id, ctxt, resultcode=manager_common.RESULT_SUCCESS,
                               result='getfile success')
 
-    @property
-    def metadata(self):
-        return self._metadata
+    def readlog(self, logpath, user, group):
+        if logpath == '/':
+            raise ValueError('Log path is root')
+        if len(self.websockets) > 3:
+            raise ValueError('websockets more then 3, too many websockets')
+        executable = systemutils.find_executable(WEBSOCKETREADER)
+        token = str(uuidutils.generate_uuid()).replace('-', '')
+        args = ['--home', logpath, '--token', token]
+        port = max(self.left_ports)
+        self.left_ports.remove(port)
+        args.extend(['--port', port])
+        if self.external_ips:
+            ipaddr = self.external_ips[0]
+        else:
+            ipaddr = self.local_ip
+        try:
+            with open(os.devnull, 'wb') as nul:
+                if systemutils.LINUX:
+                    sub = subprocess.Popen(executable=executable, args=args,
+                                           stdout=nul.fileno(), stderr=nul.fileno(),
+                                           close_fds=True)
+                    pid = sub.pid
+                else:
+                    pid = safe_fork(user=user, group=group)
+                    if pid == 0:
+                        os.dup2(nul.fileno(), sys.stdout.fileno())
+                        os.dup2(nul.fileno(), sys.stderr.fileno())
+                        os.closerange(3, systemutils.MAXFD)
+                        os.execv(executable, args)
+
+            def _kill():
+                try:
+                    p = psutil.Process(pid=pid)
+                    name = p.exe()
+                except psutil.NoSuchProcess:
+                    return
+                if name == executable:
+                    p.kill()
+
+            hub = hubs.get_hub()
+            _timer = hub.schedule_call_global(3600, _kill)
+
+            def _wait():
+                if systemutils.POSIX:
+                    from simpleutil.utils.systemutils import posix
+                    posix.wait(pid)
+                else:
+                    subwait(sub)
+                LOG.info('Websocket with pid %d exit' % pid)
+                self.left_ports.add(port)
+                _timer.cacanl()
+
+            eventlet.spawn_n(_wait)
+
+        except Exception:
+            self.left_ports.add(port)
+            raise
+        return dict(port=port, token=token, ipaddr=ipaddr)
+
+    @CheckManagerRpcCtxt
+    @CheckThreadPoolRpcCtxt
+    def rpc_readlog(self, ctxt, **kwargs):
+        try:
+            dst = self.readlog(CONF.log_dir, 'nobody', 'nobody')
+        except ValueError as e:
+            return WebSocketResult(resultcode=manager_common.RESULT_ERROR,
+                                   result='read log fail:%s' % e.message)
+        return WebSocketResult(resultcode=manager_common.RESULT_SUCCESS, result='getfile success', dst=dst)
