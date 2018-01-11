@@ -692,6 +692,7 @@ class RpcAgentManager(RpcManagerBase):
                 except psutil.NoSuchProcess:
                     return
                 if name == executable:
+                    LOG.warning('Websocket overtime, kill it')
                     p.kill()
 
             hub = hubs.get_hub()
@@ -703,7 +704,7 @@ class RpcAgentManager(RpcManagerBase):
                     posix.wait(pid)
                 else:
                     subwait(sub)
-                LOG.info('Websocket with pid %d exit' % pid)
+                LOG.info('Websocket with pid %d has been exit' % pid)
                 self.left_ports.add(port)
                 _timer.cacanl()
 

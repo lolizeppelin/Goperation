@@ -135,6 +135,14 @@ class ManagerClient(HttpClientBase):
                                             resone=results['result'])
         return results
 
+    def agent_logs(self, agent_id):
+        resp, results = self.get(action=self.agent_ext_path % (str(agent_id), 'logs'))
+        if results['resultcode'] != common.RESULT_SUCCESS:
+            raise ServerExecuteRequestError(message='get agent log fail:%d' % results['resultcode'],
+                                            code=resp.status_code,
+                                            resone=results['result'])
+        return results
+
     # -- endpoint path --
     def endpoints_index(self, agent_id, body=None):
         resp, results = self.get(action=self.endpoints_path % str(agent_id),
