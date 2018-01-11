@@ -667,7 +667,7 @@ class RpcAgentManager(RpcManagerBase):
             except Exception:
                 self.status = last_status
                 return AgentRpcResult(self.agent_id, ctxt, resultcode=manager_common.RESULT_ERROR,
-                                      result='upgrade call rpm Uvh fail')
+                                      result='upgrade call yum update fail')
             executable = '/etc/init.d/gop-%s' % self.agent_type
             args = [executable, 'restart']
             pid = safe_fork()
@@ -681,7 +681,7 @@ class RpcAgentManager(RpcManagerBase):
             posix.wait(pid)
             LOG.warning('Agent restart command executeing, restart in 5 seconds')
             return AgentRpcResult(self.agent_id, ctxt, resultcode=manager_common.RESULT_SUCCESS,
-                                  result='upgrade call rpm Uvh success')
+                                  result='upgrade call yum update success')
 
     @CheckManagerRpcCtxt
     @CheckThreadPoolRpcCtxt

@@ -192,7 +192,7 @@ class BaseContorller(MiddlewareContorller):
                                    'rpc_target': rpc_target.to_dict(),
                                    'rpc_method': rpc_method,
                                    'rpc_ctxt': rpc_ctxt,
-                                   'rpc_args': rpc_args}})
+                                   'rpc_args': rpc_args or dict()}})
         except AMQPDestinationNotFound as e:
             LOG.error('Send async request to scheduler fail %s' % e.__class__.__name__)
             asyncrequest.status = manager_common.FINISH
