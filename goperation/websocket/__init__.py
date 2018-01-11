@@ -42,10 +42,9 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
 
 
     def __init__(self, req, addr, server):
+        self.lastsend = 0
         self.timeout = CONF.heartbeat * 3
         websocket.WebSocketRequestHandler.__init__(self, req, addr, server)
-        self.lastpush = 0
-        self.lastsend = 0
 
     def do_GET(self):
 
@@ -79,8 +78,6 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
                 else:
                     self.send_error(405, "Method Not Allowed")
 
-
-
     def new_websocket_client(self):
         self.close_connection = 1
 
@@ -88,36 +85,27 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
         rlist = [self.request]
         wlist = [self.request]
 
-        # if self.server.heartbeat:
-        #     now = time.time()
-        #     self.heartbeat = now + self.server.heartbeat
-        # else:
-        #     self.heartbeat = None
-
-        def pause():
-            if len(cqueue) > 1000:
-                eventlet.sleep(0.01)
-                return
-            # 3秒没有文件读取,暂停0.01
-            if int(time.time()) - self.lastpush > 3:
-                eventlet.sleep(0.01)
-                # 发送心跳
-                if int(time.time()) - self.lastsend >= CONF.heartbeat:
-                    self.send_ping()
-                    self.lastsend = int(time.time())
-                return
-
         def output(buf):
             cqueue.append(buf)
-            self.lastpush = int(time.time())
+            self.lastsend = int(time.time())
 
         path = self.translate_path(self.path)
-        tailf = TailWithF(path=path, output=output, pause=pause,
+        tailf = TailWithF(path=path, output=output,
                           logger=logging.error)
         pool = ThreadGroup()
         tailf.start(pool)
         try:
             while True:
+                if int(time.time()) - self.lastsend > CONF.heartbeat:
+                    self.send_ping()
+                    bufs, closed = self.recv_frames()
+                    if closed:
+                        logging.info('Send ping find close')
+                        return
+                    if bufs:
+                        logging.info('Send ping but recv buffer')
+                        return
+                    self.lastsend = int(time.time())
                 # if cqueue or c_pend: wlist.append(self.request)
                 if tailf.stoped:
                     logging.warning('Tail intance is closed')
@@ -134,10 +122,14 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
                     if err != errno.EINTR:
                         raise
                     else:
+                        eventlet.sleep(0.01)
                         continue
 
                 if excepts:
                     raise Exception("Socket exception")
+
+                if not cqueue:
+                    eventlet.sleep(0.01)
 
                 if cqueue and self.request in outs:
                     # Send queued target data to the client
@@ -151,9 +143,8 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
                     if closed:
                         logging.info('Client send close')
                         return
-                    if bufs:
-                        logging.info('Client send buffer')
-                        return
+                    logging.info('Client send to server')
+                    return
         finally:
             tailf.stop()
 
