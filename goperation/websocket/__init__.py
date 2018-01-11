@@ -18,6 +18,7 @@ import time
 import select
 import sys
 import errno
+import cgi
 import logging
 
 import eventlet
@@ -30,10 +31,19 @@ try:
 except:
     from SimpleHTTPServer import SimpleHTTPRequestHandler
 
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from StringIO import StringIO
 
 from simpleutil.config import cfg
+from simpleutil.utils import systemutils
+from simpleutil.utils import jsonutils
 from simpleutil.utils.tailutils import TailWithF
 from simpleutil.utils.threadgroup import ThreadGroup
+
+from goperation.utils import suicide
+
 
 CONF = cfg.CONF
 
@@ -44,6 +54,8 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
     def __init__(self, req, addr, server):
         self.lastsend = 0
         self.timeout = CONF.heartbeat * 3
+        # suicide after 300s
+        self.suicide = suicide(delay=300)
         websocket.WebSocketRequestHandler.__init__(self, req, addr, server)
 
     def do_GET(self):
@@ -74,12 +86,42 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
                 self.send_error(405, "Method Not Allowed")
             else:
                 if os.path.isdir(path):
-                    SimpleHTTPRequestHandler.do_GET(self)
+                    if not self.path.endswith('/'):
+                        # redirect browser - doing basically what apache does
+                        self.send_response(301)
+                        self.send_header("Location", self.path + "/")
+                        self.end_headers()
+                        return None
+                    try:
+                        filelist = os.listdir(path)
+                    except os.error:
+                        self.send_error(404, "No permission to list directory")
+                        return None
+                    _filelist = []
+                    filelist.sort(key=lambda a: a.lower())
+                    f = StringIO()
+                    for name in filelist:
+                        fullname = os.path.join(path, name)
+                        displayname = name
+                        if os.path.isdir(fullname):
+                            displayname = name + "/"
+                        if os.path.islink(fullname):
+                            displayname = name + "@"
+                        _filelist.append(cgi.escape(displayname))
+                    buf = jsonutils.dumps_as_bytes(_filelist)
+                    self.send_response(200)
+                    self.send_header("Content-type", "application/json; charset=%s" % systemutils.SYSENCODE)
+                    self.send_header("Content-Length", len(buf))
+                    self.end_headers()
+                    self.wfile.write(buf)
+                    return f.close()
                 else:
                     self.send_error(405, "Method Not Allowed")
 
     def new_websocket_client(self):
         self.close_connection = 1
+        # cancel suicide
+        self.suicide.cancel()
 
         cqueue = []
         rlist = [self.request]
@@ -106,7 +148,6 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
                         logging.info('Send ping but recv buffer')
                         return
                     self.lastsend = int(time.time())
-                # if cqueue or c_pend: wlist.append(self.request)
                 if tailf.stoped:
                     logging.warning('Tail intance is closed')
                     return

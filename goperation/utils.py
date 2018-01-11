@@ -29,7 +29,7 @@ def suicide(delay=3):
         eventlet.sleep(3)
         p.kill()
     hub = hubs.get_hub()
-    hub.schedule_call_global(delay, _suicide)
+    return hub.schedule_call_global(delay, _suicide)
 
 
 def nirvana(delay=1):
