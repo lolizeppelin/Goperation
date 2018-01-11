@@ -372,7 +372,6 @@ class AgentReuest(BaseContorller):
         return resultutils.results(result='Status agent async request thread spawning',
                                    data=[asyncrequest.to_dict()])
 
-    @BaseContorller.AgentsIdformater
     def upgrade(self, req, agent_id, body=None):
         """call by client, and asyncrequest
         do not need Idsformater, check it in send_asyncrequest
@@ -382,17 +381,18 @@ class AgentReuest(BaseContorller):
         asyncrequest = self.create_asyncrequest(body)
         target = targetutils.target_all(fanout=True)
         rpc_method = 'upgrade_agent'
-        rpc_args = {'file': body.get('file')}
         rpc_ctxt = {}
+        agents = self.agents_id_check(agent_id)
+        if agent_id != 'all':
+            rpc_ctxt.setdefault('agents', agents)
 
         global_data = get_global()
         glock = global_data.lock('agents')
 
         def wapper():
-            with glock(agent_id):
-                rpc_ctxt.setdefault('agents', agent_id)
+            with glock(agents):
                 self.send_asyncrequest(asyncrequest, target,
-                                       rpc_ctxt, rpc_method, rpc_args)
+                                       rpc_ctxt, rpc_method)
 
         threadpool.add_thread(safe_func_wrapper, wapper, LOG)
         return resultutils.results(result='Upgrade agent async request thread spawning',
