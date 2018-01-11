@@ -367,7 +367,7 @@ class RpcAgentManager(RpcManagerBase):
                         raise TypeError('Endpoint string %s not base from RpcEndpointBase')
                     self.endpoints.add(obj)
         self.endpoint_lock = lockutils.Semaphores()
-        self.websockets = []
+        self.websockets = dict()
 
     @property
     def metadata(self):
@@ -439,6 +439,16 @@ class RpcAgentManager(RpcManagerBase):
         for endpoint in self.endpoints:
             endpoint.post_stop()
         self.filemanager.stop()
+        # kill all websockets
+        for pid in self.websockets:
+            executable = self.websockets.get(pid)
+            try:
+                p = psutil.Process(pid=pid)
+                name = p.exe()
+            except psutil.NoSuchProcess:
+                return
+            if name == executable:
+                p.kill()
         super(RpcAgentManager, self).post_stop()
 
     def initialize_service_hook(self):
@@ -662,17 +672,18 @@ class RpcAgentManager(RpcManagerBase):
             raise ValueError('websockets more then 3, too many websockets')
         executable = systemutils.find_executable(WEBSOCKETREADER)
         token = str(uuidutils.generate_uuid()).replace('-', '')
-        args = ['--home', logpath, '--token', token]
+        args = [executable, '--home', logpath, '--token', token]
         port = max(self.left_ports)
         self.left_ports.remove(port)
-        args.extend(['--port', port])
+        args.extend(['--port', str(port)])
         if self.external_ips:
             ipaddr = self.external_ips[0]
         else:
             ipaddr = self.local_ip
         try:
             with open(os.devnull, 'wb') as nul:
-                if systemutils.LINUX:
+                LOG.debug('Websocket command %s %s' % (executable, ' '.join(args)))
+                if systemutils.POSIX:
                     sub = subprocess.Popen(executable=executable, args=args,
                                            stdout=nul.fileno(), stderr=nul.fileno(),
                                            close_fds=True)
@@ -684,6 +695,8 @@ class RpcAgentManager(RpcManagerBase):
                         os.dup2(nul.fileno(), sys.stderr.fileno())
                         os.closerange(3, systemutils.MAXFD)
                         os.execv(executable, args)
+                self.websockets.setdefault(pid, executable)
+                LOG.info('Websocket start with pid %d' % pid)
 
             def _kill():
                 try:
@@ -699,12 +712,16 @@ class RpcAgentManager(RpcManagerBase):
             _timer = hub.schedule_call_global(3600, _kill)
 
             def _wait():
-                if systemutils.POSIX:
-                    from simpleutil.utils.systemutils import posix
-                    posix.wait(pid)
-                else:
-                    subwait(sub)
+                try:
+                    if systemutils.POSIX:
+                        from simpleutil.utils.systemutils import posix
+                        posix.wait(pid)
+                    else:
+                        subwait(sub)
+                except Exception as e:
+                    LOG.error('Websocket wait catch error %s' % str(e))
                 LOG.info('Websocket with pid %d has been exit' % pid)
+                self.websockets.pop(pid, None)
                 self.left_ports.add(port)
                 _timer.cacanl()
 
@@ -723,4 +740,4 @@ class RpcAgentManager(RpcManagerBase):
         except ValueError as e:
             return WebSocketResult(resultcode=manager_common.RESULT_ERROR,
                                    result='read log fail:%s' % e.message)
-        return WebSocketResult(resultcode=manager_common.RESULT_SUCCESS, result='getfile success', dst=dst)
+        return WebSocketResult(resultcode=manager_common.RESULT_SUCCESS, result='get log success', dst=dst)
