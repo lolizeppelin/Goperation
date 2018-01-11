@@ -227,6 +227,31 @@ class EntityReuest(BaseContorller):
         return resultutils.results(result=result, data=[dict(entity=entity, endpoint=endpoint,
                                                              notify=notify)])
 
+    def logs(self, req, endpoint, entity, body=None):
+        body = body or {}
+        endpoint = validateutils.validate_endpoint(endpoint)
+        entity = int(entity)
+        session = get_session(readonly=True)
+        query = model_query(session, AgentEntity, filter=and_(AgentEntity.endpoint == endpoint,
+                                                              AgentEntity.entity == entity))
+        _entity = query.one_or_none()
+        if not _entity:
+            raise InvalidArgument('no entity found for %s' % endpoint)
+        metadata = BaseContorller.agent_metadata(_entity.agent_id)
+        if not metadata:
+            raise InvalidArgument('Can not get log from off line agent')
+        target = targetutils.target_agent_by_string(manager_common.APPLICATION, metadata.get('host'))
+        target.namespace = endpoint
+        rpc = get_client()
+        rpc_ret = rpc.call(target,
+                           ctxt={'finishtime': rpcfinishtime()},
+                           msg={'method': 'readlog', 'args': {'entity': entity}})
+        if not rpc_ret:
+            raise RpcResultError('Get %s.%d log rpc result is None' % (endpoint, entity))
+        if rpc_ret.get('resultcode') != manager_common.RESULT_SUCCESS:
+            raise RpcResultError(('Get %s.%d log agent rpc result: ' % (endpoint, entity)) + rpc_ret.get('result'))
+        return resultutils.results(result=rpc_ret.get('result'), data=[rpc_ret.get('dst')])
+
     @staticmethod
     def notify_create(target, agent_id, entity, body):
         rpc = get_client()

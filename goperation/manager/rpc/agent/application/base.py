@@ -7,8 +7,11 @@ from simpleutil.config import cfg
 from simpleutil.utils import systemutils
 from simpleutil.utils import attributes
 
+from goperation.manager import common as manager_common
 from goperation.manager.rpc.agent.base import RpcAgentEndpointBase
 from goperation.manager.rpc.exceptions import RpcEntityError
+
+from goperation.manager.utils.resultutils import WebSocketResult
 
 
 CONF = cfg.CONF
@@ -59,6 +62,18 @@ class AppEndpointBase(RpcAgentEndpointBase):
         timer = eventlet.spawn_after(exprie, _token_overtime)
 
         self.entitys_tokens.setdefault(entity, {'token': token, 'timer': timer})
+
+    def rpc_logs(self, ctxt, entity):
+        entity = int(entity)
+        logpath = self.logpath(entity)
+        try:
+            dst = self.manager.readlog(logpath, self.entity_user(entity), self.entity_group(entity))
+        except ValueError as e:
+            return WebSocketResult(resultcode=manager_common.RESULT_ERROR,
+                                   result='read log of %s fail:%s' % (self.namespace, e.message))
+        return WebSocketResult(resultcode=manager_common.RESULT_SUCCESS,
+                               result='get log of %s success' % self.namespace, dst=dst)
+
 
     def _entity_token(self, entity):
         info = self.entitys_tokens.pop(entity, None)
