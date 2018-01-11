@@ -389,8 +389,8 @@ class AgentReuest(BaseContorller):
         glock = global_data.lock('agents')
 
         def wapper():
-            with glock([agent_id, ]):
-                rpc_ctxt.setdefault('agents', [agent_id, ])
+            with glock(agent_id):
+                rpc_ctxt.setdefault('agents', agent_id)
                 self.send_asyncrequest(asyncrequest, target,
                                        rpc_ctxt, rpc_method, rpc_args)
 

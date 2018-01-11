@@ -27,10 +27,10 @@ spec文件编写,linux安装测试                                              
 数据库启动停止状态查询rpc实现                                                               完成
 游戏服务器库启动停止状态查询rpc实现                                                         完成
 自动选取数据库测试                                                                          完成
-
+websocket实现文件发送与tail文件                                                             完成
 
 agent升级rpm编写                                                                            准备
-websocket实现文件发送与tail文件                                                             准备
+websocket实现文件接受                                                                       准备
 自动选取服务器重新测试确认                                                                  准备
 数据库跳转phpadmin接口                                                                      准备
 

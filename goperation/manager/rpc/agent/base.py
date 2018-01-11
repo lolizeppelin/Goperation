@@ -51,6 +51,7 @@ CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 
 WEBSOCKETREADER = 'gop-websocket'
+YUM = 'yum'
 
 CPU = psutil.cpu_count()
 MEMORY = psutil.virtual_memory().total/(1024*1024)
@@ -642,6 +643,10 @@ class RpcAgentManager(RpcManagerBase):
 
     @CheckManagerRpcCtxt
     def rpc_upgrade_agent(self, ctxt, **kwargs):
+        if not systemutils.LINUX:
+            return AgentRpcResult(self.agent_id, ctxt, resultcode=manager_common.RESULT_ERROR,
+                                  result='upgrade just on redhat system')
+        from simpleutil.utils.systemutils import posix
         with self.work_lock.priority(0):
             if threadpool.threads or self.status < manager_common.SOFTBUSY:
                 return AgentRpcResult(self.agent_id, ctxt,
@@ -650,10 +655,31 @@ class RpcAgentManager(RpcManagerBase):
             for endpont in self.endpoints:
                 endpont.frozen = True
             last_status = self.status
-            self.status = manager_common.HARDBUSY
-            # TODO call rpm Uvh then restart self
-            self.status = last_status
-            # 'yum -y --disablerepo=* --enablerepo=goputil update'
+            executable = systemutils.find_executable(YUM)
+            args = [executable, '-y', '--disablerepo=*', '--enablerepo=goputil', 'update']
+
+            pid = safe_fork()
+            if pid == 0:
+                os.closerange(3, systemutils.MAXFD)
+                os.execv(executable, args)
+            try:
+                posix.wait(pid, 600)
+            except Exception:
+                self.status = last_status
+                return AgentRpcResult(self.agent_id, ctxt, resultcode=manager_common.RESULT_ERROR,
+                                      result='upgrade call rpm Uvh fail')
+            executable = '/etc/init.d/gop-%s' % self.agent_type
+            args = [executable, 'restart']
+            pid = safe_fork()
+            if pid == 0:
+                os.closerange(3, systemutils.MAXFD)
+                ppid = os.fork()
+                if ppid == 0:
+                    eventlet.sleep(5)
+                    os.execv(executable, args)
+                os._exit(0)
+            posix.wait(pid)
+            LOG.warning('Agent restart command executeing, restart in 5 seconds')
             return AgentRpcResult(self.agent_id, ctxt, resultcode=manager_common.RESULT_SUCCESS,
                                   result='upgrade call rpm Uvh success')
 
