@@ -85,7 +85,7 @@ class AppEndpointBase(RpcAgentEndpointBase):
         return token
 
     @contextlib.contextmanager
-    def _prepare_entity_path(self, entity, apppath=True, logpath=True):
+    def _prepare_entity_path(self, entity, apppath=True, logpath=True, mode=0755):
         _user = self.entity_user(entity)
         _group = self.entity_group(entity)
         entity_home = self.entity_home(entity)
@@ -101,7 +101,7 @@ class AppEndpointBase(RpcAgentEndpointBase):
                 try:
                     for path in (entity_home, apppath, logpath):
                         if path:
-                            os.makedirs(path, 0755)
+                            os.makedirs(path, mode)
                             systemutils.chown(path, _user, _group)
                 except:
                     if os.path.exists(entity_home):
