@@ -99,7 +99,6 @@ class EntityReuest(BaseContorller):
         glock = get_global().lock('agents')
         elock = get_global().lock('endpoint')
         result = 'add entity success.'
-        rpc = None
         with glock([agent_id, ]):
             with elock(endpoint):
                 with session.begin(subtransactions=True):

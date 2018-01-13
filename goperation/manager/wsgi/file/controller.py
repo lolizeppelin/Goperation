@@ -124,9 +124,9 @@ class FileReuest(BaseContorller):
     def delete(self, req, file_id, body=None):
         session = get_session()
         query = model_query(session, DownFile)
-        if uuidutils.is_uuid_like(file_id):
+        if attributes.is_uuid_like(file_id):
             query = query.filter_by(uuid=file_id)
-        elif jsonutils.is_md5_like(file_id):
+        elif attributes.is_md5_like(file_id):
             query = query.filter_by(md5=file_id)
         elif file_id.isdigit():
             query = query.filter_by(crc32=file_id)
