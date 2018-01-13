@@ -372,6 +372,14 @@ class RpcAgentManager(RpcManagerBase):
         self.endpoint_lock = lockutils.Semaphores()
         self.websockets = dict()
 
+    def in_range(self, port):
+        """if port in ports range"""
+        for p_range in self.ports_range:
+            down, up = map(int, p_range.split('-'))
+            if down <= port < up:
+                return True
+        return False
+
     @property
     def metadata(self):
         return self._metadata
