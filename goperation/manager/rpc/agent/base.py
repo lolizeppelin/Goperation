@@ -255,8 +255,8 @@ class RpcAgentEndpointBase(EndpointBase):
     home = endpoint_home
 
     def pre_start(self, external_objects):
-        if not os.path.exists(self.home):
-            os.makedirs(self.home, 0755)
+        if not os.path.exists(self._home_path):
+            os.makedirs(self._home_path, 0755)
 
     @contextlib.contextmanager
     def lock(self, entity, timeout=3):
@@ -332,8 +332,10 @@ class RpcAgentManager(RpcManagerBase):
         # left ports
         self.left_ports = set()
         for p_range in self.ports_range:
-            up, down = map(int, p_range.split('-'))
-            for port in xrange(up, down):
+            down, up = map(int, p_range.split('-'))
+            if down < 1024:
+                raise ValueError('Port 1-1024 is not allowed')
+            for port in xrange(down, up):
                 self.left_ports.add(port)
 
         # init metadata
@@ -445,7 +447,7 @@ class RpcAgentManager(RpcManagerBase):
             executable = self.websockets.get(pid)
             try:
                 p = psutil.Process(pid=pid)
-                name = p.exe()
+                name = p.name()
             except psutil.NoSuchProcess:
                 return
             if name == executable:
@@ -721,7 +723,7 @@ class RpcAgentManager(RpcManagerBase):
                         os.dup2(nul.fileno(), sys.stderr.fileno())
                         os.closerange(3, systemutils.MAXFD)
                         os.execv(executable, args)
-                self.websockets.setdefault(pid, executable)
+                self.websockets.setdefault(pid, WEBSOCKETREADER)
                 LOG.info('Websocket start with pid %d' % pid)
 
             def _kill():
