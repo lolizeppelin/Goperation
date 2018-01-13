@@ -4,7 +4,7 @@ import logging
 from simpleutil.config import cfg
 
 from goperation.websocket.config import websocket_opts
-from goperation.websocket import FileReadWebSocketServer
+from goperation.websocket.reader import FileReadWebSocketServer
 
 CONF = cfg.CONF
 
