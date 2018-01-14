@@ -10,16 +10,24 @@
 # Agent zone mark (string value)
 #zone = all
 
+# websocket sub process number (integer value)
+# Minimum value: 0
+# Maximum value: 10
+#websokcets = 5
+
 # Rpc agent can alloc port from this range (port_ranges value)
 #ports_range = <None>
 
 # Rpc agent online report interval time in minute (integer value)
-# Minimum value: 1
-# Maximum value: 10
+# Allowed values: 1, 3, 4, 5, 6, 10, 12, 15, 20, 30, 60
 #online_report_interval = 5
 
 # Rpc agent online report with system performance (boolean value)
-#report_performance = false
+#report_performance = true
+
+# Agent metadata flush cache probability, 10 means 1/10 (integer value)
+# Minimum value: 1
+#metadata_flush_probability = 10
 
 # simpleflow storage file dir (string value)
 #taskflowcache = $work_path/taskflowcache

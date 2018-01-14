@@ -16,6 +16,9 @@
 # Goperation work in this path (folder path)
 #work_path = <None>
 
+# Goperation rpm repo address (string value)
+#repo = <None>
+
 # Where to store simpleservice state files. This directory must be writable by
 # the agent.  (string value)
 #state_path = /var/run/goperation

@@ -37,7 +37,7 @@ from goperation.manager.utils.validateutils import validate_endpoint
 from goperation.manager.utils.targetutils import target_server
 from goperation.manager.utils.targetutils import target_endpoint
 from goperation.manager.utils.resultutils import AgentRpcResult
-from goperation.manager.utils.resultutils import WebSocketResult
+from goperation.manager.utils.resultutils import UriResult
 from goperation.manager.rpc.base import RpcManagerBase
 from goperation.manager.rpc.exceptions import RpcTargetLockException
 from goperation.manager.rpc.agent.ctxtdescriptor import CheckManagerRpcCtxt
@@ -323,6 +323,7 @@ class RpcAgentManager(RpcManagerBase):
         self._agent_id = None
         # port and port and disk space info
         conf = CONF[manager_common.AGENT]
+        self.conf = conf
         self.ports_range = validators['type:ports_range_list'](conf.ports_range) if conf.ports_range else []
         # zone mark
         self.zone = conf.zone
@@ -693,7 +694,7 @@ class RpcAgentManager(RpcManagerBase):
                                   result='upgrade call yum update success')
 
     def max_websocket(self):
-        if len(self.websockets) > 3:
+        if len(self.websockets) >= self.conf.websokcets:
             raise ValueError('websockets more then 3, too many websocket process')
 
     @CheckManagerRpcCtxt
@@ -777,8 +778,8 @@ class RpcAgentManager(RpcManagerBase):
     def rpc_readlog(self, ctxt, **kwargs):
         lines = int(kwargs.pop('lines', 10))
         try:
-            dst = self.readlog(CONF.log_dir, user='nobody', group='nobody', lines=lines)
+            uri = self.readlog(CONF.log_dir, user='nobody', group='nobody', lines=lines)
         except ValueError as e:
-            return WebSocketResult(resultcode=manager_common.RESULT_ERROR,
+            return UriResult(resultcode=manager_common.RESULT_ERROR,
                                    result='read log fail:%s' % e.message)
-        return WebSocketResult(resultcode=manager_common.RESULT_SUCCESS, result='get log success', dst=dst)
+        return UriResult(resultcode=manager_common.RESULT_SUCCESS, result='get log success', uri=uri)

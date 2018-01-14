@@ -177,13 +177,13 @@ class AgentRpcResult(BaseRpcResult):
         return ret_dict
 
 
-class WebSocketResult(BaseRpcResult):
-    def __init__(self, resultcode=0, result=None, dst=None):
-        self.dst = dst
-        super(WebSocketResult, self).__init__(resultcode, result)
+class UriResult(BaseRpcResult):
+    def __init__(self, resultcode=0, result=None, uri=None):
+        self.uri = uri
+        super(UriResult, self).__init__(resultcode, result)
 
     def to_dict(self):
         ret_dict = {'resultcode': self.resultcode,
-                    'dst': self.dst,
+                    'uri': self.uri,
                     'result': self.result if self.result else 'unkonwn result'}
         return ret_dict

@@ -11,7 +11,7 @@ from goperation.manager import common as manager_common
 from goperation.manager.rpc.agent.base import RpcAgentEndpointBase
 from goperation.manager.rpc.exceptions import RpcEntityError
 
-from goperation.manager.utils.resultutils import WebSocketResult
+from goperation.manager.utils.resultutils import UriResult
 
 
 CONF = cfg.CONF
@@ -67,12 +67,12 @@ class AppEndpointBase(RpcAgentEndpointBase):
         entity = int(entity)
         logpath = self.logpath(entity)
         try:
-            dst = self.manager.readlog(logpath, self.entity_user(entity), self.entity_group(entity))
+            uri = self.manager.readlog(logpath, self.entity_user(entity), self.entity_group(entity))
         except ValueError as e:
-            return WebSocketResult(resultcode=manager_common.RESULT_ERROR,
+            return UriResult(resultcode=manager_common.RESULT_ERROR,
                                    result='read log of %s fail:%s' % (self.namespace, e.message))
-        return WebSocketResult(resultcode=manager_common.RESULT_SUCCESS,
-                               result='get log of %s success' % self.namespace, dst=dst)
+        return UriResult(resultcode=manager_common.RESULT_SUCCESS,
+                               result='get log of %s success' % self.namespace, uri=uri)
 
 
     def _entity_token(self, entity):

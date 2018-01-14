@@ -15,6 +15,12 @@ rpc_agent_opts = [
                default='all',
                regex='^[a-z][a-z0-9]+$',
                help='Agent zone mark'),
+    cfg.IntOpt('websokcets',
+               default=5,
+               min=0,
+               max=10,
+               help='websocket sub process number'
+               ),
     cfg.MultiOpt('ports_range',
                  item_type=cfg.types.PortRange(),
                  help='Rpc agent can alloc port from this range'),
