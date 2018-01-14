@@ -5,6 +5,7 @@ from simpleservice.rpc.exceptions import MessageNotForMe
 from goperation import threadpool
 from goperation.manager import common as manager_common
 from goperation.manager.rpc import exceptions
+from goperation.manager.utils.resultutils import BaseRpcResult
 from goperation.manager.utils.resultutils import AgentRpcResult
 
 
@@ -85,7 +86,7 @@ class CheckManagerRpcCtxt(CheckRpcCtxt):
             result = e
         if not request_id:
             return result
-        if isinstance(result, AgentRpcResult):
+        if isinstance(result, BaseRpcResult):
             http_result = result.to_dict()
         elif isinstance(result, Exception):
             # TODO should get more details for exception like
