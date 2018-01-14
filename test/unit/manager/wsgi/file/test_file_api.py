@@ -6,6 +6,8 @@ from goperation import config
 
 from goperation.api.client import ManagerClient
 
+from simpleservice.plugin.exceptions import ServerExecuteRequestError
+
 
 a = 'C:\\Users\\loliz_000\\Desktop\\etc\\goperation\\goperation.conf'
 b = 'C:\\Users\\loliz_000\\Desktop\\etc\\goperation\\gcenter.conf'
@@ -19,14 +21,10 @@ wsgi_port = 7999
 client = ManagerClient(wsgi_url, wsgi_port)
 
 
-# for r in client.asyncs_index()['data']:
-#     print r
+try:
+    print client.file_show(file_id='517247dcab85b61087485498a409a707')
+except ServerExecuteRequestError as e:
+    print 'error'
+    print e.resone
 
-print client.async_show(request_id='bd8f67a2-3c27-45df-a3bc-405a2923893d', body={'details': True})
 
-# asyncs_index(self, body
-# async_show(self, request_id, body)
-# async_details(self, request_id, body)
-
-# async_responses(self, request_id, body)
-# async_overtime(self, request_id, body)

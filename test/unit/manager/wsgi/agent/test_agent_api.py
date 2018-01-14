@@ -24,7 +24,9 @@ client = ManagerClient(wsgi_url, wsgi_port)
 # print client.agents_index()['data']
 # print client.agent_show(agent_id=1)['data']
 # print client.agents_status(agent_id=1, body={'request_time': int(time.time())})
-print client.agent_active(agent_id=1, status=1)['data']
+# print client.agent_active(agent_id=1, status=1)['data']
+# print client.agent_logs(agent_id=1)
+print client.agents_upgrade(agent_id='all', body={'request_time': int(time.time())})
 
 
 
