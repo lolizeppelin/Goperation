@@ -62,16 +62,20 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
     def __init__(self, req, addr, server):
         self.lastsend = 0
         self.timeout = CONF.heartbeat * 3
-        # suicide after 300s
+        # 30秒后自动退出
         self.suicide = suicide(delay=30)
         websocket.WebSocketRequestHandler.__init__(self, req, addr, server)
 
-    def do_GET(self):
+    def do_POST(self):
+        self.send_error(405, "Method Not Allowed")
 
+    def do_GET(self):
+        # 禁止通过相对路径回退
         if '..' in self.path:
             raise ValueError('Path value is illegal')
 
         path = self.translate_path(self.path)
+        # 禁止根目录
         if path == '/':
             raise ValueError('Home value error')
         # 校验token
@@ -86,11 +90,12 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
             logging.error('token error')
             # self.send_error(404, "Token not match")
 
-
         if not self.handle_websocket():
+            # 普通的http get方式
             if self.only_upgrade:
                 self.send_error(405, "Method Not Allowed")
             else:
+                # 如果path是文件夹,允许列出文件夹
                 if os.path.isdir(path):
                     if not self.path.endswith('/'):
                         # redirect browser - doing basically what apache does
@@ -114,6 +119,7 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
                         if os.path.islink(fullname):
                             displayname = name + "@"
                         _filelist.append(cgi.escape(displayname))
+                    # 文件夹列表生成json
                     buf = jsonutils.dumps_as_bytes(_filelist)
                     self.send_response(200)
                     self.send_header("Content-type", "application/json; charset=%s" % systemutils.SYSENCODE)
@@ -125,9 +131,10 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
                     self.send_error(405, "Method Not Allowed")
 
     def new_websocket_client(self):
+        # websocket握手成功后设置自动关闭链接
         self.close_connection = 1
-        # cancel suicide
         logging.info('Suicide cancel')
+        # 取消自动退出
         self.suicide.cancel()
 
         cqueue = []
@@ -139,6 +146,7 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
             self.lastsend = int(time.time())
 
         path = self.translate_path(self.path)
+        # 实现
         tailf = TailWithF(path=path, output=output,
                           logger=logging.error, rows=CONF.lines)
         pool = ThreadGroup()
@@ -146,7 +154,9 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
         try:
             while True:
                 if int(time.time()) - self.lastsend > CONF.heartbeat:
+                    # 发送心跳包
                     self.send_ping()
+                    # 接收心跳返回
                     bufs, closed = self.recv_frames()
                     if closed:
                         logging.info('Send ping find close')
