@@ -188,6 +188,7 @@ class OnlinTaskReporter(IntervalLoopinTask):
         syn = 0
         enable = 0
         closeing = 0
+        count = 0
         for proc in psutil.process_iter(attrs=['status', 'num_fds', 'num_threads']):
             num_threads += proc.info.get('num_threads')
             num_fds += proc.info.get('num_fds')
@@ -198,15 +199,13 @@ class OnlinTaskReporter(IntervalLoopinTask):
                 running += 1
             else:
                 LOG.error('process status not sleeping or running')
-            # for conn in proc.info.get('connections'):
-            count = 0
             if hasattr(proc, 'connection_iter'):
                 proc_iter = proc.connection_iter
             else:
                 proc_iter = proc.connections
             try:
                 for conn in proc_iter():
-                    if count >= 100:
+                    if count >= 500:
                         count = 0
                         eventlet.sleep(0)
                     if conn.status == 'LISTEN':
@@ -402,7 +401,7 @@ class RpcAgentManager(RpcManagerBase):
             raise RuntimeError('Agent can not start, receive status is %d' % status)
         # get port allocked
         remote_endpoints = agent_info['endpoints']
-        add_endpoints, delete_endpoints = self.validate_endpoint(remote_endpoints)
+        add_endpoints, delete_endpoints = self._validate_endpoint(remote_endpoints)
         for endpoint in add_endpoints:
             self.allocked_ports.setdefault(endpoint, dict())
         for endpoint, entitys in six.iteritems(remote_endpoints):
@@ -467,7 +466,7 @@ class RpcAgentManager(RpcManagerBase):
         for endpoint in self.endpoints:
             endpoint.initialize_service_hook()
 
-    def validate_endpoint(self, endpoints):
+    def _validate_endpoint(self, endpoints):
         remote_endpoints = set()
         for endpoint in six.iterkeys(endpoints):
             remote_endpoints.add(validate_endpoint(endpoint))
@@ -693,6 +692,10 @@ class RpcAgentManager(RpcManagerBase):
             return AgentRpcResult(self.agent_id, ctxt, resultcode=manager_common.RESULT_SUCCESS,
                                   result='upgrade call yum update success')
 
+    def max_websocket(self):
+        if len(self.websockets) > 3:
+            raise ValueError('websockets more then 3, too many websocket process')
+
     @CheckManagerRpcCtxt
     @CheckThreadPoolRpcCtxt
     def rpc_getfile(self, ctxt, mark, timeout):
@@ -701,17 +704,18 @@ class RpcAgentManager(RpcManagerBase):
         return AgentRpcResult(self.agent_id, ctxt, resultcode=manager_common.RESULT_SUCCESS,
                               result='getfile success')
 
-    def readlog(self, logpath, user, group):
+    def readlog(self, logpath, user, group, lines):
         if logpath == '/':
             raise ValueError('Log path is root')
-        if len(self.websockets) > 3:
-            raise ValueError('websockets more then 3, too many websockets')
+        self.max_websocket()
+        lines = int(lines)
         executable = systemutils.find_executable(WEBSOCKETREADER)
         token = str(uuidutils.generate_uuid()).replace('-', '')
         args = [executable, '--home', logpath, '--token', token]
         port = max(self.left_ports)
         self.left_ports.remove(port)
         args.extend(['--port', str(port)])
+        args.extend(['--lines', str(lines)])
         if self.external_ips:
             ipaddr = self.external_ips[0]
         else:
@@ -737,11 +741,11 @@ class RpcAgentManager(RpcManagerBase):
             def _kill():
                 try:
                     p = psutil.Process(pid=pid)
-                    name = p.exe()
+                    name = p.name()
                 except psutil.NoSuchProcess:
                     return
-                if name == executable:
-                    LOG.warning('Websocket overtime, kill it')
+                if name == WEBSOCKETREADER:
+                    LOG.warning('Websocket reader overtime, kill it')
                     p.kill()
 
             hub = hubs.get_hub()
@@ -755,11 +759,11 @@ class RpcAgentManager(RpcManagerBase):
                     else:
                         subwait(sub)
                 except Exception as e:
-                    LOG.error('Websocket wait catch error %s' % str(e))
-                LOG.info('Websocket with pid %d has been exit' % pid)
+                    LOG.error('Websocket reader wait catch error %s' % str(e))
+                LOG.info('Websocket reader with pid %d has been exit' % pid)
                 self.websockets.pop(pid, None)
                 self.left_ports.add(port)
-                _timer.cacanl()
+                _timer.cancel()
 
             eventlet.spawn_n(_wait)
 
@@ -771,8 +775,9 @@ class RpcAgentManager(RpcManagerBase):
     @CheckManagerRpcCtxt
     @CheckThreadPoolRpcCtxt
     def rpc_readlog(self, ctxt, **kwargs):
+        lines = int(kwargs.pop('lines', 10))
         try:
-            dst = self.readlog(CONF.log_dir, 'nobody', 'nobody')
+            dst = self.readlog(CONF.log_dir, user='nobody', group='nobody', lines=lines)
         except ValueError as e:
             return WebSocketResult(resultcode=manager_common.RESULT_ERROR,
                                    result='read log fail:%s' % e.message)

@@ -48,6 +48,13 @@ from goperation.websocket.base import GopWebSocketServerBase
 
 CONF = cfg.CONF
 
+reader_opts = [
+    cfg.IntOpt('lines',
+               short='n',
+               min=1,
+               help='output the last n lines, instead of the last 10'),
+    ]
+
 
 class FileSendRequestHandler(websocket.WebSocketRequestHandler):
 
@@ -133,7 +140,7 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
 
         path = self.translate_path(self.path)
         tailf = TailWithF(path=path, output=output,
-                          logger=logging.error)
+                          logger=logging.error, rows=CONF.lines)
         pool = ThreadGroup()
         tailf.start(pool)
         try:

@@ -4,13 +4,15 @@ import logging
 from simpleutil.config import cfg
 
 from goperation.websocket.config import websocket_opts
+from goperation.websocket.reader import reader_opts
 from goperation.websocket.reader import FileReadWebSocketServer
 
 CONF = cfg.CONF
 
 def main():
-    logging.basicConfig(level=logging.WARN)
+    logging.basicConfig(level=logging.INFO)
     CONF.register_cli_opts(websocket_opts)
+    CONF.register_cli_opts(reader_opts)
     CONF()
     websocket_server = FileReadWebSocketServer()
     websocket_server.start_server()

@@ -412,7 +412,7 @@ class AgentReuest(BaseContorller):
         agent = query.one()
         rpc_ret = rpc.call(targetutils.target_agent(agent),
                            ctxt={'finishtime': rpcfinishtime()},
-                           msg={'method': 'readlog'})
+                           msg={'method': 'readlog', 'args': body})
         if not rpc_ret:
             raise RpcResultError('Get log agent rpc result is None')
         if rpc_ret.get('resultcode') != manager_common.RESULT_SUCCESS:
