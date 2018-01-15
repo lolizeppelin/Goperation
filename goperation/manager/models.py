@@ -12,6 +12,7 @@ from sqlalchemy.dialects.mysql import BOOLEAN
 from sqlalchemy.dialects.mysql import MEDIUMBLOB
 from sqlalchemy.dialects.mysql import BLOB
 from sqlalchemy.dialects.mysql import DATETIME
+from sqlalchemy.dialects.mysql import ENUM
 
 from simpleutil.utils import timeutils
 from simpleutil.utils import uuidutils
@@ -214,8 +215,10 @@ class DownFile(PluginTableBase):
     address = sa.Column(VARCHAR(512), nullable=False)
     ext = sa.Column(VARCHAR(12), nullable=False)
     size = sa.Column(BIGINT, nullable=False)
-    desc = sa.Column(VARCHAR(512), nullable=True)
+    status = sa.Column(VARCHAR(16), ENUM(*manager_common.DOWNFILESTATUS),
+                       default=manager_common.DOWNFILE_FILEOK, nullable=False)
     uploadtime = sa.Column(DATETIME, default=datetime.datetime.now)
+    desc = sa.Column(VARCHAR(512), nullable=True)
     __table_args__ = (
             sa.UniqueConstraint('md5', name='md5_unique'),
             sa.UniqueConstraint('crc32', name='crc32_unique'),

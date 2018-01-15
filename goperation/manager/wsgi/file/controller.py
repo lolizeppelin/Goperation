@@ -53,6 +53,7 @@ class FileReuest(BaseContorller):
             "ext": {'type': 'string'},
             "size": {'type': 'integer'},
             "desc": {'type': 'string'},
+            "status": {'type': 'string', 'enum': manager_common.DOWNFILESTATUS},
             "uploadtime": {'type': 'string', 'format': 'date-time'},
         },
     }
@@ -72,6 +73,7 @@ class FileReuest(BaseContorller):
         md5 = body.pop('md5')
         crc32 = body.pop('crc32')
         ext = body.get('ext')
+        status = body.get('status', manager_common.DOWNFILE_FILEOK)
         if not ext:
             ext = address.split('.')[-1]
         downfile = DownFile(md5=md5,
@@ -81,6 +83,7 @@ class FileReuest(BaseContorller):
                             address=address,
                             ext=ext,
                             size=size,
+                            status=status,
                             desc=body.get('desc'),
                             uploadtime=body.get('uploadtime', timeutils.utcnow())
                             )
@@ -119,7 +122,11 @@ class FileReuest(BaseContorller):
             file_info.setdefault('adapter_args', jsonutils.dumps_as_bytes(downfile.adapter_args))
         if downfile.desc:
             file_info.setdefault('desc', downfile.desc)
-        return resultutils.results(result='Get file success', data=[file_info, ])
+        resultcode = manager_common.RESULT_SUCCESS
+        if downfile.status != manager_common.DOWNFILE_FILEOK:
+            resultcode = manager_common.RESULT_ERROR
+        return resultutils.results(result='Get file success', resultcode=resultcode,
+                                   data=[file_info, ])
 
     def delete(self, req, file_id, body=None):
         session = get_session()
@@ -132,7 +139,7 @@ class FileReuest(BaseContorller):
             query = query.filter_by(crc32=file_id)
         else:
             raise InvalidArgument('File id not uuid or md5 or crc32')
-        with session.begin(subtransactions=True):
+        with session.begin():
             downfile = query.one_or_none()
             if not downfile:
                 return resultutils.results(result='Delete file do nothing, not found')
@@ -144,6 +151,33 @@ class FileReuest(BaseContorller):
                                                                             size=downfile.size,
                                                                             uploadtime=downfile.uploadtime,
                                                                             downloader=downfile.downloader)])
+
+    def update(self, req, file_id, body=None):
+        body = body or {}
+        status = body.pop('status', None)
+        if status not in manager_common.DOWNFILESTATUS:
+            raise InvalidArgument('status value error')
+        session = get_session()
+        query = model_query(session, DownFile)
+        if attributes.is_uuid_like(file_id):
+            query = query.filter_by(uuid=file_id)
+        elif attributes.is_md5_like(file_id):
+            query = query.filter_by(md5=file_id)
+        elif file_id.isdigit():
+            query = query.filter_by(crc32=file_id)
+        else:
+            raise InvalidArgument('File id not uuid or md5 or crc32')
+        with session.begin():
+            downfile = query.one()
+            query.update({'status': status})
+        return resultutils.results(result='Update file success', data=[dict(uuid=downfile.uuid,
+                                                                            md5=downfile.md5,
+                                                                            crc32=downfile.crc32,
+                                                                            size=downfile.size,
+                                                                            status=downfile.status,
+                                                                            uploadtime=downfile.uploadtime,
+                                                                            downloader=downfile.downloader)])
+
 
     def send(self, req, agent_id, file_id, body=None):
         """call by client, and asyncrequest
