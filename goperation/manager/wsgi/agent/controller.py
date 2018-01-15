@@ -417,4 +417,4 @@ class AgentReuest(BaseContorller):
             raise RpcResultError('Get log agent rpc result is None')
         if rpc_ret.get('resultcode') != manager_common.RESULT_SUCCESS:
             raise RpcResultError('Get log agent rpc result: ' + rpc_ret.get('result'))
-        return resultutils.results(result=rpc_ret.get('result'), data=[rpc_ret.get('dst')])
+        return resultutils.results(result=rpc_ret.get('result'), data=[rpc_ret.get('uri')])

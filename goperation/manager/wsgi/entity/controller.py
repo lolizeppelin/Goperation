@@ -249,7 +249,7 @@ class EntityReuest(BaseContorller):
             raise RpcResultError('Get %s.%d log rpc result is None' % (endpoint, entity))
         if rpc_ret.get('resultcode') != manager_common.RESULT_SUCCESS:
             raise RpcResultError(('Get %s.%d log agent rpc result: ' % (endpoint, entity)) + rpc_ret.get('result'))
-        return resultutils.results(result=rpc_ret.get('result'), data=[rpc_ret.get('dst')])
+        return resultutils.results(result=rpc_ret.get('result'), data=[rpc_ret.get('uri')])
 
     @staticmethod
     def notify_create(target, agent_id, entity, body):
