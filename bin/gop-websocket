@@ -1,7 +1,7 @@
 #!/usr/bin/python
 import sys
 import logging
-
+logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 from simpleutil.config import cfg
 
 from goperation.websocket.config import websocket_opts
@@ -11,7 +11,6 @@ from goperation.websocket.reader import FileReadWebSocketServer
 CONF = cfg.CONF
 
 def main():
-    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
     CONF.register_cli_opts(websocket_opts)
     CONF.register_cli_opts(reader_opts)
     CONF()
