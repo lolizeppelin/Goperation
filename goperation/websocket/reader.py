@@ -148,6 +148,7 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
                           logger=logging.error, rows=CONF.lines)
         pool = ThreadGroup()
         tailf.start(pool)
+        self.lastrecv = int(time.time())
         try:
             while True:
                 if int(time.time()) - self.lastsend > CONF.heartbeat:

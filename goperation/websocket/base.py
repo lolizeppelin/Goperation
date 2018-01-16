@@ -22,8 +22,16 @@ class GopWebSocketServerBase(websocket.WebSocketServer):
         # suicide after 120s
         self.suicide = suicide(delay=120)
         super(GopWebSocketServerBase, self).__init__(RequestHandlerClass=RequestHandlerClass,
-                                                      web=CONF.home, run_once=True,
-                                                      listen_host=CONF.listen, listen_port=CONF.port,
-                                                      timeout=CONF.home, cert='none_none_none',
-                                                      strict_mode=CONF.strict,
-                                                      tcp_keepalive=False)
+                                                     web=CONF.home, run_once=True,
+                                                     listen_host=CONF.listen, listen_port=CONF.port,
+                                                     timeout=CONF.home, cert='none_none_none',
+                                                     strict_mode=CONF.strict,
+                                                     tcp_keepalive=False)
+
+    def top_new_client(self, startsock, address):
+        try:
+            super(GopWebSocketServerBase, self).top_new_client(startsock, address)
+        except (self.Terminate, SystemExit, KeyboardInterrupt):
+            raise
+        except Exception:
+            raise self.Terminate()
