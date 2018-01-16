@@ -28,10 +28,8 @@ class GopWebSocketServerBase(websocket.WebSocketServer):
                                                      strict_mode=CONF.strict,
                                                      tcp_keepalive=False)
 
-    def top_new_client(self, startsock, address):
+    def do_handshake(self, sock, address):
         try:
-            super(GopWebSocketServerBase, self).top_new_client(startsock, address)
-        except (self.Terminate, SystemExit, KeyboardInterrupt):
-            raise
+            return super(GopWebSocketServerBase, self).do_handshake(sock, address)
         except Exception:
             raise self.Terminate()
