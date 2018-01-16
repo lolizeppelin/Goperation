@@ -12,13 +12,15 @@ except ImportError:
 
 from simpleutil.config import cfg
 
-
+from goperation.utils import suicide
 
 CONF = cfg.CONF
 
 
 class GopWebSocketServerBase(websocket.WebSocketServer):
     def __init__(self, RequestHandlerClass):
+        # suicide after 120s
+        self.suicide = suicide(delay=120)
         super(GopWebSocketServerBase, self).__init__(RequestHandlerClass=RequestHandlerClass,
                                                       web=CONF.home, run_once=True,
                                                       listen_host=CONF.listen, listen_port=CONF.port,

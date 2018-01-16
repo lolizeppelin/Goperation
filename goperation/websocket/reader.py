@@ -42,7 +42,6 @@ from simpleutil.utils import jsonutils
 from simpleutil.utils.tailutils import TailWithF
 from simpleutil.utils.threadgroup import ThreadGroup
 
-from goperation.utils import suicide
 
 from goperation.websocket.base import GopWebSocketServerBase
 
@@ -62,8 +61,6 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
     def __init__(self, req, addr, server):
         self.lastsend = 0
         self.timeout = CONF.heartbeat * 3
-        # 30秒后自动退出
-        self.suicide = suicide(delay=30)
         websocket.WebSocketRequestHandler.__init__(self, req, addr, server)
 
     def do_POST(self):
@@ -135,7 +132,7 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
         self.close_connection = 1
         logging.info('Suicide cancel')
         # 取消自动退出
-        self.suicide.cancel()
+        self.server.suicide.cancel()
 
         cqueue = []
         rlist = [self.request]

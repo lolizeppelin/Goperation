@@ -25,9 +25,10 @@ def safe_func_wrapper(f, logger=None):
 def suicide(delay=3):
     def _suicide():
         p = psutil.Process()
-        p.terminal()
-        eventlet.sleep(3)
-        p.kill()
+        # p.terminal()
+        p.terminate()
+        # eventlet.sleep(3)
+        # p.kill()
     hub = hubs.get_hub()
     return hub.schedule_call_global(delay, _suicide)
 
