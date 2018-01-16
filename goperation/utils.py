@@ -1,7 +1,5 @@
 import os
 import gc
-import psutil
-import eventlet
 from eventlet import hubs
 
 from simpleutil.utils import systemutils
@@ -24,11 +22,13 @@ def safe_func_wrapper(f, logger=None):
 
 def suicide(delay=3):
     def _suicide():
-        p = psutil.Process()
+        os._exit(1)
+        # p = psutil.Process()
         # p.terminal()
-        p.terminate()
+        # p.terminate()
         # eventlet.sleep(3)
         # p.kill()
+
     hub = hubs.get_hub()
     return hub.schedule_call_global(delay, _suicide)
 
