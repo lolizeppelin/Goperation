@@ -7,9 +7,10 @@ def is_md5_like(var):
 
 from simpleutil.utils import digestutils
 
+path = r'C:\Users\loliz_000\Desktop\2.xlsx'
 
-var = digestutils.filemd5(r'C:\Users\loliz_000\Desktop\backup\db.sql')
+var = digestutils.filemd5(path)
 print var
-print digestutils.filecrc32(r'C:\Users\loliz_000\Desktop\backup\db.sql')
+print digestutils.filecrc32(path)
 
 print is_md5_like(var)
