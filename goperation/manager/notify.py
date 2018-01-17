@@ -9,7 +9,7 @@ from goperation.manager.api import get_http
 from goperation.manager.api import get_client
 
 NOTIFYSCHEMA = {
-    {'oneOf': [
+    'oneOf': [
         {'type': 'object',
          'required': ['method', 'target', 'ctxt', 'msg'],
          'properties': {
@@ -21,8 +21,8 @@ NOTIFYSCHEMA = {
                             'namespace': {'oneOf': [{'type': 'null'}, {'type': 'string'}]},
                             'version': {'type': 'string'},
                             'server': {'oneOf': [{'type': 'null'}, {'type': 'string'}]},
-                            'fanout': {'oneOf': [{'type': 'null'}, {'type': 'string'}]},
-                        }},
+                            'fanout': {'oneOf': [{'type': 'null'}, {'type': 'string'}]}}
+                        },
              'method': {'type': 'string', 'enum': ['cast', 'call', 'notify']},
              'ctxt': {'type': 'object'},
              'msg': {'type': 'object'},
@@ -38,7 +38,8 @@ NOTIFYSCHEMA = {
              'headers': {'type': 'object'},
              'params': {'type': 'object'},
              'timeout': {'type': 'integer', 'minimum': 3, 'maxmum': 30}}
-         }]}
+         }
+    ]
 }
 
 
