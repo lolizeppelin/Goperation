@@ -24,7 +24,7 @@ EXTEND_ROUTES = []
 lock = lockutils.Semaphores()
 
 @contextlib.contextmanager
-def tlock(target, timeout):
+def tlock(target, timeout=1.0):
     timeout = float(timeout)
     _lock = lock.get(target)
     if _lock.acquire(blocking=True, timeout=max(0.1, timeout)):
