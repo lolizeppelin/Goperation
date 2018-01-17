@@ -34,10 +34,10 @@ NOTIFYSCHEMA = {
              'method': {'type': 'string',
                         'enum': ['GET', 'DELETE', 'POST', 'PUT', 'HEAD', 'PATCH', 'OPTIONS']},
              'action': {'type': 'string'},
-             'body': {'type': 'object'},
-             'headers': {'type': 'object'},
-             'params': {'type': 'object'},
-             'timeout': {'type': 'integer', 'minimum': 3, 'maxmum': 30}}
+             'body': {'oneOf': [{'type': 'null'}, {'type': 'object'}]},
+             'headers': {'oneOf': [{'type': 'null'}, {'type': 'object'}]},
+             'params': {'oneOf': [{'type': 'null'}, {'type': 'object'}]},
+             'timeout': {'oneOf': [{'type': 'null'}, {'type': 'integer', 'minimum': 3, 'maxmum': 30}]}}
          }
     ]
 }
