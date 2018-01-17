@@ -361,8 +361,16 @@ class ManagerClient(HttpClientBase):
                                             resone=results['result'])
         return results
 
+    def file_update(self, file_id, status):
+        resp, results = self.put(action=self.file_path % file_id, body=dict(status=status))
+        if results['resultcode'] != common.RESULT_SUCCESS:
+            raise ServerExecuteRequestError(message='update file fail:%d' % results['resultcode'],
+                                            code=resp.status_code,
+                                            resone=results['result'])
+        return results
+
     def file_in_agent(self, agent_id, body):
-        resp, results = self.post(action=self.files_ext_path % str(agent_id), body=body)
+        resp, results = self.get(action=self.files_ext_path % str(agent_id), body=body)
         if results['resultcode'] != common.RESULT_SUCCESS:
             raise ServerExecuteRequestError(message='agent list file fail:%d' % results['resultcode'],
                                             code=resp.status_code,

@@ -5,7 +5,7 @@ from goperation.manager.wsgi.file import controller
 from goperation.manager import common as manager_common
 
 COLLECTION_ACTIONS = ['index', 'create']
-MEMBER_ACTIONS = ['show', 'delete']
+MEMBER_ACTIONS = ['show', 'update', 'delete']
 
 
 class Routers(router.RoutersBase):
@@ -20,7 +20,7 @@ class Routers(router.RoutersBase):
         self._add_resource(mapper, controller_intance,
                            path='/%s/{agent_id}/%s' % (manager_common.AGENT + 's',
                                                        self.collection_name),
-                           post_action='list')
+                           get_action='list')
         # send file to agent
         self._add_resource(mapper, controller_intance,
                            path='/%s/{agent_id}/%s/{file_id}' % (manager_common.AGENT + 's',
