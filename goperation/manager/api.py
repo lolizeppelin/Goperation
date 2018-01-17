@@ -1,5 +1,4 @@
 import socket
-from requests import Session
 from requests import adapters
 
 from simpleutil.config import cfg

@@ -2,11 +2,14 @@ import six
 import abc
 import inspect
 
+from simpleutil.log import log as logging
 from simpleutil.utils import jsonutils
 from simpleservice.rpc.target import Target
 
 from goperation.manager.api import get_http
 from goperation.manager.api import get_client
+
+LOG = logging.getLogger(__name__)
 
 NOTIFYSCHEMA = {
     'oneOf': [
@@ -100,6 +103,7 @@ class HttpNotify(NotifyInterface, GeneralNotify):
         raise NotImplementedError
 
     def success(self):
+        LOG.debug('Notify success called')
         key = inspect.stack()[0][3]
         if key not in self.notify:
             return
@@ -108,6 +112,7 @@ class HttpNotify(NotifyInterface, GeneralNotify):
         func(**data)
 
     def fail(self):
+        LOG.debug('Notify fail called')
         key = inspect.stack()[0][3]
         if key not in self.notify:
             return
@@ -133,4 +138,5 @@ def notify_prepare(notify):
     for attrib in notify:
         if not hasattr(cls, attrib):
             raise AttributeError('Notify has no %s' % attrib)
+    LOG.info('Prepare notify %s' % cls.__name__)
     return cls(notify)
