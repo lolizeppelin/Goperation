@@ -44,13 +44,14 @@ class FileReuest(BaseContorller):
         'type': 'object',
         'required': ['address', 'size', 'md5', 'crc32'],
         'properties': {
+            'uuid': {'type': 'string', 'format': 'uuid'},
             'crc32': {'type': 'string',
                       'pattern': '^[0-9]+?$'},
             'md5': {'type': 'string', 'format': 'md5'},
             "downloader": {'type': 'string'},
             "adapter_args": {'type': 'array'},
             "address": {'type': 'string'},
-            "ext": {'type': 'string'},
+            "ext": {'oneOf': [{'type': 'string'}, {'type': 'null'}]},
             "size": {'type': 'integer'},
             "desc": {'type': 'string'},
             "status": {'type': 'string', 'enum': manager_common.DOWNFILESTATUS},
@@ -66,7 +67,6 @@ class FileReuest(BaseContorller):
                                    data=[downfile.to_dict() for downfile in query.all()])
 
     def create(self, req, body):
-        session = get_session()
         jsonutils.schema_validate(body, FileReuest.SCHEMA)
         address = body.pop('address')
         size = body.pop('size')
@@ -76,7 +76,9 @@ class FileReuest(BaseContorller):
         status = body.get('status', manager_common.DOWNFILE_FILEOK)
         if not ext:
             ext = address.split('.')[-1]
-        downfile = DownFile(md5=md5,
+        session = get_session()
+        downfile = DownFile(uuid=body.get('uuid') or uuidutils.generate_uuid(),
+                            md5=md5,
                             crc32=crc32,
                             downloader=body.get('downloader', 'http'),
                             adapter_args=body.get('adapter_args'),
