@@ -1,4 +1,5 @@
 from simpleutil.config import cfg
+from simpleutil.config.cfg import types
 
 from goperation.manager import common as manager_common
 from goperation.filemanager.config import filemanager_opts
@@ -21,6 +22,11 @@ rpc_agent_opts = [
                max=10,
                help='websocket sub process number'
                ),
+    cfg.ListOpt('dnsnames',
+                item_type=types.Hostname(),
+                default=[],
+                help='Agent dns hostnames',
+                ),
     cfg.MultiOpt('ports_range',
                  item_type=cfg.types.PortRange(),
                  help='Rpc agent can alloc port from this range'),

@@ -327,6 +327,7 @@ class RpcAgentManager(RpcManagerBase):
         self.ports_range = validators['type:ports_range_list'](conf.ports_range) if conf.ports_range else []
         # zone mark
         self.zone = conf.zone
+        self.dnsnames = conf.dnsnames
         # key: port, value endpoint name
         self.allocked_ports = {}
         # left ports
@@ -342,6 +343,7 @@ class RpcAgentManager(RpcManagerBase):
         self._metadata = super(RpcAgentManager, self).metadata
         self._metadata.setdefault('agent_type', self.agent_type)
         self._metadata.setdefault('zone', self.zone)
+        self._metadata.setdefault('dnsnames', conf.dnsnames)
         # init httpclient
         self.client = AgentManagerClient(httpclient=get_http())
         # init filemanager
