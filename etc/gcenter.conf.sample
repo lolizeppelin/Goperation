@@ -10,6 +10,17 @@
 # Manager extend route module string (multi import string)
 #routes =
 
+# Trusted token limit ipaddress (list value)
+#allowed_trusted_ip =
+
+# Allow hostname (hostname value)
+#allowed_hostname = <None>
+
+# Token cache dict size (integer value)
+# Minimum value: 10
+# Maximum value: 250
+#token_cache_size = 25
+
 # Rpc agent status expire time (integer value)
 # Minimum value: 2
 # Maximum value: 20

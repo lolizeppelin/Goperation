@@ -15,6 +15,9 @@
 # Maximum value: 10
 #websokcets = 5
 
+# Agent dns hostnames (list value)
+#dnsnames =
+
 # Rpc agent can alloc port from this range (port_ranges value)
 #ports_range = <None>
 

@@ -74,7 +74,6 @@ class AppEndpointBase(RpcAgentEndpointBase):
         return UriResult(resultcode=manager_common.RESULT_SUCCESS,
                                result='get log of %s success' % self.namespace, uri=uri)
 
-
     def _entity_token(self, entity):
         info = self.entitys_tokens.pop(entity, None)
         if not info:

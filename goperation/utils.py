@@ -1,6 +1,9 @@
 import os
+import six
 import gc
+import psutil
 from eventlet import hubs
+from netaddr import IPNetwork
 
 from simpleutil.utils import systemutils
 from simpleutil.utils import reflection
@@ -98,3 +101,11 @@ else:
         raise NotImplementedError
 
     wait = systemutils.subwait
+
+
+def get_network(ipaddr):
+    for interface, nets in six.iteritems(psutil.net_if_addrs()):
+        for net in nets:
+            if net.address == ipaddr:
+                return interface, IPNetwork('%s/%s' % (ipaddr, net.netmask))
+    return None, None

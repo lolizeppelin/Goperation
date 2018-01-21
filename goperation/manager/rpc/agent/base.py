@@ -7,7 +7,6 @@ import six
 import contextlib
 import psutil
 import subprocess
-from netaddr import IPNetwork
 from collections import namedtuple
 
 import eventlet
@@ -29,6 +28,7 @@ from simpleservice.plugin.base import EndpointBase
 from goperation import threadpool
 from goperation.utils import suicide
 from goperation.utils import safe_fork
+from goperation.utils import get_network
 from goperation.api.client import GopHttpClientApi
 from goperation.filemanager import FileManager
 from goperation.manager.api import get_http
@@ -43,7 +43,6 @@ from goperation.manager.rpc.exceptions import RpcTargetLockException
 from goperation.manager.rpc.agent.ctxtdescriptor import CheckManagerRpcCtxt
 from goperation.manager.rpc.agent.ctxtdescriptor import CheckThreadPoolRpcCtxt
 from goperation.manager.rpc.agent.config import rpc_endpoint_opts
-
 
 
 CONF = cfg.CONF
@@ -306,17 +305,10 @@ class RpcAgentManager(RpcManagerBase):
 
     def __init__(self):
         super(RpcAgentManager, self).__init__(target=target_server(self.agent_type, CONF.host, fanout=True))
-        self.ipnetwork = None
-        for interface, nets in six.iteritems(psutil.net_if_addrs()):
-            if self.ipnetwork:
-                break
-            for net in nets:
-                if net.address == self.local_ip:
-                    self.ipnetwork = IPNetwork('%s/%s' % (self.local_ip, net.netmask))
-                    LOG.info('Local ip %s/%s on interface %s' % (self.local_ip, net.netmask, interface))
-                    break
+        interface, self.ipnetwork = get_network(self.local_ip)
         if not self.ipnetwork:
             raise RuntimeError('can not find local ip netmask')
+        LOG.info('Local ip %s/%s on interface %s' % (self.local_ip, self.ipnetwork.netmask, interface))
         global DISK
         DISK = psutil.disk_usage(self.work_path).total/(1024*1024)
         # agent id
