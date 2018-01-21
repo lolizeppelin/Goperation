@@ -17,9 +17,10 @@ from simpleservice.wsgi.filter import FilterBase
 
 from goperation.utils import get_network
 from goperation.manager.config import manager_group
+from goperation.manager import common as manager_common
 from goperation.manager import api
 from goperation.manager.filters.config import authfilter_opts
-from goperation.manager.filters.exceptions import InvalidAuthToken
+
 
 LOG = logging.getLogger(__name__)
 
@@ -33,16 +34,25 @@ class AuthFilter(FilterBase):
 
     def __init__(self, application):
         super(AuthFilter, self).__init__(application)
-        CONF.register_opts(authfilter_opts, manager_group)
-        self.conf = CONF[manager_group.name]
+        CONF.register_opts(authfilter_opts, CONF.find_group(manager_common.SERVER))
         interface, self.ipnetwork = get_network(CONF.local_ip)
         if not self.ipnetwork:
             raise RuntimeError('can not find ipaddr %s on any interface' % CONF.local_ip)
         LOG.info('Local ip %s/%s on interface %s' % (CONF.local_ip, self.ipnetwork.netmask, interface))
-        self.allowed_hostname = self.conf.allowed_hostname
-        self.allowed_clients = set(self.conf.allowed_trusted_ip)
+
+        conf = CONF[manager_group.name]
+        self.trusted = conf.trusted
+
+        conf = CONF[manager_common.SERVER]
+        self.allowed_hostname = conf.allowed_hostname
+        self.allowed_clients = set(conf.allowed_trusted_ip)
         self.allowed_clients.add('127.0.0.1')
         self.allowed_clients.add(CONF.local_ip)
+        for ipaddr in self.allowed_clients:
+            LOG.info('Allowd client %s' % ipaddr)
+        # 进程token缓存最大数量
+        self.token_cache_size = conf.token_cache_size
+
         # 进程中token缓存
         self.tokens = {}
 
@@ -89,9 +99,9 @@ class AuthFilter(FilterBase):
 
     def _fetch_token_from_cache(self, token):
         # token缓存过大, 不能缓存token,直接抛异常
-        if len(self.tokens) > self.conf.token_cache_size:
+        if len(self.tokens) > self.token_cache_size:
             LOG.warning('Token cache is full')
-            raise InvalidAuthToken('Too much token in cache')
+            raise self.no_auth('Too much token in cache, auth fail')
         # 从cache存储中获取token以及ttl
         cache_store = api.get_cache()
         pipe = cache_store.pipeline()
@@ -101,7 +111,7 @@ class AuthFilter(FilterBase):
         results = pipe.execute()
         # 过期时间小于15s, 认为已经过期
         if not results[0] or results[1] < 15:
-            raise InvalidAuthToken('Token has been expired')
+            raise self.no_auth('Token has been expired')
         # io操作后有可能其他线程设置了token,再次判断
         elif token not in self.tokens:
             th = eventlet.spawn_after(results[1], self.tokens.pop, token, None)
@@ -117,7 +127,7 @@ class AuthFilter(FilterBase):
         except KeyError:
             return self.no_auth()
         if token_info.get('ipaddr') != req.client_addr:
-            raise InvalidAuthToken('Client ipaddr not match')
+            raise self.client_error('Client ipaddr not match')
 
     def _trusted_allowed(self, req):
         # 来源ip在允许的ip列表中
@@ -133,7 +143,7 @@ class AuthFilter(FilterBase):
         token = req.headers.get(service_common.TOKENNAME)
         if not token:
             return self.no_auth()
-        if self.conf.trusted and token == self.conf.trusted:
+        if self.trusted and token == self.trusted:
             # 可信任token,一般为用于服务组件之间的wsgi请求
             if not self._trusted_allowed(req):
                 raise self.client_error('Trused token not from allowd ipaddr')

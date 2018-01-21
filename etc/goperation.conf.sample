@@ -140,7 +140,7 @@
 #gcenter_port = 7999
 
 # Trusted token, means a unlimit user (string value)
-#trusted = goperation-trusted-user
+#trusted = goperation-trusted-token
 
 # The SQLAlchemy connection string to use to connect to the database. (string
 # value)
