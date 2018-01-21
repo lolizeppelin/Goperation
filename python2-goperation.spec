@@ -94,6 +94,7 @@ goperation wsgi server and rpc server
 %{python_sitelib}/%{proj_name}/cmd/server/*
 %{python_sitelib}/%{proj_name}/manager/rpc/server/
 %{python_sitelib}/%{proj_name}/manager/wsgi/*
+%{python_sitelib}/%{proj_name}/manager/filters/*
 %{_sysconfdir}/%{proj_name}/gcenter.conf.sample
 %{_sysconfdir}/%{proj_name}/gcenter-paste.ini.sample
 %{_initrddir}/gcenter-rpc
