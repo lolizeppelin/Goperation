@@ -5,8 +5,8 @@ use = egg:Paste#urlmap
 [filter:auth]
 paste.filter_factory = goperation.manager.filters.filter:AuthFilter.factory
 
-[pipeline:public]
-pipeline = auth centerapi
-
 [app:centerapi]
 paste.app_factory = goperation.api.route:app_factory
+
+[pipeline:public]
+pipeline = auth centerapi

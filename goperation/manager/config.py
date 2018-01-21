@@ -23,7 +23,7 @@ goperation_opts = [
                 default=7999,
                 help='Http port of gcenter wsgi service'),
     cfg.StrOpt('trusted',
-               default='goperation-trusted-user',
+               default='goperation-trusted-token',
                help='Trusted token, means a unlimit user'
                ),
 ]
