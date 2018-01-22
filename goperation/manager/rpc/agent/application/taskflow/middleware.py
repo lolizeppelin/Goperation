@@ -13,14 +13,16 @@ class EntityMiddleware(object):
         self.entity = entity
         self._endpoint = endpoint
         self.results = collections.OrderedDict()
+        self.errors = []
+        self.dberrors = []
 
     @property
     def entity_home(self):
         return self._endpoint.entity_home(self.entity)
 
     @property
-    def apppathname(self):
-        return self._endpoint.apppathname
+    def apppath(self):
+        return self._endpoint.apppath(self.entity)
 
     @property
     def entity_user(self):
@@ -78,4 +80,4 @@ class EntityMiddleware(object):
         return six.itervalues(self.results)
 
     def __str__(self):
-        return ','.join(['%s:%s' % (k, v) for k,v in self.iterresults()])
+        return ','.join(['%s:%s' % (k, v) for k, v in self.iterresults()])

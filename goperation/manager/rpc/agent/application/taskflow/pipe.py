@@ -1,3 +1,4 @@
+# -*- coding:utf-8 -*-
 import random
 import eventlet
 
@@ -17,21 +18,22 @@ def entity_factory(session, app, store, db_flow_factory):
     @param store:                   class: dict
     @param db_flow_factory:         class: function
     """
+    endpoint_name = app.middleware.endpoint.namespace
     entity = app.middleware.entity
-    entity_flow = lf.Flow('entity_%d' % entity)
+    entity_flow = lf.Flow('entity_%s_%d' % (endpoint_name, entity))
 
     if app.createtask:
         entity_flow.add(app.createtask)
 
     if app.stoptask:
         # kill if stop fail
-        prepare_flow = uf.Flow('recheck_stop_%d' % entity,
-                               retry=application.AppKill('kill_%d' % entity))
+        prepare_flow = uf.Flow('recheck_stop_%s_%d' % (endpoint_name, entity),
+                               retry=application.AppKill('kill_%s_%d' % (endpoint_name, entity)))
         # sure entity stoped
         prepare_flow.add(app.stoptask)
         entity_flow.add(prepare_flow)
 
-    upflow = uf.Flow('up_%d' % entity)
+    upflow = uf.Flow('up_%s_%d' % (endpoint_name, entity))
     if app.upgradetask:
         # upgrade app file
         upflow.add(app.upgradetask)
@@ -65,7 +67,7 @@ def flow_factory(session, applications,
     @param session:                 class: sqlalchemy:session
     @param middlewares:             class:list EntityMiddleware
     @param upgradefile:             class:AppUpgradeFile    app upgrade file
-    @param backupfile:              class:basestring/AppRemoteBackupFile  app backup file
+    @param backupfile:              class:basestring of path/AppRemoteBackupFile  app backup file
     @param store:                   class:dict
     @param db_flow_factory:         class:function
     """
@@ -74,13 +76,18 @@ def flow_factory(session, applications,
     store = store or {}
     if store.get('backupfile'):
         raise RuntimeError('Backupfile in store')
-    main_flow = lf.Flow('%s_taskflow' % applications[0].middleware.endpoint)
+    endpoint_name = applications[0].middleware.endpoint.namespace
+
+    main_flow = lf.Flow('%s_taskflow' % endpoint_name)
 
     # choice one entity by randomizing
+    # 随机选择一个app
     app = applications[random.randint(0, len(applications)-1)]
 
     # prepare file for app update and database
-    prepare_uflow = uf.Flow('prepare')
+    # 准备工作
+    prepare_uflow = uf.Flow('%s_prepare' % endpoint_name)
+    # 下载程序更新文件
     if upgradefile:
         rebind = ['download_timeout']
         format_store_rebind(store, rebind)
@@ -89,6 +96,7 @@ def flow_factory(session, applications,
     # else:
     #     if app.upgradetask:
     #         raise RuntimeError('Application upgrade need upgradefile')
+    # 备份程序文件
     if backupfile:
         rebind = ['download_timeout']
         format_store_rebind(store, rebind)
@@ -98,6 +106,7 @@ def flow_factory(session, applications,
     #         if app.upgradetask and app.upgradetask.rollback:
     #             raise RuntimeError('upgrade rollback able, but no backupfile found')
     #     store.setdefault('backupfile', None)
+    # 下载数据库更新文件
     if app.databases:
         rebind = ['download_timeout']
         format_store_rebind(store, rebind)
@@ -108,7 +117,8 @@ def flow_factory(session, applications,
     else:
         del prepare_uflow
 
-    entitys_taskflow = uf.Flow('entitys_task')
+    entitys_taskflow = uf.Flow('%s_entitys_task' % endpoint_name)
+    # 批量更新操作
     for app in applications:
         # all entity task
         entitys_taskflow.add(entity_factory(session, app, store, db_flow_factory))
