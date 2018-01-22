@@ -141,9 +141,8 @@ class MysqlDump(StandardTask):
 
 
 class MysqlUpdate(StandardTask):
-
-    def __init__(self, middleware, database, rebind=None):
-        super(MysqlUpdate, self).__init__(middleware, rebind=rebind)
+    def __init__(self, middleware, database):
+        super(MysqlUpdate, self).__init__(middleware)
         self.database = database
         self.executed = 0
 
@@ -283,9 +282,7 @@ def mysql_flow_factory(app, store):
         if database.update:
             if database.update.rollback and not database.backup:
                 raise ValueError('Database rollback need backup')
-            rebind = ['db_update_timeout']
-            format_store_rebind(store, rebind)
-            lfow.add(MysqlUpdate(middleware, database, rebind=rebind))
+            lfow.add(MysqlUpdate(middleware, database))
         if len(lfow):
             uflow.add(lfow)
         else:
