@@ -147,6 +147,7 @@ class AuthFilter(FilterBase):
             # 可信任token,一般为用于服务组件之间的wsgi请求
             if not self._trusted_allowed(req):
                 raise self.client_error('Trused token not from allowd ipaddr')
+            LOG.debug('Trusted token passed, address %s' % req.client_addr)
             return None
         if token in self.tokens:
             self.will_expire_soon(token)
