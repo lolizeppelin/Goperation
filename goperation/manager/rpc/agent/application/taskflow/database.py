@@ -65,6 +65,7 @@ class Database(object):
         self.schema = kwargs['schema']
         self.character_set = kwargs.get('character_set', 'utf8')
         self.collation_type = kwargs.get('collation_type', None)
+        self.timeout = kwargs.get('timeout', None)
         self.retry = 0
 
 
@@ -74,7 +75,6 @@ class DbUpdateSqlGet(StandardTask):
     @property
     def taskname(self):
         return self.__class__.__name__ + '-' + str(self.middleware.entity)
-
 
     def __init__(self, middleware, databases, rebind=None):
         super(DbUpdateSqlGet, self).__init__(middleware, rebind=rebind)
@@ -148,7 +148,6 @@ class MysqlUpdate(StandardTask):
         self.executed = 0
 
     def execute_sql_from_file(self, sql_file, timeout=None):
-        timeout = timeout or 3600
         database = self.database
         mysql = systemutils.find_executable('mysql')
         args = [mysql,
@@ -175,10 +174,11 @@ class MysqlUpdate(StandardTask):
                     sub = subprocess.Popen(executable=mysql, args=args, stdin=f.fileno(), stderr=nul.fileno())
                     utils.wait(sub, timeout=timeout)
 
-    def execute(self, timeout):
+    def execute(self):
         if self.middleware.is_success(self.__class__.__name__):
             return
         database = self.database
+        timeout = database.timeout or 3600
         if not database.schema or database.schema.lower() in NOTALLOWD_SCHEMAS:
             raise RuntimeError('Schema is mysql, not allowed')
         # update by formated sql
