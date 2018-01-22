@@ -27,15 +27,22 @@ class AppEndpointBase(RpcAgentEndpointBase):
     def apppathname(self):
         raise NotImplementedError
 
+    @property
+    def logpathname(self):
+        return 'log'
+
+    @property
+    def bakpathname(self):
+        return 'backup'
+
     def apppath(self, entity):
         return os.path.join(self.entity_home(entity), self.apppathname)
 
-    @property
-    def logpathname(self):
-        return NotImplementedError
-
     def logpath(self, entity):
         return os.path.join(self.entity_home(entity), self.logpathname)
+
+    def bakpath(self, entity):
+        return os.path.join(self.entity_home(entity), self.bakpathname)
 
     def entity_user(self, entity):
         raise NotImplementedError
