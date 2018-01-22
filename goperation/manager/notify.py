@@ -146,7 +146,7 @@ class HttpNotify(NotifyInterface):
         def wapper():
             data = self.notify[keyword]
             if replace:
-                data = copy.copy(data)
+                data = copy.deepcopy(data)
                 data.update(replace)
             requests.request(**data)
 
