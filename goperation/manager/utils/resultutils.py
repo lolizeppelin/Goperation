@@ -20,7 +20,8 @@ def bulk_results(session,
                  order=None, desc=None,
                  filter=None,
                  option=None,
-                 page_num=0):
+                 page_num=0,
+                 limit=None):
     query = model_query(session, model, filter=filter)
     if option:
         query = query.options(option)
@@ -71,7 +72,8 @@ def bulk_results(session,
         if page_num*manager_common.ROW_PER_PAGE >= all_rows_num:
             raise InvalidArgument('Page number over size or no data exist')
         query.seek(page_num*manager_common.ROW_PER_PAGE)
-    query = query.limit(manager_common.MAX_ROW_PER_REQUEST)
+    limit = limit or manager_common.MAX_ROW_PER_REQUEST
+    query = query.limit(limit)
     row_list = []
     for result in query:
         column = dict()
