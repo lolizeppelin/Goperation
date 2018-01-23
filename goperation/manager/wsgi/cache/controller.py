@@ -56,7 +56,7 @@ class CacheReuest(BaseContorller):
                 keys = cache_store.keys(targetutils.host_online_key('*'))
                 if keys:
                     with cache_store.pipeline() as pipe:
-                        pipe.multi()
+                        # pipe.multi()
                         for key in keys:
                             pipe.delete(key)
                         pipe.execute()
