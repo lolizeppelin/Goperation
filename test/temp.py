@@ -14,3 +14,5 @@ print var
 print digestutils.filecrc32(path)
 
 print is_md5_like(var)
+
+import goperation.manager.filters.filter

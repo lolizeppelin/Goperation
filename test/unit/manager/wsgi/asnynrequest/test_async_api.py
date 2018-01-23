@@ -15,8 +15,7 @@ config.configure('test', [a, b])
 wsgi_url = '172.31.0.110'
 wsgi_port = 7999
 
-
-client = ManagerClient(wsgi_url, wsgi_port)
+client = ManagerClient(wsgi_url, wsgi_port, token='goperation-trusted-token')
 
 
 # for r in client.asyncs_index()['data']:

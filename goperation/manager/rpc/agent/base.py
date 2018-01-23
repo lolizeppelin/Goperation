@@ -662,6 +662,16 @@ class RpcAgentManager(RpcManagerBase):
             executable = systemutils.find_executable(YUM)
             args = [executable, '-y', '--disablerepo=*', '--enablerepo=goputil', 'update']
 
+            rpms = ['python-simpleutil-*', 'python-simpleservice-*',
+                    'python-simpleflow-*', 'python-goperation-*']
+
+            LOG.info('Rpm upgrade command %s' % ' '.join(args))
+
+            for cls in CONF.endpoints:
+                rpms.append('python-%s-*' % cls)
+
+            args.extend(rpms)
+
             pid = safe_fork()
             if pid == 0:
                 os.closerange(3, systemutils.MAXFD)
