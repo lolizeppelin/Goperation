@@ -252,9 +252,15 @@ class RpcAgentEndpointBase(EndpointBase):
 
     home = endpoint_home
 
+    @property
+    def endpoint_backup(self):
+        return os.path.join(self.endpoint_home, 'backup')
+
     def pre_start(self, external_objects):
         if not os.path.exists(self._home_path):
             os.makedirs(self._home_path, 0755)
+        if not os.path.exists(self.endpoint_backup):
+            os.makedirs(self._home_path, 0777)
 
     @contextlib.contextmanager
     def lock(self, entity, timeout=3):
@@ -265,7 +271,7 @@ class RpcAgentEndpointBase(EndpointBase):
             timeout -= 1
         if timeout < 0:
             timeout = 0
-        if len(self.semaphores) > self.conf.max_lock:
+        if len(self.semaphores) >= self.conf.max_lock:
             raise RpcTargetLockException(self.namespace, entity, 'over max lock')
         lock = self.semaphores.get(entity)
         if lock.acquire(blocking=True, timeout=max(0.1, timeout)):
@@ -275,6 +281,43 @@ class RpcAgentEndpointBase(EndpointBase):
                 lock.release()
         else:
             raise RpcTargetLockException(self.namespace, entity)
+
+    @contextlib.contextmanager
+    def locks(self, entitys, timeout=5):
+        timeout = float(timeout)
+        while self.frozen:
+            if timeout < 0.1:
+                raise RpcTargetLockException(self.namespace, entitys, 'endpoint frozen')
+            eventlet.sleep(0.1)
+            timeout -= 0.1
+        self.frozen = True
+        if len(entitys) + len(self.semaphores) > self.conf.max_lock:
+            self.frozen = False
+            raise RpcTargetLockException(self.namespace, entitys, 'over max lock')
+        success = set()
+        for entity in entitys:
+            if timeout <= 0.1:
+                self.frozen = False
+                for _lock in success:
+                    _lock.release()
+                raise RpcTargetLockException(self.namespace, entity, 'get lock timeout')
+            lock = self.semaphores.get(entity)
+            _s = time.time()
+            if lock.acquire(blocking=True, timeout=max(0.1, timeout)):
+                used = time.time() - _s
+                timeout -= used
+                success.add(lock)
+            else:
+                self.frozen = False
+                for _lock in success:
+                    _lock.release()
+                raise RpcTargetLockException(self.namespace, entity, 'get lock timeout')
+        try:
+            yield
+        finally:
+            self.frozen = False
+            for _lock in success:
+                _lock.release()
 
     @property
     def locked(self):
