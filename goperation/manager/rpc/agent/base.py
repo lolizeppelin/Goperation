@@ -664,13 +664,10 @@ class RpcAgentManager(RpcManagerBase):
 
             rpms = ['python-simpleutil-*', 'python-simpleservice-*',
                     'python-simpleflow-*', 'python-goperation-*']
-
-            LOG.info('Rpm upgrade command %s' % ' '.join(args))
-
             for cls in CONF.endpoints:
                 rpms.append('python-%s-*' % cls)
-
             args.extend(rpms)
+            LOG.info('Rpm upgrade command %s' % ' '.join(args))
 
             pid = safe_fork()
             if pid == 0:
