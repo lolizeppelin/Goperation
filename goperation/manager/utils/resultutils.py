@@ -124,7 +124,8 @@ def agent(_agent, details=False):
 def detail(_detail):
     ret_dict = {'detail_id': _detail.detail_id,
                 'resultcode': _detail.resultcode,
-                'result': jsonutils.loads_as_bytes(_detail.result)
+                # 'result': jsonutils.loads_as_bytes(_detail.result)
+                'result': _detail.result
                 }
     return ret_dict
 
