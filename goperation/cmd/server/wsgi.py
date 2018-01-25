@@ -1,20 +1,5 @@
 from simpleutil.config import cfg
 from simpleutil.log import log as logging
-from simpleutil.utils import importutils
-
-from simpleservice.server import LaunchWrapper
-from simpleservice.server import launch
-from simpleservice.wsgi.config import find_paste_abs
-from simpleservice.wsgi.config import wsgi_server_options
-from simpleservice.wsgi.service import LauncheWsgiServiceBase
-from simpleservice.wsgi.service import load_paste_app
-
-
-from goperation import threadpool
-from goperation import EXTEND_ROUTES
-from goperation import config as goperation_config
-from goperation.manager import common as manager_common
-from goperation.manager.wsgi.config import route_opts
 
 
 CONF = cfg.CONF
@@ -22,9 +7,20 @@ LOG = logging.getLogger(__name__)
 
 
 def configure(config_files=None, config_dirs=None):
+    from goperation.manager import common as manager_common
+    from goperation import config as goperation_config
+
+    # create a new project and group named gcenter
     name = manager_common.SERVER
     # init goperation config
     gcenter_group = goperation_config.configure(name, config_files, config_dirs)
+
+    from simpleutil.utils import importutils
+    from simpleservice.wsgi.config import wsgi_server_options
+    from simpleservice.wsgi.config import find_paste_abs
+    from goperation import EXTEND_ROUTES
+    from goperation.manager.wsgi.config import route_opts
+
     # set wsgi config
     CONF.register_opts(wsgi_server_options, group=gcenter_group)
     # set default of paste config
@@ -47,7 +43,6 @@ def configure(config_files=None, config_dirs=None):
             for cls in CONF[endpoint_group.name].routes:
                 EXTEND_ROUTES.append(importutils.import_module(cls))
                 LOG.debug('Add endpoint route %s success' % cls)
-
     paste_file_path = find_paste_abs(CONF[gcenter_group.name])
     return gcenter_group.name, paste_file_path
 
@@ -55,6 +50,13 @@ def configure(config_files=None, config_dirs=None):
 def run(procname, config_files, config_dirs=None):
     name, paste_config = configure(config_files=config_files, config_dirs=config_dirs)
     LOG.debug('Paste config file is %s' % paste_config)
+
+    from simpleservice.wsgi.service import load_paste_app
+    from simpleservice.wsgi.service import LauncheWsgiServiceBase
+    from simpleservice.server import LaunchWrapper
+    from simpleservice.server import launch
+    from goperation import threadpool
+
     app = load_paste_app(name, paste_config)
     wrappers = []
     wsgi_service = LauncheWsgiServiceBase(name, app, plugin_threadpool=threadpool)
@@ -62,4 +64,3 @@ def run(procname, config_files, config_dirs=None):
                                  workers=wsgi_service.conf.wsgi_process)
     wrappers.append(wsgi_wrapper)
     launch(wrappers, procname=procname)
-
