@@ -24,7 +24,7 @@ def p_asyncrequest(client, request_id, details=False):
                     timeutils.unix_to_iso(r.get('request_time')),
                     timeutils.unix_to_iso(r.get('finishtime')),
                     timeutils.unix_to_iso(r.get('deadline')),
-                    r.get('status'), r.get('status'), r.get('result')
+                    r.get('status'), r.get('expire'), r.get('result')
                     ])
         print tb.pformat()
         for rr in r.get('respones'):
