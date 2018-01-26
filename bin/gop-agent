@@ -21,7 +21,7 @@ CONF = cfg.CONF
 one_opts = [
     cfg.IntOpt('agent',
                required=True,
-               help='Target agent id'),
+               help='Target agent id, value is int'),
 ]
 
 muti_opts = [
@@ -77,6 +77,44 @@ def list():
                     ','.join(agent.get('endpoints')),
                     timeutils.unix_to_iso(agent.get('create_time'))])
     print tb.pformat()
+
+
+def show():
+    CONF.register_cli_opts(one_opts)
+    CONF(project='cmd')
+    _client = client()
+    code, result, data = prepare_results(_client.agent_show(CONF.agent, body=dict(ports=True, entitys=True)))
+    if code:
+        print('\033[1;31;40m')
+        print 'Fail, code %d, result %s' % (code, result)
+        if data:
+            print data
+        print('\033[0m')
+        sys.exit(1)
+    agent = data[0]
+    metadata = agent.get('metadata')
+    endpoints = agent.get('endpoints')
+
+    print('\033[1;32;40m')
+    print 'Agent Status\t %d:ACTIVE\t %d:UNACTIVE' % (manager_common.ACTIVE, manager_common.UNACTIVE)
+    print 'id: %d' % agent.get('agent_id')
+    print 'host: %s' % agent.get('host')
+    print 'type: %s' % agent.get('agent_type')
+    print 'status: %d' % agent.get('status')
+    print 'cpu: %d' % agent.get('cpu')
+    print 'memory: %d MB' % agent.get('memory')
+    print 'disk: %1.2f GB' % (float(agent.get('disk')) / 1024.0)
+    print 'ports_range: %s' % str(agent.get('ports_range'))
+    print 'zone: %s' % metadata.get('zone')
+    print 'local_ip: %s' % metadata.get('local_ip')
+    print 'external_ips: %s' % ','.join(metadata.get('external_ips'))
+    if endpoints:
+        tb = table.PleasantTable(ident=0, columns=['endpoint', 'entity', 'ports'], counter=True)
+        for endpoint in endpoints:
+            for entity in endpoints[endpoint]:
+                tb.add_row([endpoint, entity.get('entity'), entity.get('ports')])
+        print tb.pformat()
+    print('\033[0m')
 
 
 def active():
@@ -136,10 +174,10 @@ def status():
 def main():
     try:
         func = sys.argv.pop(1)
-        if func not in ('list', 'active', 'status'):
+        if func not in ('list', 'show', 'active', 'status'):
             raise ValueError
     except (IndexError, ValueError):
-        print 'action is  list active status'
+        print 'action is:  list status active status'
         print 'use -h for help'
         sys.exit(1)
     func = eval(func)

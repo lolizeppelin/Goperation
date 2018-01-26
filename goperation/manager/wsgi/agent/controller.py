@@ -130,6 +130,7 @@ class AgentReuest(BaseContorller):
                         for port in entity.ports:
                            _entity['ports'].append(port['port'])
         result_data = dict(agent_id=agent.agent_id, host=agent.host,
+                           agent_type=agent.agent_type,
                            status=agent.status,
                            cpu=agent.cpu,
                            memory=agent.memory,

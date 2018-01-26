@@ -21,3 +21,18 @@ client_opts = [
                help='Http client request timeout'
                ),
 ]
+
+index_opts = [
+    cfg.IntOpt('page',
+               default=0,
+               help='Bluk select results page number'
+               ),
+    cfg.StrOpt('order',
+               default=0,
+               help='Bluk select results order key'
+               ),
+    cfg.BoolOpt('desc',
+                default=False,
+                help='Bluk select results order desc'
+                ),
+]
