@@ -31,7 +31,7 @@ def bulk_results(session,
                 intance = model.__dict__[_column]
                 name = _column
             else:
-                raise InvalidArgument('Cano not find column %s in %s' % (_column, model.__tablename__))
+                raise InvalidArgument('Can not find column %s in %s' % (_column, model.__tablename__))
         elif isinstance(counter, InstrumentedAttribute):
             if counter.class_ is not model:
                 raise InvalidArgument('Column %s not belong to table %s' % (counter.key, model.__tablename__))
