@@ -132,7 +132,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
                                 except (TypeError, ValueError):
                                     continue
                                 if not details:
-                                    agent_respone.pop('details', None)
+                                    agent_respone_data.pop('details', None)
                                 respones.append(agent_respone_data)
             return ret_dict
 
