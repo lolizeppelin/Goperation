@@ -23,12 +23,12 @@ client_opts = [
 ]
 
 index_opts = [
-    cfg.IntOpt('page',
+    cfg.IntOpt('page_num',
                default=0,
                help='Bluk select results page number'
                ),
     cfg.StrOpt('order',
-               default=0,
+               default=None,
                help='Bluk select results order key'
                ),
     cfg.BoolOpt('desc',
