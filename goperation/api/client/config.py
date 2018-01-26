@@ -1,4 +1,5 @@
 from simpleutil.config import cfg
+from simpleutil.config import types
 
 client_opts = [
     cfg.HostnameOrIPOpt('gcenter',

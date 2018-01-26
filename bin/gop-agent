@@ -5,6 +5,7 @@ import sys
 import requests
 
 from simpleutil.config import cfg
+from simpleutil.config import types
 from simpleutil.utils import table
 from simpleutil.utils import timeutils
 
@@ -26,7 +27,8 @@ one_opts = [
 muti_opts = [
     cfg.ListOpt('agents',
                 required=True,
-                help='Target agents id list'),
+                item_type=types.String(regex=manager_common.ENABLEIDS),
+                help='Target agents id list, value like 1-2,3,4,5, all means all'),
 ]
 
 status_opts = [
@@ -52,7 +54,7 @@ def client(session=None):
                          token=CONF.trusted, session=session)
 
 
-def list(group):
+def list():
     CONF(project='cmd')
     _client = client()
     code, result, data = prepare_results(_client.agents_index())
@@ -64,12 +66,15 @@ def list(group):
         print('\033[0m')
         sys.exit(1)
     agent_heads = ['id', 'host', 'type', 'status', 'cpu', 'memory(MB)', 'disk/(GB)', 'endpoints', 'create_at']
+    print('\033[1;32;40m')
+    print 'Agent Status\t %d:ACTIVE\t %d:UNACTIVE' % (manager_common.ACTIVE, manager_common.UNACTIVE)
+    print('\033[0m')
     tb = table.PleasantTable(ident=0, columns=agent_heads, counter=True)
     for agent in data:
         tb.add_row([agent.get('agent_id'), agent.get('host'), agent.get('agent_type'),
                     agent.get('status'),
                     agent.get('cpu'), agent.get('memory'), '%1.2f' % (float(agent.get('disk')) / 1024.0),
-                    '\n'.join(agent.get('endpoints')),
+                    ','.join(agent.get('endpoints')),
                     timeutils.unix_to_iso(agent.get('create_time'))])
     print tb.pformat()
 
@@ -129,20 +134,14 @@ def status():
 
 def main():
     try:
-        func = sys.argv[1]
+        func = sys.argv.pop(1)
     except IndexError:
         raise ValueError('not action found')
     if func not in ('list', 'active', 'status'):
         raise ValueError('action error')
+    func = eval(func)
     logging.basicConfig(level=logging.WARN)
-    group = cfg.OptGroup('async')
     CONF.register_cli_opts(client_opts)
-    if func == 'list':
-        pass
-    elif func == 'show':
-        CONF.register_cli_opts(one_opts, group)
-    else:
-        CONF.register_cli_opts(one_opts, group)
     func()
 
 
