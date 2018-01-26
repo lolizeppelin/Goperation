@@ -40,7 +40,7 @@ def p_asyncrequest(client, request_id, details=False):
                 tb = table.PleasantTable(ident=30, columns=heads_details)
                 if details:
                     for rrr in details:
-                        tb.add_row([rrr.get('detail_id'), rr.get('resultcode'), rr.get('result')])
+                        tb.add_row([rrr.get('detail_id'), rrr.get('resultcode'), rrr.get('result')])
                 print tb.pformat()
 
 
@@ -60,7 +60,8 @@ def wait_finish(client, asyncrequest):
     now = int(time.time())
     request_id = asyncrequest.get('request_id')
     finishtime = asyncrequest.get('finishtime')
-    deadline = asyncrequest.get('deadline') + 2
+    deadline = asyncrequest.get('deadline') + 3
+    time.sleep(3)
     sleep = now - finishtime
     if sleep > 3:
         time.sleep(3)

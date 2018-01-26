@@ -38,7 +38,7 @@ status_opts = [
                min=0,
                max=3600,
                default=180,
-               help='Status result expire time, 0 means save in database'),
+               help='Status result expire time, 0 means save in database, default is 180'),
 ]
 
 
@@ -107,9 +107,10 @@ def active():
 def status():
     CONF.register_cli_opts(muti_opts)
     CONF.register_cli_opts(status_opts)
+    CONF(project='cmd')
     _client = client(session=requests.session())
     now = int(time.time())
-    code, result, data = prepare_results(_client.agents_status(agent_id=CONF.agents,
+    code, result, data = prepare_results(_client.agents_status(agent_id=','.join(CONF.agents),
                                                                body=dict(expire=CONF.expire,
                                                                          request_time=now)))
     if code:
@@ -125,11 +126,11 @@ def status():
     dead = now - asyncrequest.get('deadline')
     print 'Agent status request %s has been sended' % request_id
     print 'Result will respon after %d, dead after %d' % (sleep, dead)
-    if not wait_finish(client, asyncrequest):
+    if not wait_finish(_client, asyncrequest):
         print('\033[1;31;40m')
         print 'Async request not finish after deadline'
         print('\033[0m')
-    p_asyncrequest(client, request_id=request_id)
+    p_asyncrequest(_client, request_id=request_id)
 
 
 def main():

@@ -632,7 +632,7 @@ class RpcAgentManager(RpcManagerBase):
                               result='Get status from %s success' % self.local_ip,
                               details=[dict(detail_id=index, resultcode=manager_common.RESULT_SUCCESS,
                                             result=dict(endpoint=endpoint.namespace,
-                                                        entitys=endpoint.entitys,
+                                                        entitys=len(endpoint.entitys),
                                                         locked=len(endpoint.semaphores),
                                                         frozen=endpoint.frozen))
                                        for index, endpoint in enumerate(self.endpoints)])
