@@ -1,0 +1,74 @@
+#!/usr/bin/python
+import logging
+import sys
+
+from simpleutil.config import cfg
+from simpleutil.utils import table
+from simpleutil.utils import timeutils
+
+from goperation.api.client.config import client_opts
+from goperation.api.client import ManagerClient
+from goperation.api.client.utils import p_asyncrequest
+
+CONF = cfg.CONF
+
+command_opts = [
+    cfg.StrOpt('request_id',
+               short='r',
+               required=True,
+               help='Async request id'),
+    cfg.StrOpt('details',
+               default=True,
+               help='show agents detail results'),
+]
+
+
+def prepare_results(r):
+    if r is None:
+        raise ValueError('Resulst is None')
+    return r.get('resultcode'), r.get('result'), r.get('data')
+
+
+def client():
+    return ManagerClient(url=CONF.gcenter, port=CONF.gcenter_port,
+                         retries=CONF.retries, timeout=CONF.apitimeout,
+                         token=CONF.trusted)
+
+
+def show():
+    CONF.register_cli_opts(command_opts)
+    CONF(project='cmd')
+    _client = client()
+    p_asyncrequest(_client, request_id=CONF.request_id, details=CONF.details)
+
+
+def list():
+    CONF(project='cmd')
+    _client = client()
+    code, result, data = prepare_results(_client.asyncs_index())
+    heads = ['request_id', 'code', 'reqtime', 'finishtime', 'deadline', 'status']
+    tb = table.PleasantTable(ident=8, columns=heads)
+    for r in data:
+        tb.add_row([r.get('request_id'), r.get('resultcode'),
+                    timeutils.unix_to_iso(r.get('request_time')),
+                    timeutils.unix_to_iso(r.get('finishtime')),
+                    timeutils.unix_to_iso(r.get('deadline')),
+                    r.get('status')
+                    ])
+    print tb.pformat()
+
+
+def main():
+    try:
+        func = sys.argv[1]
+    except IndexError:
+        raise ValueError('not action found')
+    if func not in ('list', 'show'):
+        raise ValueError('action error')
+    logging.basicConfig(level=logging.WARN)
+    CONF.register_cli_opts(client_opts)
+    func()
+
+
+if __name__ == '__main__':
+    main()

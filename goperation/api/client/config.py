@@ -11,12 +11,12 @@ client_opts = [
                default='goperation-trusted-token',
                help='Trusted token, means a unlimit user'
                ),
-    cfg.IntOpt('retry',
+    cfg.IntOpt('retries',
                default=3,
                help='Http client retry times'
                ),
     cfg.IntOpt('apitimeout',
-               default=3,
+               default=5,
                help='Http client request timeout'
                ),
 ]

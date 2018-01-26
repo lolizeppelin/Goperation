@@ -85,6 +85,7 @@ class AgentReuest(BaseContorller):
         ret_dict = resultutils.bulk_results(session,
                                             model=Agent,
                                             columns=[Agent.agent_id,
+                                                     Agent.host,
                                                      Agent.agent_type,
                                                      Agent.status,
                                                      Agent.cpu,
@@ -97,6 +98,11 @@ class AgentReuest(BaseContorller):
                                             order=order, desc=desc,
                                             option=joinedload(Agent.endpoints, innerjoin=False),
                                             filter=agent_filter, page_num=page_num)
+        for column in ret_dict['data']:
+            endpoints = column.get('endpoints')
+            column['endpoints'] = []
+            for endpoint in endpoints:
+                column['endpoints'].append(endpoint.endpoint)
         return ret_dict
 
     @BaseContorller.AgentIdformater
@@ -268,6 +274,7 @@ class AgentReuest(BaseContorller):
             result = resultutils.results(result=active_agent.pop('result'),
                                          data=[dict(agent_id=agent.agent_id,
                                                     host=agent.host,
+                                                    agent_type=agent.agent_type,
                                                     metadata=metadata,
                                                     status=agent.status)
                                                ])

@@ -69,6 +69,10 @@ Game operation framework
 %{python_sitelib}/%{proj_name}-%{version}-*.egg-info/*
 %dir %{python_sitelib}/%{proj_name}-%{version}-*.egg-info/
 %{_sysconfdir}/%{proj_name}/goperation.conf.sample
+%{_bindir}/gop-agent
+%{_bindir}/gop-asyncrequest
+%{_bindir}/gop-endpoint
+%{_bindir}/gop-websocket
 %{_bindir}/gop-websocket
 %dir %{_sysconfdir}/%{proj_name}/
 %dir %{_sysconfdir}/%{proj_name}/endpoints/

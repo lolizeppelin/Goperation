@@ -1,0 +1,150 @@
+#!/usr/bin/python
+import time
+import logging
+import sys
+import requests
+
+from simpleutil.config import cfg
+from simpleutil.utils import table
+from simpleutil.utils import timeutils
+
+from goperation.api.client.config import client_opts
+from goperation.api.client import ManagerClient
+from goperation.api.client.utils import p_asyncrequest
+from goperation.api.client.utils import wait_finish
+
+from goperation.manager import common as manager_common
+
+CONF = cfg.CONF
+
+one_opts = [
+    cfg.IntOpt('agent',
+               required=True,
+               help='Target agent id'),
+]
+
+muti_opts = [
+    cfg.ListOpt('agents',
+                required=True,
+                help='Target agents id list'),
+]
+
+status_opts = [
+    cfg.IntOpt('expire',
+               short='e',
+               required=False,
+               min=0,
+               max=3600,
+               default=180,
+               help='Status result expire time, 0 means save in database'),
+]
+
+
+def prepare_results(r):
+    if r is None:
+        raise ValueError('Resulst is None')
+    return r.get('resultcode'), r.get('result'), r.get('data')
+
+
+def client(session=None):
+    return ManagerClient(url=CONF.gcenter, port=CONF.gcenter_port,
+                         retries=CONF.retries, timeout=CONF.apitimeout,
+                         token=CONF.trusted, session=session)
+
+
+def list(group):
+    CONF(project='cmd')
+    _client = client()
+    code, result, data = prepare_results(_client.agents_index())
+    if code:
+        print('\033[1;31;40m')
+        print 'Fail, code %d, result %s' % (code, result)
+        if data:
+            print data
+        print('\033[0m')
+        sys.exit(1)
+    agent_heads = ['id', 'host', 'type', 'status', 'cpu', 'memory(MB)', 'disk/(GB)', 'endpoints', 'create_at']
+    tb = table.PleasantTable(ident=0, columns=agent_heads, counter=True)
+    for agent in data:
+        tb.add_row([agent.get('agent_id'), agent.get('host'), agent.get('agent_type'),
+                    agent.get('status'),
+                    agent.get('cpu'), agent.get('memory'), '%1.2f' % (float(agent.get('disk')) / 1024.0),
+                    '\n'.join(agent.get('endpoints')),
+                    timeutils.unix_to_iso(agent.get('create_time'))])
+    print tb.pformat()
+
+
+def active():
+    CONF.register_cli_opts(one_opts)
+    CONF(project='cmd')
+    _client = client()
+    code, result, data = prepare_results(_client.agent_active(CONF.agent, status=manager_common.ACTIVE))
+    if code:
+        print('\033[1;31;40m')
+        print 'Fail, code %d, result %s' % (code, result)
+        if data:
+            print data
+        print('\033[0m')
+        sys.exit(1)
+    agent = data[0]
+    metadata = agent.get('metadata')
+    print('\033[1;32;40m')
+    print 'Active agent success'
+    print 'id: %d' % agent.get('agent_id')
+    print 'host: %s' % agent.get('host')
+    print 'type: %s' % agent.get('agent_type')
+    print 'zone: %s' % metadata.get('zone')
+    print 'local_ip: %s' % metadata.get('local_ip')
+    print 'external_ips: %s' % ','.join(metadata.get('external_ips'))
+    print('\033[0m')
+
+
+def status():
+    CONF.register_cli_opts(muti_opts)
+    CONF.register_cli_opts(status_opts)
+    _client = client(session=requests.session())
+    now = int(time.time())
+    code, result, data = prepare_results(_client.agents_status(agent_id=CONF.agents,
+                                                               body=dict(expire=CONF.expire,
+                                                                         request_time=now)))
+    if code:
+        print('\033[1;31;40m')
+        print 'Fail, code %d, result %s' % (code, result)
+        if data:
+            print data
+        print('\033[0m')
+        sys.exit(1)
+    asyncrequest = data[0]
+    request_id = asyncrequest.get('request_id')
+    sleep = now - asyncrequest.get('finishtime')
+    dead = now - asyncrequest.get('deadline')
+    print 'Agent status request %s has been sended' % request_id
+    print 'Result will respon after %d, dead after %d' % (sleep, dead)
+    if not wait_finish(client, asyncrequest):
+        print('\033[1;31;40m')
+        print 'Async request not finish after deadline'
+        print('\033[0m')
+    p_asyncrequest(client, request_id=request_id)
+
+
+def main():
+    try:
+        func = sys.argv[1]
+    except IndexError:
+        raise ValueError('not action found')
+    if func not in ('list', 'active', 'status'):
+        raise ValueError('action error')
+    logging.basicConfig(level=logging.WARN)
+    group = cfg.OptGroup('async')
+    CONF.register_cli_opts(client_opts)
+    if func == 'list':
+        pass
+    elif func == 'show':
+        CONF.register_cli_opts(one_opts, group)
+    else:
+        CONF.register_cli_opts(one_opts, group)
+    func()
+
+
+if __name__ == '__main__':
+    main()

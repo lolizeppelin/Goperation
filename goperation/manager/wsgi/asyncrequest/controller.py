@@ -116,23 +116,24 @@ class AsyncWorkRequest(contorller.BaseContorller):
         else:
             ret_dict = resultutils.async_request(request,
                                                  agents=False, details=False)
-            respones = ret_dict['data'][0]['respones']
-            cache_store = get_cache()
-            # get respone from cache redis server
-            key_pattern = targetutils.async_request_pattern(request_id)
-            respone_keys = cache_store.keys(key_pattern)
-            if respone_keys:
-                agent_respones = cache_store.mget(*respone_keys)
-                if agent_respones:
-                    for agent_respone in agent_respones:
-                        if agent_respone:
-                            try:
-                                agent_respone_data = jsonutils.loads_as_bytes(agent_respone)
-                            except (TypeError, ValueError):
-                                continue
-                            if not details:
-                                agent_respone.pop('details', None)
-                            respones.append(agent_respone_data)
+            if agents:
+                respones = ret_dict['data'][0]['respones']
+                cache_store = get_cache()
+                # get respone from cache redis server
+                key_pattern = targetutils.async_request_pattern(request_id)
+                respone_keys = cache_store.keys(key_pattern)
+                if respone_keys:
+                    agent_respones = cache_store.mget(*respone_keys)
+                    if agent_respones:
+                        for agent_respone in agent_respones:
+                            if agent_respone:
+                                try:
+                                    agent_respone_data = jsonutils.loads_as_bytes(agent_respone)
+                                except (TypeError, ValueError):
+                                    continue
+                                if not details:
+                                    agent_respone.pop('details', None)
+                                respones.append(agent_respone_data)
             return ret_dict
 
     @Idformater
