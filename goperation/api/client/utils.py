@@ -1,17 +1,35 @@
 import time
+import sys
 from simpleutil.utils import table
 from simpleutil.utils import timeutils
 
+from simpleservice.plugin.exceptions import HttpRequestError
+from simpleservice.plugin.exceptions import AfterRequestError
 
-def prepare_results(r):
+
+def prepare_results(func, *args, **kwargs):
+    try:
+        r = func(*args, **kwargs)
+    except AfterRequestError as e:
+        print('\033[1;31;40m')
+        print 'Request Fail, http code %d, err msg %s' % (e.code, e.message)
+        print 'Resoin is %s' % e.resone
+        print('\033[0m')
+        sys.exit(1)
+    except HttpRequestError as e:
+        print('\033[1;31;40m')
+        print 'Request Fail, http request not send: %s' % e.message
+        print('\033[0m')
+        sys.exit(1)
     if r is None:
         raise ValueError('Resulst is None')
     return r.get('resultcode'), r.get('result'), r.get('data')
 
 
 def p_asyncrequest(client, request_id, details=False):
-    code, result, data = prepare_results(client.async_show(request_id=request_id,
-                                                           body=dict(details=details)))
+    code, result, data = prepare_results(client.async_show,
+                                         request_id=request_id,
+                                         body=dict(details=details))
     heads = ['request_id', 'code', 'reqtime', 'finishtime', 'deadline', 'expire', 'status', 'result']
     heads_agents = ['agent', 'code', 'sendtime', 'recvtime', 'result']
     heads_details = ['id', 'code', 'result']
@@ -45,8 +63,9 @@ def p_asyncrequest(client, request_id, details=False):
 
 
 def is_finished(client, request_id):
-    code, result, data = prepare_results(client.async_show(request_id=request_id,
-                                                           body=dict(details=False, agents=False)))
+    code, result, data = prepare_results(client.async_show,
+                                         request_id=request_id,
+                                         body=dict(details=False, agents=False))
     if code:
         raise ValueError('Fail, code %d, result %s' % (code, result))
     asyncrequest = data[0]

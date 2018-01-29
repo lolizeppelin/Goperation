@@ -13,6 +13,7 @@ from goperation.api.client.config import client_opts
 from goperation.api.client import ManagerClient
 from goperation.api.client.utils import p_asyncrequest
 from goperation.api.client.utils import wait_finish
+from goperation.api.client.utils import prepare_results
 
 from goperation.manager import common as manager_common
 
@@ -42,12 +43,6 @@ status_opts = [
 ]
 
 
-def prepare_results(r):
-    if r is None:
-        raise ValueError('Resulst is None')
-    return r.get('resultcode'), r.get('result'), r.get('data')
-
-
 def client(session=None):
     return ManagerClient(url=CONF.gcenter, port=CONF.gcenter_port,
                          retries=CONF.retries, timeout=CONF.apitimeout,
@@ -57,7 +52,7 @@ def client(session=None):
 def list():
     CONF(project='cmd')
     _client = client()
-    code, result, data = prepare_results(_client.agents_index())
+    code, result, data = prepare_results(_client.agents_index)
     if code:
         print('\033[1;31;40m')
         print 'Fail, code %d, result %s' % (code, result)
@@ -83,7 +78,7 @@ def show():
     CONF.register_cli_opts(one_opts)
     CONF(project='cmd')
     _client = client()
-    code, result, data = prepare_results(_client.agent_show(CONF.agent, body=dict(ports=True, entitys=True)))
+    code, result, data = prepare_results(_client.agent_show, CONF.agent, body=dict(ports=True, entitys=True))
     if code:
         print('\033[1;31;40m')
         print 'Fail, code %d, result %s' % (code, result)
@@ -121,7 +116,7 @@ def active():
     CONF.register_cli_opts(one_opts)
     CONF(project='cmd')
     _client = client()
-    code, result, data = prepare_results(_client.agent_active(CONF.agent, status=manager_common.ACTIVE))
+    code, result, data = prepare_results(_client.agent_active, CONF.agent, status=manager_common.ACTIVE)
     if code:
         print('\033[1;31;40m')
         print 'Fail, code %d, result %s' % (code, result)
@@ -148,9 +143,9 @@ def status():
     CONF(project='cmd')
     _client = client(session=requests.session())
     now = int(time.time())
-    code, result, data = prepare_results(_client.agents_status(agent_id=','.join(CONF.agents),
-                                                               body=dict(expire=CONF.expire,
-                                                                         request_time=now)))
+    code, result, data = prepare_results(_client.agents_status, agent_id=','.join(CONF.agents),
+                                         body=dict(expire=CONF.expire,
+                                                   request_time=now))
     if code:
         print('\033[1;31;40m')
         print 'Fail, code %d, result %s' % (code, result)
@@ -171,13 +166,41 @@ def status():
     p_asyncrequest(_client, request_id=request_id, details=True)
 
 
+def upgrade():
+    CONF.register_cli_opts(muti_opts)
+    CONF(project='cmd')
+    _client = client(session=requests.session())
+    now = int(time.time())
+    code, result, data = prepare_results(_client.agents_upgrade, agent_id=','.join(CONF.agents))
+    if code:
+        print('\033[1;31;40m')
+        print 'Fail, code %d, result %s' % (code, result)
+        if data:
+            print data
+        print('\033[0m')
+        sys.exit(1)
+    asyncrequest = data[0]
+    request_id = asyncrequest.get('request_id')
+    sleep = now - asyncrequest.get('finishtime')
+    dead = now - asyncrequest.get('deadline')
+    print 'Agent upgrade request %s has been sended' % request_id
+    print 'Result will respon after %d, dead after %d' % (sleep, dead)
+    if not wait_finish(_client, asyncrequest):
+        print('\033[1;31;40m')
+        print 'Async request not finish after deadline'
+        print('\033[0m')
+    p_asyncrequest(_client, request_id=request_id, details=True)
+
+
 def main():
+    FUNCS = ['list', 'show', 'active', 'status', 'upgrade']
+
     try:
         func = sys.argv.pop(1)
-        if func not in ('list', 'show', 'active', 'status'):
+        if func not in FUNCS:
             raise ValueError
     except (IndexError, ValueError):
-        print 'action is:  list status active status'
+        print 'action is:  %s' % '  '.join(FUNCS)
         print 'use -h for help'
         sys.exit(1)
     func = eval(func)

@@ -109,7 +109,7 @@ class ManagerClient(HttpClientBase):
                                             resone=results['result'])
         return results
 
-    def agents_upgrade(self, agent_id, body):
+    def agents_upgrade(self, agent_id, body=None):
         resp, results = self.retryable_post(action=self.agent_ext_path % (str(agent_id), 'upgrade'),
                                             body=body)
         if results['resultcode'] != common.RESULT_SUCCESS:
