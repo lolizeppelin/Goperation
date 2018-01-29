@@ -14,11 +14,11 @@ client_opts = [
                ),
     cfg.IntOpt('retries',
                default=3,
-               help='Http client retry times'
+               help='Http client retry times, default is 3'
                ),
     cfg.IntOpt('apitimeout',
                default=5,
-               help='Http client request timeout'
+               help='Http client request timeout, defalut is 5'
                ),
 ]
 
