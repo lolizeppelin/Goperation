@@ -197,7 +197,7 @@ class OnlinTaskReporter(IntervalLoopinTask):
             elif status == 'running':
                 running += 1
             else:
-                LOG.error('process status not sleeping or running')
+                LOG.error('process status not sleeping or running, status %s' % status)
             if hasattr(proc, 'connection_iter'):
                 proc_iter = proc.connection_iter
             else:
