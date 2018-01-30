@@ -9,6 +9,7 @@ from simpleutil.utils import timeutils
 from goperation.api.client.config import client_opts
 from goperation.api.client import ManagerClient
 from goperation.api.client.utils import p_asyncrequest
+from goperation.api.client.utils import prepare_results
 
 CONF = cfg.CONF
 
@@ -18,15 +19,12 @@ command_opts = [
                required=True,
                help='Async request id'),
     cfg.StrOpt('details',
+               short='d',
                default=True,
                help='show agents detail results'),
 ]
 
 
-def prepare_results(r):
-    if r is None:
-        raise ValueError('Resulst is None')
-    return r.get('resultcode'), r.get('result'), r.get('data')
 
 
 def client():
@@ -45,7 +43,7 @@ def show():
 def list():
     CONF(project='cmd')
     _client = client()
-    code, result, data = prepare_results(_client.asyncs_index())
+    code, result, data = prepare_results(_client.asyncs_index)
     heads = ['request_id', 'code', 'reqtime', 'finishtime', 'deadline', 'status']
     tb = table.PleasantTable(ident=0, columns=heads)
     for r in data:

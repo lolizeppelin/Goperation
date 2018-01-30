@@ -1,18 +1,11 @@
+REGEX = '^(all|[1-9]\d*?|[1-9]\d*?-[1-9]\d*?)$'
+
 import re
 
-MD5LIKE = re.compile('^[a-z0-9]{32}$')
+x = re.compile(REGEX)
 
-def is_md5_like(var):
-    return re.match(MD5LIKE, var) is not None
+match = re.search(x, '03544')
 
-from simpleutil.utils import digestutils
-
-path = r'C:\Users\loliz_000\Desktop\2.xlsx'
-
-var = digestutils.filemd5(path)
-print var
-print digestutils.filecrc32(path)
-
-print is_md5_like(var)
-
-import goperation.manager.filters.filter
+print match
+if match:
+    print match.groups()
