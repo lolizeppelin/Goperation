@@ -190,7 +190,7 @@ def upgrade():
         print('\033[1;31;40m')
         print 'Async request not finish after deadline'
         print('\033[0m')
-    p_asyncrequest(_client, request_id=request_id, details=True)
+    p_asyncrequest(_client, request_id=request_id, details=False)
 
 
 def main():

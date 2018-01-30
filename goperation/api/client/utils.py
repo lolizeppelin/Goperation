@@ -80,13 +80,13 @@ def wait_finish(client, asyncrequest):
     request_id = asyncrequest.get('request_id')
     finishtime = asyncrequest.get('finishtime')
     deadline = asyncrequest.get('deadline') + 3
-    time.sleep(1)
+    time.sleep(3)
     sleep = now - finishtime
-    if sleep >= 5:
-        time.sleep(5)
+    if sleep >= 3:
+        time.sleep(3)
         if is_finished(client, request_id):
             return True
-    time.sleep(sleep - 5)
+    time.sleep(sleep - 3)
     while int(time.time()) < deadline:
         if not is_finished(client, request_id):
             time.sleep(1)
