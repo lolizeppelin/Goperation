@@ -54,12 +54,12 @@ def p_asyncrequest(client, request_id, details=False):
                         ])
             print tb.pformat()
             if details:
-                details = rr.get('details')
-                tb = table.PleasantTable(ident=30, columns=heads_details)
-                if details:
-                    for rrr in details:
+                _details = rr.get('details')
+                if _details:
+                    tb = table.PleasantTable(ident=30, columns=heads_details)
+                    for rrr in _details:
                         tb.add_row([rrr.get('detail_id'), rrr.get('resultcode'), rrr.get('result')])
-                print tb.pformat()
+                    print tb.pformat()
 
 
 def is_finished(client, request_id):
@@ -80,7 +80,7 @@ def wait_finish(client, asyncrequest):
     request_id = asyncrequest.get('request_id')
     finishtime = asyncrequest.get('finishtime')
     deadline = asyncrequest.get('deadline') + 3
-    time.sleep(3)
+    time.sleep(5)
     sleep = now - finishtime
     if sleep >= 3:
         time.sleep(3)
