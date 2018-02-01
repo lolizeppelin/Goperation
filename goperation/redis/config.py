@@ -37,7 +37,7 @@ redis_opts = [
                min=1,
                help='Over time max count of redis_heartbeat_overtime'),
     cfg.StrOpt('redis_key_prefix',
-               default='goper',
+               default='gop',
                max_length=12,
                regex='^[a-zA-Z0-9]+$',
                help='redis key prefix value')
