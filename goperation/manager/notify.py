@@ -85,6 +85,9 @@ class EmptyNotify(NotifyInterface):
     def default(self):
         """do nothing"""
 
+    def _do(self, *args, **kwargs):
+        """do nothing"""
+
 
 @six.add_metaclass(abc.ABCMeta)
 class GeneralNotify(object):
