@@ -151,6 +151,7 @@ class FileReuest(BaseContorller):
                                                                             md5=downfile.md5,
                                                                             crc32=downfile.crc32,
                                                                             size=downfile.size,
+                                                                            address=downfile.address,
                                                                             uploadtime=downfile.uploadtime,
                                                                             downloader=downfile.downloader)])
 
