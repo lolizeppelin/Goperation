@@ -163,6 +163,7 @@ def status():
         print('\033[1;31;40m')
         print 'Async request not finish after deadline'
         print('\033[0m')
+        sys.exit(1)
     p_asyncrequest(_client, request_id=request_id, details=True)
 
 
@@ -190,6 +191,7 @@ def upgrade():
         print('\033[1;31;40m')
         print 'Async request not finish after deadline'
         print('\033[0m')
+        sys.exit(1)
     p_asyncrequest(_client, request_id=request_id, details=False)
 
 
