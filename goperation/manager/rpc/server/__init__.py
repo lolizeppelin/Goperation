@@ -162,8 +162,9 @@ class RpcServerManager(RpcManagerBase):
 
         def check_respone():
             wait = finishtime - int(time.time())
-            if wait > 0:
-                eventlet.sleep(wait)
+            # 先等待5秒,可以提前检查
+            if wait > 5:
+                eventlet.sleep(5)
             not_response_agents = set(wait_agents)
 
             not_overtime = 2
@@ -173,6 +174,9 @@ class RpcServerManager(RpcManagerBase):
                                                               agents=not_response_agents)
                 if not not_response_agents:
                     break
+                if int(time.time()) < finishtime:
+                    wait = finishtime - int(time.time())
+                    eventlet.sleep(wait)
                 if int(time.time()) > deadline:
                     not_overtime -= 1
                     if not not_overtime:
