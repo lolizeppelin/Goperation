@@ -155,8 +155,8 @@ def status():
         sys.exit(1)
     asyncrequest = data[0]
     request_id = asyncrequest.get('request_id')
-    sleep = now - asyncrequest.get('finishtime')
-    dead = now - asyncrequest.get('deadline')
+    sleep = asyncrequest.get('finishtime') - now
+    dead = asyncrequest.get('deadline') - now
     print 'Agent status request %s has been sended' % request_id
     print 'Result will respon after %d, dead after %d' % (sleep, dead)
     if not wait_finish(_client, asyncrequest):
@@ -183,8 +183,8 @@ def upgrade():
         sys.exit(1)
     asyncrequest = data[0]
     request_id = asyncrequest.get('request_id')
-    sleep = now - asyncrequest.get('finishtime')
-    dead = now - asyncrequest.get('deadline')
+    sleep = asyncrequest.get('finishtime') - now
+    dead = asyncrequest.get('deadline') - now
     print 'Agent upgrade request %s has been sended' % request_id
     print 'Result will respon after %d, dead after %d' % (sleep, dead)
     if not wait_finish(_client, asyncrequest):
