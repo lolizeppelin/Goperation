@@ -627,9 +627,13 @@ class RpcAgentManager(RpcManagerBase):
 
     @CheckManagerRpcCtxt
     def rpc_status_agent(self, ctxt, **kwargs):
+        memory = psutil.virtual_memory()
+        mem = memory.cached / (1024 * 1024) + memory.free / (1024 * 1024)
         return AgentRpcResult(self.agent_id, ctxt,
                               resultcode=manager_common.RESULT_SUCCESS,
-                              result='Get status from %s success' % self.local_ip,
+                              result='host:%s,local_ip:%s,disk:%d,mem:%d' % (self.host, self.local_ip,
+                                                                             self.partion_left_size, mem,
+                                                                             ),
                               details=[dict(detail_id=index, resultcode=manager_common.RESULT_SUCCESS,
                                             result=dict(endpoint=endpoint.namespace,
                                                         entitys=len(endpoint.entitys),
