@@ -266,7 +266,7 @@ def mysql_flow_factory(app, store):
     if not app.databases:
         return None
     middleware = app.middleware
-    endpoint_name = middleware.endpoint.namespace
+    endpoint_name = middleware.endpoint
     entity = middleware.entity
     uflow = uf.Flow('dmp_and_up_%s_%d' % (endpoint_name, entity))
     for index, database in enumerate(app.databases):

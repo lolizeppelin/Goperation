@@ -18,7 +18,7 @@ def entity_factory(session, app, store, db_flow_factory):
     @param store:                   class: dict
     @param db_flow_factory:         class: function
     """
-    endpoint_name = app.middleware.endpoint.namespace
+    endpoint_name = app.middleware.endpoint
     entity = app.middleware.entity
     entity_flow = lf.Flow('entity_%s_%d' % (endpoint_name, entity))
 
