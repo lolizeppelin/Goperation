@@ -36,3 +36,7 @@ index_opts = [
                 help='Bluk select results order desc'
                 ),
 ]
+
+zone_opt = cfg.StrOpt('zone',
+                      regex='^[a-z][a-z0-9]+$',
+                      help='Agent zone mark defalut all')
