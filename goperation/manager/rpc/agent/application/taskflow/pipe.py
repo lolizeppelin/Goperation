@@ -76,7 +76,7 @@ def flow_factory(session, applications,
     store = store or {}
     if store.get('backupfile'):
         raise RuntimeError('Backupfile in store')
-    endpoint_name = applications[0].middleware.endpoint.namespace
+    endpoint_name = applications[0].middleware.endpoint
 
     main_flow = lf.Flow('%s_taskflow' % endpoint_name)
 
