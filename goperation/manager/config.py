@@ -9,6 +9,8 @@ from simpleservice.rpc.driver.config import rpc_client_opts
 from goperation import config as goperation_config
 from goperation.redis.config import redis_opts
 
+from goperation.manager import common
+
 CONF = cfg.CONF
 
 
@@ -28,7 +30,8 @@ goperation_opts = [
                ),
 ]
 
-manager_group = cfg.OptGroup(name='manager', title='Manager base options')
+manager_group = cfg.OptGroup(name=common.NAME,
+                             title='Manager base options')
 
 CONF.register_group(manager_group)
 # goperation opts for manager

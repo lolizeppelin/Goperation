@@ -1,5 +1,7 @@
 from simpleservice.common import *
 
+NAME = 'manager'
+
 MAX_ENDPOINT_NAME_SIZE = 64
 MAX_HOST_NAME_SIZE = 128
 
