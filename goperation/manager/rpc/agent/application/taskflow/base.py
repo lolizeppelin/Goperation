@@ -18,12 +18,12 @@ class StandardTask(Task):
     def __init__(self, middleware, provides=None,
                  rebind=None, requires=None,
                  revert_rebind=None, revert_requires=None):
+        self.middleware = middleware
+        middleware.set_return(self.taskname)
         super(StandardTask, self).__init__(name='%s_%d' % (self.taskname,  middleware.entity),
                                            provides=provides,
                                            rebind=rebind, requires=requires,
                                            revert_rebind=revert_rebind, revert_requires=revert_requires)
-        self.middleware = middleware
-        middleware.set_return(self.taskname)
 
     def revert(self, *args, **kwargs):
         result = kwargs.get('result') if 'result' in kwargs else args[0]
