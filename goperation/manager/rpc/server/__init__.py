@@ -42,7 +42,25 @@ LOG = logging.getLogger(__name__)
 
 CONF = cfg.CONF
 
-NONE = object()
+
+class NOTFOUND(object):
+    def __repr__(self):
+        return 'Not Found'
+
+
+NOTFOUND = NOTFOUND()
+
+
+def iter_value(d, key):
+    keys = key.split('.')
+    value = d
+    for k in keys:
+        if value is None:
+            raise InvalidArgument('%s error, None find' % key)
+        value = value.get(k, NOTFOUND)
+        if value is NOTFOUND:
+            return NOTFOUND
+    return value
 
 
 class ChiocesResult(resultutils.ServerRpcResult):
@@ -59,6 +77,7 @@ class ChiocesResult(resultutils.ServerRpcResult):
 
 
 class ExpiredAgentStatusTask(IntervalLoopinTask):
+
     def __init__(self, manager):
         self.manager = manager
         conf = CONF[manager_common.SERVER]
@@ -239,23 +258,33 @@ class RpcServerManager(RpcManagerBase):
 
     def _sort_by_weigher(self, weighters, chioces):
 
+        LOG.info('Sort by weighters')
+        if LOG.isEnabledFor(logging.DEBUG):
+            LOG.debug('weighters %s' % str(weighters))
+            LOG.debug('chioces %s' % str(chioces))
+            need = [d.keys()[0] for d in weighters]
+            for chioce in chioces:
+                _loads = []
+                loads = self.agents_loads[chioce]
+                for key in need:
+                    value = iter_value(loads, key)
+                    _loads.append('%s:%s' % (str(key), str(value)))
+                LOG.debug('chioce %d loads %s' % (chioce, ','.join(_loads)))
+
         def _weight(agent_id):
             loads = self.agents_loads[agent_id]
             sorts = []
             for weighter in weighters:
                 target, _value = weighter.items()[0]
-                keys = target.split('.')
-                value = loads
-                for key in keys:
-                    if value is None:
-                        raise InvalidArgument('weighter key %s is None' % key)
-                    value = value.get(key, NONE)
-                    if value is NONE:
-                        raise InvalidArgument('weighter error, key not found')
+                value = iter_value(loads, target)
+                if value is NOTFOUND:
+                    raise InvalidArgument('weighter error, key not found')
                 if not _value:
                     sorts.append(value)
                 else:
                     sorts.append(value/_value)
+            if LOG.isEnabledFor(logging.DEBUG):
+                LOG.debug('sorts %s' % str(sorts))
             return sorts
 
         chioces.sort(key=_weight)
@@ -271,16 +300,9 @@ class RpcServerManager(RpcManagerBase):
                     if not include:
                         break
                     _operator, baseline = baselines
-                    keys = target.split('.')
-                    value = self.agents_loads[agent_id]
-                    for key in keys:
-                        if value is None:
-                            raise InvalidArgument('exclud key %s is None' % key)
-                        value = value.get(key, NONE)
-                        if value is NONE:
-                            include = False
-                            break
-                    if value is NONE:
+                    value = iter_value(self.agents_loads[agent_id], target)
+                    if value is NOTFOUND:
+                        include = False
                         break
                     if value is None:
                         value = 'None'

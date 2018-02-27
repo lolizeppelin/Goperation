@@ -16,6 +16,7 @@ from goperation.manager.utils.resultutils import UriResult
 
 CONF = cfg.CONF
 
+
 class AppEndpointBase(RpcAgentEndpointBase):
     """Endpoint base class"""
 
@@ -77,9 +78,9 @@ class AppEndpointBase(RpcAgentEndpointBase):
             uri = self.manager.readlog(logpath, self.entity_user(entity), self.entity_group(entity))
         except ValueError as e:
             return UriResult(resultcode=manager_common.RESULT_ERROR,
-                                   result='read log of %s fail:%s' % (self.namespace, e.message))
+                             result='read log of %s fail:%s' % (self.namespace, e.message))
         return UriResult(resultcode=manager_common.RESULT_SUCCESS,
-                               result='get log of %s success' % self.namespace, uri=uri)
+                         result='get log of %s success' % self.namespace, uri=uri)
 
     def _entity_token(self, entity):
         info = self.entitys_tokens.pop(entity, None)

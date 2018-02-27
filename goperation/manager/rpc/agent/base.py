@@ -351,7 +351,7 @@ class RpcAgentManager(RpcManagerBase):
         interface, self.ipnetwork = get_network(self.local_ip)
         if not self.ipnetwork:
             raise RuntimeError('can not find local ip netmask')
-        LOG.info('Local ip %s/%s on interface %s' % (self.local_ip, self.ipnetwork.netmask, interface))
+        LOG.debug('Local ip %s/%s on interface %s' % (self.local_ip, self.ipnetwork.netmask, interface))
         global DISK
         DISK = psutil.disk_usage(self.work_path).total/(1024*1024)
         # agent id
