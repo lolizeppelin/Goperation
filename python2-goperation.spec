@@ -25,6 +25,7 @@ BuildArch:      noarch
 BuildRequires:  python-setuptools >= 11.0
 BuildRequires:  python-simpleutil
 
+Requires:       ntp >= 4.0
 Requires:       python >= 2.6.6
 Requires:       python < 3.0
 Requires:       python-redis >= 2.10.0
