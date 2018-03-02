@@ -117,7 +117,7 @@ class AppBackUp(StandardTask):
             src = self.middleware.apppath
             LOG.debug('AppBackUp dump local bakcup from path %s' % src)
             dst = self.backupfile
-            waiter = zlibutils.async_compress(src, dst, exclude=None,
+            waiter = zlibutils.async_compress(src, dst, exclude=self.middleware.exclude,
                                               native=native,
                                               fork=functools.partial(safe_fork,
                                                                      user=self.middleware.entity_user,
