@@ -1,7 +1,8 @@
 import os
 import six
 
-import eventlet
+from collections import namedtuple
+
 import datetime
 from eventlet import event
 from eventlet.semaphore import Semaphore
@@ -24,16 +25,7 @@ from goperation.filemanager import downloader
 
 LOG = logging.getLogger(__name__)
 
-
-class TargetFile(object):
-
-    def __init__(self, source):
-        self.source = source
-        self.realpath = None
-
-    def clean(self):
-        if self.realpath is not None and os.path.exists(self.realpath):
-            os.remove(self.realpath)
+LocalFile = namedtuple('file', ['path', 'uuid', 'md5', 'crc32'])
 
 
 @singleton
@@ -165,121 +157,137 @@ class FileManager(object):
             for ev in six.itervalues(self.downloading):
                 try:
                     ev.wait()
-                except:
+                except Exception as e:
+                    LOG.error('Stop file manager fail with %s' % str(e))
                     pass
             self.session.close()
             self.session = None
 
-    def find(self, mark):
+    def find(self, target):
+        if target in self.localfiles:
+            return LocalFile([target,
+                              self.localfiles[target]['uuid'],
+                              self.localfiles[target]['md5'],
+                              self.localfiles[target]['crc32']])
         for path, marks in six.iteritems(self.localfiles):
-            if mark in six.itervalues(marks):
-                target = TargetFile(mark)
-                target.realpath = path
-                return target
+            if target in six.itervalues(marks):
+                return LocalFile([path,
+                                  marks['uuid'],
+                                  marks['md5'],
+                                  marks['crc32']])
+        raise exceptions.NoFileFound('File Manager can not find file of %s' % target)
 
     def get(self, target, download=True, timeout=None):
         if not self.session:
             raise exceptions.FileManagerError('File managere closed')
-        if isinstance(target, basestring):
-            target = TargetFile(target)
-        if not isinstance(target, TargetFile):
-            raise TypeError('Target type is not TargetFile')
-        for path, marks in six.iteritems(self.localfiles):
-            if target.source in six.itervalues(marks):
-                target.realpath = path
-                return target.realpath
-        if download:
-            mark = target.source
-            with self.lock:
-                if not self.session:
-                    raise RuntimeError('FileManager closed')
-                if mark in self.downloading:
-                    th = self.downloading[mark]
-                else:
-                    th = self.threadpool.add_thread(self._download, mark, timeout)
-                    eventlet.sleep(0)
-            th.wait()
-            return self.get(target=target, download=False)
-        else:
-            raise exceptions.NoFileFound('File Manager can not find file of %s' % target.source)
-
-    def asyncget(self, target, timeout):
         try:
-            self.get(target, download=False)
+            return self.find(target)
         except exceptions.NoFileFound:
-            mark = target.source
+            if download:
+                LOG.info('Try download file for %s' % target)
+            else:
+                raise
+        if target in self.downloading:
             with self.lock:
                 if not self.session:
                     raise RuntimeError('FileManager closed')
-                if mark not in self.downloading:
-                    self.threadpool.add_thread(self._download, mark, timeout)
-                    eventlet.sleep(0)
-
+                if target in self.downloading:
+                    th = self.downloading[target]
+                    th.wait()
+        self._download(target, timeout)
+        return self.find(target)
 
     def _download(self, mark, timeout):
-        file_info = self.infoget(mark)
-        LOG.info('Try download file of %s' % str(file_info))
-        jsonutils.schema_validate(file_info, FileManager.SCHEMA)
-        for mark in six.itervalues(file_info['marks']):
-            if mark in self.downloading:
-                th = self.downloading[mark]
-                try:
-                    th.wait()
-                finally:
-                    self.downloading.pop(mark, None)
-                return
-        address = file_info['address']
-        local_file_name = file_info['marks']['uuid'] + os.extsep + file_info['ext']
-        local_path = os.path.join(self.path, local_file_name)
-        if os.path.exists(local_path):
-            raise exceptions.NoFileFound('File %s alreday eixst' % local_file_name)
-        # default downloader http
-        _downloader = downloader_factory(file_info.get('downloader', 'http'),
-                                         file_info.get('adapter_args', []))
+        fileinfo = self.infoget(mark)
+        LOG.info('Try download file of %s' % str(fileinfo))
+        jsonutils.schema_validate(fileinfo, FileManager.SCHEMA)
+        uuid = fileinfo['marks']['uuid']
+        uploadtime = fileinfo.get('uploadtime')
+        if uploadtime:
+            uploadtime = datetime.datetime.strptime(uploadtime, '%Y-%m-%d %H:%M:%S')
+        if uuid in self.downloading:
+            th = self.downloading[uuid]
+            try:
+                th.wait()
+            finally:
+                self.downloading.pop(uuid, None)
+            return
+        address = fileinfo['address']
+        filename = fileinfo['marks']['uuid'] + os.extsep + fileinfo['ext']
+        path = os.path.join(self.path, filename)
         ev = event.Event()
-        self.downloading[mark] = ev
-        # async downloading thread start
-        LOG.info('Download %s with %s' % (address, _downloader.__class__.__name__))
-        th = self.threadpool.add_thread(_downloader.download, address, local_path, timeout)
-        try:
-            md5, crc32 = th.wait()
-            size = os.path.getsize(local_path)
-            if crc32 != file_info['marks']['crc32'] \
-                    or md5 != file_info['marks']['md5'] \
-                    or size != file_info['size']:
-                raise exceptions.FileNotMatch('File md5 or crc32 or size not the same')
-        except Exception as e:
-            if os.path.exists(local_path):
-                try:
-                    os.remove(local_path)
-                except (OSError, IOError):
-                    pass
-            ev.send(exc=e)
-            raise
+        self.downloading[uuid] = ev
+        if os.path.exists(path):
+            try:
+                md5 = digestutils.filemd5(path)
+                crc32 = digestutils.filecrc32(path)
+                size = os.path.getsize(path)
+                LOG.info('Download file %s already exist' % uuid)
+            except Exception as e:
+                LOG.error('Download get size,md5,crc32 fail')
+                ev.send(exc=e)
+                self.downloading.pop(uuid, None)
+                raise e
         else:
-            uuid = file_info['marks']['uuid']
-            LOG.info('Download file %s success, wirte to local database' % uuid)
-            uploadtime = file_info.get('uploadtime')
-            if uploadtime:
-                uploadtime = datetime.datetime.strptime(uploadtime, '%Y-%m-%d %H:%M:%S')
-            self.localfiles[local_path] = dict(crc32=crc32,
-                                               md5=md5,
-                                               uuid=uuid)
+            # default downloader http
+            _downloader = downloader_factory(fileinfo.get('downloader', 'http'),
+                                             fileinfo.get('adapter_args', []))
+
+            # async downloading thread start
+            LOG.info('Download %s with %s' % (address, _downloader.__class__.__name__))
+            # th = self.threadpool.add_thread(_downloader.download, address, path, timeout)
+            try:
+                # md5, crc32 = th.wait()
+                md5, crc32 = _downloader.download(address, path, timeout)
+                size = os.path.getsize(path)
+                LOG.info('Download file %s success, wirte to local database' % uuid)
+            except Exception as e:
+                if os.path.exists(path):
+                    try:
+                        os.remove(path)
+                    except (OSError, IOError):
+                        LOG.error('Download fail, remove path %s fail' % path)
+                ev.send(exc=e)
+                self.downloading.pop(uuid, None)
+                raise
+        try:
+            if crc32 != fileinfo['marks']['crc32'] \
+                    or md5 != fileinfo['marks']['md5'] \
+                    or size != fileinfo['size']:
+                raise exceptions.FileNotMatch('File md5 or crc32 or size not the same')
+            # write into database
             file_detil = models.FileDetail(uuid=uuid, size=size,
                                            crc32=crc32, md5=md5,
-                                           ext=file_info['ext'],
-                                           desc=file_info.get('desc', 'unkonwn file'),
-                                           address=file_info['address'],
+                                           ext=fileinfo['ext'],
+                                           desc=fileinfo.get('desc', 'unkonwn file'),
+                                           address=fileinfo['address'],
                                            uploadtime=uploadtime)
-            try:
-                self.session.add(file_detil)
-                self.session.flush()
-                ev.send(result=None)
-            except Exception as e:
-                ev.send(exc=e)
-                raise
+            self.session.add(file_detil)
+            self.session.flush()
+            self.localfiles[path] = dict(uuid=uuid, crc32=crc32, md5=md5)
+            ev.send(result=None)
+        except Exception as e:
+            ev.send(exc=e)
+            raise
         finally:
-            self.downloading.pop(mark, None)
+            self.downloading.pop(uuid, None)
+
+    def delete(self, target):
+        try:
+            localfile = self.find(target)
+        except exceptions.NoFileFound:
+            return
+        query = model_query(self.session, models.FileDetail,
+                            filter=models.FileDetail.uuid == localfile.uuid)
+        fileobj = query.one_or_none()
+        if fileobj:
+            self.session.delete(fileobj)
+            self.session.flush()
+        if os.path.exists(localfile.path):
+            try:
+                os.remove(localfile.path)
+            except (OSError, IOError):
+                LOG.error('Remove file %s fail' % localfile.path)
 
 
 def downloader_factory(adapter_cls, cls_args):
