@@ -1,4 +1,5 @@
 import re
+from simpleutil.utils import attributes
 from goperation.manager import common as manager_common
 
 illegal_endpoint_name = ['agent', 'port', 'endpoint', 'file', 'async', 'entity'
@@ -32,3 +33,11 @@ def validate_endpoints(value):
             endpoints.add(validate_endpoint(endpoint))
         return list(endpoints)
     raise ValueError('Entpoint list type error')
+
+
+def validate_file_marks(value):
+    if attributes.is_crc32_like(value) \
+            or attributes.is_md5_like(value) \
+            or attributes.is_uuid_like(value):
+        return True
+    return False

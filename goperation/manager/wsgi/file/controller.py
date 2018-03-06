@@ -45,8 +45,7 @@ class FileReuest(BaseContorller):
         'required': ['address', 'size', 'md5', 'crc32'],
         'properties': {
             'uuid': {'type': 'string', 'format': 'uuid'},
-            'crc32': {'type': 'string',
-                      'pattern': '^[0-9]+?$'},
+            'crc32': {'type': 'string', 'format': 'crc32'},
             'md5': {'type': 'string', 'format': 'md5'},
             "downloader": {'type': 'string'},
             "adapter_args": {'type': 'array'},
