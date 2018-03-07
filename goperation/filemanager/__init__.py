@@ -25,7 +25,7 @@ from goperation.filemanager import downloader
 
 LOG = logging.getLogger(__name__)
 
-LocalFile = namedtuple('file', ['path', 'uuid', 'md5', 'crc32'])
+LocalFile = namedtuple('file', ['path', 'md5', 'size'])
 
 
 @singleton
@@ -33,7 +33,7 @@ class FileManager(object):
     # file info schema
     SCHEMA = {
         'type': 'object',
-        'required': ['address', 'ext', 'size', 'uploadtime', 'marks'],
+        'required': ['address', 'ext', 'size', 'uploadtime', 'md5'],
         'properties': {
             "downloader": {'type': 'string'},
             "adapter_args": {'type': 'array'},
@@ -42,15 +42,7 @@ class FileManager(object):
             "size": {'type': 'integer'},
             "desc": {'type': 'string'},
             "uploadtime": {'type': 'string', 'format': 'date-time'},
-            'marks': {
-                'type': 'object',
-                'properties': {
-                    'uuid': {'type': 'string', 'format': 'uuid'},
-                    'crc32': {'type': 'string'},
-                    'md5': {'type': 'string', 'format': 'md5'},
-                    },
-                'required': ['uuid', 'crc32', 'md5']
-            }
+            'md5': {'type': 'string', 'format': 'md5'},
         }
     }
 
@@ -77,7 +69,7 @@ class FileManager(object):
         if not self.session:
             raise exceptions.FileManagerError('FileManager database session is None')
         not_match_files = []
-        local_files = {}
+        localfiles = {}
         with self.lock:
             if self.downloading:
                 raise exceptions.DownLoading('Can not scan when downlonding')
@@ -88,29 +80,29 @@ class FileManager(object):
                 full_path = os.path.join(self.path, filename)
                 if os.path.isfile(full_path):
                     size = os.path.getsize(full_path)
-                    uuid, ext = os.path.splitext(filename)
+                    md5, ext = os.path.splitext(filename)
                     if len(ext) < 1 or not ext.startswith(os.extsep):
                         if strict:
                             raise RuntimeError('File with name %s ext value error' % filename)
                         continue
-                    if not attributes.is_uuid_like(uuid):
+                    if not attributes.is_md5_like(md5):
                         if strict:
-                            raise RuntimeError('File with name %s is not uuid' % filename)
+                            raise RuntimeError('File with name %s is not md5' % filename)
                         continue
-                    if uuid in local_files:
+                    if md5 in localfiles:
                         if strict:
-                            raise RuntimeError('File with uuid %s is duplication' % filename)
-                    local_files[uuid] = dict(size=size, ext=ext[1:])
+                            raise RuntimeError('File with md5 %s is duplication' % filename)
+                    localfiles[md5] = dict(size=size, ext=ext[1:])
             # files record in database
             self.localfiles.clear()
             query = model_query(self.session, models.FileDetail)
             files = query.all()
             with self.session.begin():
                 for _file_detail in files:
-                    filename = _file_detail.uuid + os.extsep + _file_detail.ext
+                    filename = _file_detail.md5 + os.extsep + _file_detail.ext
                     file_path = os.path.join(self.path, filename)
                     try:
-                        local_file = local_files.pop(_file_detail.uuid)
+                        local_file = localfiles.pop(_file_detail.md5)
                         local_size = local_file['size']
                         local_ext = local_file['ext']
                         if local_size != _file_detail.size or local_ext != _file_detail.ext:
@@ -123,27 +115,24 @@ class FileManager(object):
                         self.session.delete(_file_detail)
                         self.session.flush()
                         continue
-                    self.localfiles[file_path] = dict(crc32=_file_detail.crc32,
-                                                      md5=_file_detail.md5,
-                                                      uuid=_file_detail.uuid)
+                    self.localfiles[file_path] = LocalFile([file_path,
+                                                            _file_detail.md5, _file_detail.size])
+
             with self.session.begin():
-                while local_files:
-                    uuid, local_file = local_files.popitem()
+                while localfiles:
+                    md5, local_file = localfiles.popitem()
                     local_size = local_file['size']
                     local_ext = local_file['ext']
-                    filename = uuid + os.extsep + local_ext
+                    filename = md5 + os.extsep + local_ext
                     file_path = os.path.join(self.path, filename)
-                    crc32 = digestutils.filecrc32(file_path)
                     md5 = digestutils.filemd5(file_path)
-                    _file_detail = models.FileDetail(uuid=uuid, size=local_size,
-                                                     crc32=crc32, md5=md5, ext=local_ext,
+                    _file_detail = models.FileDetail(size=local_size, md5=md5, ext=local_ext,
                                                      desc='add from scanning')
                     # add file record into database
                     self.session.add(_file_detail)
                     self.session.flush()
-                    self.localfiles[file_path] = dict(crc32=crc32,
-                                                      md5=md5,
-                                                      uuid=uuid)
+                    self.localfiles[file_path] = LocalFile([file_path,
+                                                            _file_detail.md5, _file_detail.size])
             # delete check fail files
             for _file in not_match_files:
                 os.remove(_file)
@@ -165,16 +154,11 @@ class FileManager(object):
 
     def find(self, target):
         if target in self.localfiles:
-            return LocalFile([target,
-                              self.localfiles[target]['uuid'],
-                              self.localfiles[target]['md5'],
-                              self.localfiles[target]['crc32']])
-        for path, marks in six.iteritems(self.localfiles):
-            if target in six.itervalues(marks):
-                return LocalFile([path,
-                                  marks['uuid'],
-                                  marks['md5'],
-                                  marks['crc32']])
+            return self.localfiles[target]
+        for localfile in six.itervalues(self.localfiles):
+            if target == localfile.md5:
+                return localfile
+
         raise exceptions.NoFileFound('File Manager can not find file of %s' % target)
 
     def get(self, target, download=True, timeout=None):
@@ -187,46 +171,46 @@ class FileManager(object):
                 LOG.info('Try download file for %s' % target)
             else:
                 raise
-        if target in self.downloading:
-            with self.lock:
-                if not self.session:
-                    raise RuntimeError('FileManager closed')
-                if target in self.downloading:
-                    th = self.downloading[target]
-                    th.wait()
-        self._download(target, timeout)
+        with self.lock:
+            if not self.session:
+                raise RuntimeError('FileManager closed')
+            if target not in self.downloading:
+                self._download(target, timeout)
+            else:
+                th = self.downloading[target]
+                th.wait()
         return self.find(target)
 
-    def _download(self, mark, timeout):
-        fileinfo = self.infoget(mark)
+    def _download(self, md5, timeout):
+        if not attributes.is_md5_like(md5):
+            raise ValueError('%s is not md5, can not download' % md5)
+        fileinfo = self.infoget(md5)
         LOG.info('Try download file of %s' % str(fileinfo))
         jsonutils.schema_validate(fileinfo, FileManager.SCHEMA)
-        uuid = fileinfo['marks']['uuid']
         uploadtime = fileinfo.get('uploadtime')
         if uploadtime:
             uploadtime = datetime.datetime.strptime(uploadtime, '%Y-%m-%d %H:%M:%S')
-        if uuid in self.downloading:
-            th = self.downloading[uuid]
+        if md5 in self.downloading:
+            th = self.downloading[md5]
             try:
                 th.wait()
             finally:
-                self.downloading.pop(uuid, None)
+                self.downloading.pop(md5, None)
             return
         address = fileinfo['address']
-        filename = fileinfo['marks']['uuid'] + os.extsep + fileinfo['ext']
+        filename = md5 + os.extsep + fileinfo['ext']
         path = os.path.join(self.path, filename)
         ev = event.Event()
-        self.downloading[uuid] = ev
+        self.downloading[md5] = ev
         if os.path.exists(path):
             try:
                 md5 = digestutils.filemd5(path)
-                crc32 = digestutils.filecrc32(path)
                 size = os.path.getsize(path)
-                LOG.info('Download file %s already exist' % uuid)
+                LOG.info('Download file %s already exist' % md5)
             except Exception as e:
-                LOG.error('Download get size,md5,crc32 fail')
+                LOG.error('Download get size,md5 fail')
                 ev.send(exc=e)
-                self.downloading.pop(uuid, None)
+                self.downloading.pop(md5, None)
                 raise e
         else:
             # default downloader http
@@ -237,10 +221,9 @@ class FileManager(object):
             LOG.info('Download %s with %s' % (address, _downloader.__class__.__name__))
             # th = self.threadpool.add_thread(_downloader.download, address, path, timeout)
             try:
-                # md5, crc32 = th.wait()
-                md5, crc32 = _downloader.download(address, path, timeout)
+                md5 = _downloader.download(address, path, timeout)
                 size = os.path.getsize(path)
-                LOG.info('Download file %s success, wirte to local database' % uuid)
+                LOG.info('Download file %s success, wirte to local database' % md5)
             except Exception as e:
                 if os.path.exists(path):
                     try:
@@ -248,29 +231,26 @@ class FileManager(object):
                     except (OSError, IOError):
                         LOG.error('Download fail, remove path %s fail' % path)
                 ev.send(exc=e)
-                self.downloading.pop(uuid, None)
+                self.downloading.pop(md5, None)
                 raise
         try:
-            if crc32 != fileinfo['marks']['crc32'] \
-                    or md5 != fileinfo['marks']['md5'] \
-                    or size != fileinfo['size']:
-                raise exceptions.FileNotMatch('File md5 or crc32 or size not the same')
+            if md5 != fileinfo['md5'] or size != fileinfo['size']:
+                raise exceptions.FileNotMatch('File md5 or size not the same')
             # write into database
-            file_detil = models.FileDetail(uuid=uuid, size=size,
-                                           crc32=crc32, md5=md5,
+            file_detil = models.FileDetail(md5=md5, size=size,
                                            ext=fileinfo['ext'],
                                            desc=fileinfo.get('desc', 'unkonwn file'),
                                            address=fileinfo['address'],
                                            uploadtime=uploadtime)
             self.session.add(file_detil)
             self.session.flush()
-            self.localfiles[path] = dict(uuid=uuid, crc32=crc32, md5=md5)
+            self.localfiles[path] = md5
             ev.send(result=None)
         except Exception as e:
             ev.send(exc=e)
             raise
         finally:
-            self.downloading.pop(uuid, None)
+            self.downloading.pop(md5, None)
 
     def delete(self, target):
         try:
@@ -278,7 +258,7 @@ class FileManager(object):
         except exceptions.NoFileFound:
             return
         query = model_query(self.session, models.FileDetail,
-                            filter=models.FileDetail.uuid == localfile.uuid)
+                            filter=models.FileDetail.md5 == localfile.md5)
         fileobj = query.one_or_none()
         if fileobj:
             self.session.delete(fileobj)

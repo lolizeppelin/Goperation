@@ -34,10 +34,3 @@ def validate_endpoints(value):
         return list(endpoints)
     raise ValueError('Entpoint list type error')
 
-
-def validate_file_marks(value):
-    if attributes.is_crc32_like(value) \
-            or attributes.is_md5_like(value) \
-            or attributes.is_uuid_like(value):
-        return True
-    return False

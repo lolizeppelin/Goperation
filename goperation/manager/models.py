@@ -207,9 +207,7 @@ class Agent(PluginTableBase):
 
 
 class DownFile(PluginTableBase):
-    uuid = sa.Column(CHAR(36), default=uuidutils.generate_uuid, nullable=False, primary_key=True)
-    crc32 = sa.Column(CHAR(33), nullable=False)
-    md5 = sa.Column(CHAR(32), nullable=False)
+    md5 = sa.Column(CHAR(32), nullable=False, primary_key=True)
     downloader = sa.Column(VARCHAR(12), nullable=False)
     adapter_args = sa.Column(BLOB, nullable=True)
     address = sa.Column(VARCHAR(512), nullable=False)
@@ -221,7 +219,6 @@ class DownFile(PluginTableBase):
     desc = sa.Column(VARCHAR(512), nullable=True)
     __table_args__ = (
             sa.UniqueConstraint('md5', name='md5_unique'),
-            sa.UniqueConstraint('crc32', name='crc32_unique'),
             InnoDBTableBase.__table_args__
     )
 

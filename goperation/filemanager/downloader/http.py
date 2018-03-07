@@ -31,16 +31,14 @@ class HttpAdapter(DonwerAdapter):
             timeout = time.time() + 18000
         with closing(requests.get(address, stream=True, headers=self.headers,
                                   timeout=self.timeout)) as response:
-            crc = 0
             _md5sum = hashlib.md5()
             with open(dst, 'wb') as f:
                 for buf in response.iter_content(CHUNK):
-                    crc = zlib.crc32(buf, crc)
                     _md5sum.update(buf)
                     if time.time() > timeout:
                         raise exceptions.DownLoadTimeout('Download http file overtime')
                     f.write(buf)
-        return _md5sum.hexdigest(), str(crc & 0xffffffff)
+        return _md5sum.hexdigest()
 
     def _download_206(self):
         raise NotImplementedError

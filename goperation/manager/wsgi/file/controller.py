@@ -4,8 +4,6 @@ import webob.exc
 from simpleutil.common.exceptions import InvalidArgument
 from simpleutil.log import log as logging
 from simpleutil.utils import jsonutils
-from simpleutil.utils import uuidutils
-from simpleutil.utils import attributes
 from simpleutil.utils import timeutils
 from simpleutil.utils import singleton
 
@@ -42,10 +40,8 @@ class FileReuest(BaseContorller):
 
     SCHEMA = {
         'type': 'object',
-        'required': ['address', 'size', 'md5', 'crc32'],
+        'required': ['address', 'size', 'md5'],
         'properties': {
-            'uuid': {'type': 'string', 'format': 'uuid'},
-            'crc32': {'type': 'string', 'format': 'crc32'},
             'md5': {'type': 'string', 'format': 'md5'},
             "downloader": {'type': 'string'},
             "adapter_args": {'type': 'array'},
@@ -70,15 +66,12 @@ class FileReuest(BaseContorller):
         address = body.pop('address')
         size = body.pop('size')
         md5 = body.pop('md5')
-        crc32 = body.pop('crc32')
         ext = body.get('ext')
         status = body.get('status', manager_common.DOWNFILE_FILEOK)
         if not ext:
             ext = address.split('.')[-1]
         session = get_session()
-        downfile = DownFile(uuid=body.get('uuid') or uuidutils.generate_uuid(),
-                            md5=md5,
-                            crc32=crc32,
+        downfile = DownFile(md5=md5,
                             downloader=body.get('downloader', 'http'),
                             adapter_args=body.get('adapter_args'),
                             address=address,
@@ -90,24 +83,14 @@ class FileReuest(BaseContorller):
                             )
         session.add(downfile)
         session.flush()
-        return resultutils.results(result='Add file success', data=[dict(uuid=downfile.uuid,
-                                                                         md5=downfile.md5,
-                                                                         crc32=downfile.crc32,
+        return resultutils.results(result='Add file success', data=[dict(md5=downfile.md5,
                                                                          size=downfile.size,
                                                                          uploadtime=downfile.uploadtime,
                                                                          downloader=downfile.downloader)])
 
-    def show(self, req, file_id):
+    def show(self, req, md5):
         session = get_session(readonly=True)
-        query = model_query(session, DownFile)
-        if attributes.is_uuid_like(file_id):
-            query = query.filter_by(uuid=file_id)
-        elif attributes.is_md5_like(file_id):
-            query = query.filter_by(md5=file_id)
-        elif file_id.isdigit():
-            query = query.filter_by(crc32=file_id)
-        else:
-            raise InvalidArgument('File id not uuid or md5 or crc32')
+        query = model_query(session, DownFile, filter=DownFile.md5 == md5)
         downfile = query.one_or_none()
         if not downfile:
             return resultutils.results(resultcode=manager_common.RESULT_ERROR, result='Get file fail, no found')
@@ -116,9 +99,7 @@ class FileReuest(BaseContorller):
                      'ext': downfile.ext,
                      'size': downfile.size,
                      'uploadtime': str(downfile.uploadtime),
-                     'marks': {'uuid': downfile.uuid,
-                               'md5': downfile.md5,
-                               'crc32': downfile.crc32}}
+                     'md5': downfile.md5}
         if downfile.adapter_args:
             file_info.setdefault('adapter_args', jsonutils.dumps_as_bytes(downfile.adapter_args))
         if downfile.desc:
@@ -129,59 +110,38 @@ class FileReuest(BaseContorller):
         return resultutils.results(result='Get file success', resultcode=resultcode,
                                    data=[file_info, ])
 
-    def delete(self, req, file_id, body=None):
+    def delete(self, req, md5, body=None):
         session = get_session()
-        query = model_query(session, DownFile)
-        if attributes.is_uuid_like(file_id):
-            query = query.filter_by(uuid=file_id)
-        elif attributes.is_md5_like(file_id):
-            query = query.filter_by(md5=file_id)
-        elif file_id.isdigit():
-            query = query.filter_by(crc32=file_id)
-        else:
-            raise InvalidArgument('File id not uuid or md5 or crc32')
+        query = model_query(session, DownFile, filter=DownFile.md5 == md5)
         with session.begin():
             downfile = query.one_or_none()
             if not downfile:
                 return resultutils.results(result='Delete file do nothing, not found')
             query.delete()
 
-        return resultutils.results(result='Delete file success', data=[dict(uuid=downfile.uuid,
-                                                                            md5=downfile.md5,
-                                                                            crc32=downfile.crc32,
+        return resultutils.results(result='Delete file success', data=[dict(md5=downfile.md5,
                                                                             size=downfile.size,
                                                                             address=downfile.address,
                                                                             uploadtime=downfile.uploadtime,
                                                                             downloader=downfile.downloader)])
 
-    def update(self, req, file_id, body=None):
+    def update(self, req, md5, body=None):
         body = body or {}
         status = body.pop('status', None)
         if status not in manager_common.DOWNFILESTATUS:
             raise InvalidArgument('status value error')
         session = get_session()
-        query = model_query(session, DownFile)
-        if attributes.is_uuid_like(file_id):
-            query = query.filter_by(uuid=file_id)
-        elif attributes.is_md5_like(file_id):
-            query = query.filter_by(md5=file_id)
-        elif file_id.isdigit():
-            query = query.filter_by(crc32=file_id)
-        else:
-            raise InvalidArgument('File id not uuid or md5 or crc32')
+        query = model_query(session, DownFile, filter=DownFile.md5 == md5)
         with session.begin():
             downfile = query.one()
             query.update({'status': status})
-        return resultutils.results(result='Update file success', data=[dict(uuid=downfile.uuid,
-                                                                            md5=downfile.md5,
-                                                                            crc32=downfile.crc32,
+        return resultutils.results(result='Update file success', data=[dict(md5=downfile.md5,
                                                                             size=downfile.size,
                                                                             status=downfile.status,
                                                                             uploadtime=downfile.uploadtime,
                                                                             downloader=downfile.downloader)])
 
-
-    def send(self, req, agent_id, file_id, body=None):
+    def send(self, req, agent_id, md5, body=None):
         """call by client, and asyncrequest
         send file to agents
         """
@@ -189,7 +149,7 @@ class FileReuest(BaseContorller):
         asyncrequest = self.create_asyncrequest(body)
         target = targetutils.target_all(fanout=True)
         rpc_method = 'getfile'
-        rpc_args = {'mark': file_id,  'timeout': asyncrequest.deadline-1}
+        rpc_args = {'md5': md5, 'timeout': asyncrequest.deadline - 1}
         rpc_ctxt = {}
         if agent_id != 'all':
             rpc_ctxt.setdefault('agents', self.agents_id_check(agent_id))
@@ -208,7 +168,7 @@ class FileReuest(BaseContorller):
         raise NotImplementedError
 
     @BaseContorller.AgentIdformater
-    def clean(self, req, agent_id, file_id, body):
+    def clean(self, req, agent_id, md5, body):
         """call by client, and asyncrequest
         delete file from agents
         """
