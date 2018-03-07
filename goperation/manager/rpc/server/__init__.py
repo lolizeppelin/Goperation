@@ -139,7 +139,7 @@ class RpcServerManager(RpcManagerBase):
 
         if not self.is_active:
             asyncrequest.resultcode = manager_common.SCHEDULER_STATUS_ERROR
-            asyncrequest.result = 'Scheduler not active now'
+            asyncrequest.result = 'Rpc server not active now'
             asyncrequest.status = manager_common.FINISH
             session.add(asyncrequest)
             session.flush()
@@ -155,19 +155,21 @@ class RpcServerManager(RpcManagerBase):
 
         target = Target(**rpc_target)
         rpc = get_client()
+
+        session.add(asyncrequest)
+        session.flush()
+
         try:
             rpc.cast(target, ctxt=rpc_ctxt, msg={'method': rpc_method, 'args': rpc_args})
         except AMQPDestinationNotFound:
             asyncrequest.resultcode = manager_common.SEND_FAIL
             asyncrequest.result = 'Async %s request send fail, AMQPDestinationNotFound' % rpc_method
             asyncrequest.status = manager_common.FINISH
-            session.add(asyncrequest)
             session.flush()
             return
 
         LOG.debug('Cast %s to %s' % (asyncrequest.request_id, target.to_dict()))
         asyncrequest.result = 'Async request %s cast success' % rpc_method
-        session.add(asyncrequest)
         session.flush()
 
         request_id = asyncrequest.request_id
