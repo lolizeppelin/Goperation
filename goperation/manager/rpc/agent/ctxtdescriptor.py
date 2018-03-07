@@ -61,16 +61,12 @@ class CheckManagerRpcCtxt(CheckRpcCtxt):
                 result = AgentRpcResult(self.manager.agent_id, ctxt,
                                        resultcode=manager_common.RESULT_OVER_FINISHTIME, result=msg)
                 raise exceptions.RpcCtxtException(result)
-            file_mark = ctxt.pop('file', None)
-            if file_mark:
-                target_file = self.manager.filemanager.find(file_mark)
-                if target_file is None:
-                    result = AgentRpcResult(self.manager.agent_id, ctxt,
-                                           resultcode=manager_common.RESULT_ERROR,
-                                           result='Could not find target file')
-                    raise exceptions.RpcCtxtException(result)
+            filemark = ctxt.pop('file', None)
+            if filemark:
+                localfile = self.manager.filemanager.find(filemark)
                 # change file info to object
-                ctxt.update({'file': target_file})
+                # ctxt.update({'file': localfile.path})
+                ctxt.update({'file': localfile})
             # check success run rpc function
             result = self.func(*args, **kwargs)
         except MessageNotForMe:
@@ -125,9 +121,9 @@ class CheckEndpointRpcCtxt(CheckRpcCtxt):
                                        result='ctxt entitys type error')
                 raise exceptions.RpcCtxtException(result=result)
             # check space for entitys
-            target_file = ctxt.pop('file', None)
-            if target_file:
-                if target_file.size * len(entitys) > self.manager.partion_left_size - 100:
+            target = ctxt.pop('file', None)
+            if target:
+                if target.size * len(entitys) > self.manager.partion_left_size - 100:
                     result = AgentRpcResult(self.manager.agent_id, ctxt,
                                            resultcode=manager_common.RESULT_ERROR,
                                            result='Not enough space for %d entitys' % len(entitys))
