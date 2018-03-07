@@ -17,11 +17,10 @@ from simpleflow.patterns import linear_flow as lf
 from simpleflow.patterns import unordered_flow as uf
 
 from goperation import utils
-from goperation.filemanager import TargetFile
 from goperation.taskflow import common
 from goperation.taskflow import exceptions
 from goperation.manager.rpc.agent.application.taskflow.base import StandardTask
-from goperation.manager.rpc.agent.application.taskflow.base import format_store_rebind
+from goperation.manager.rpc.agent.application.taskflow.base import TaskPublicFile
 
 
 LOG = logging.getLogger(__name__)
@@ -29,33 +28,50 @@ LOG = logging.getLogger(__name__)
 NOTALLOWD_SCHEMAS = frozenset(['mysql', 'information_schema', 'performance_schema'])
 
 
-class DbUpdateFile(TargetFile):
-
-    def __init__(self, source, rollback=False, formater=None):
-        super(DbUpdateFile, self).__init__(source)
+class DbUpdateFile(TaskPublicFile):
+    def __init__(self, source,
+                 rollback=False,
+                 revertable=False):
+        if rollback and not revertable:
+            raise ValueError('revert is not enable, can not rollback')
+        self.source = source
         # update will rollback when task pipe fail
         self.rollback = rollback
-        self._formater = formater
+        # update can be revert when fail or rollback is true
+        self.revertable = revertable
         self.sql = []
+        self.localfile = None
+
+    def prepare(self, middleware=None, timeout=None):
+        self.localfile = middleware.filemanager.get(self.source, download=True, timeout=timeout)
+        try:
+            self.format()
+        except Exception:
+            self.localfile = None
+            middleware.filemanager.delete(self.source)
+            raise
 
     def clean(self):
-        super(DbUpdateFile, self).clean()
         del self.sql[:]
 
     def format(self):
-        if self._formater:
-            self.sql = self._formater(self.realpath)
+        pass
+
+    def _file(self):
+        return os.path.abspath(self.localfile.path)
 
 
 class Database(object):
 
     def __init__(self,
-                 backup, update,
+                 create=None, backup=None, update=None,
                  **kwargs):
         """
         backup  path info
         update  class of DbUpdateFile
         """
+        if not backup and update and (update.rollback or update.revertable):
+            raise ValueError('No backup, can not rollback or revert')
         self.backup = backup
         self.update = update
         self.user = kwargs['user']
@@ -82,17 +98,34 @@ class DbUpdateSqlGet(StandardTask):
 
     def execute(self, timeout):
         for database in self.databases:
+            if not isinstance(database.update, TaskPublicFile):
+                raise TypeError('DbUpdateSqlGet need database.update TaskPublicFile')
             if database.update:
-                if database.update.realpath is None:
-                    self.middleware.filemanager.get(database.update, download=True, timeout=timeout)
-                    database.update.format()
+                self.database.update.prepare(self.middleware, timeout)
 
     def revert(self, result, *args, **kwargs):
         super(DbUpdateSqlGet, self).revert(result, *args, **kwargs)
         if isinstance(result, failure.Failure):
             for database in self.databases:
                 if database.update:
-                    database.update.clean()
+                    self.database.update.clean()
+
+
+class MysqlCreate(StandardTask):
+    @property
+    def taskname(self):
+        return self.__class__.__name__ + '-' + self.database.schema
+
+    def __init__(self, middleware, database):
+        """backup app database"""
+        self.database = database
+        super(MysqlCreate, self).__init__(middleware)
+
+    def execute(self):
+        raise NotImplementedError
+
+    def revert(self, result, *args, **kwargs):
+        raise NotImplementedError
 
 
 class MysqlDump(StandardTask):
@@ -101,13 +134,16 @@ class MysqlDump(StandardTask):
     def taskname(self):
         return self.__class__.__name__ + '-' + self.database.schema
 
-    def __init__(self, middleware, database, rebind=None):
+    def __init__(self, middleware, database):
         """backup app database"""
         self.database = database
-        super(MysqlDump, self).__init__(middleware, rebind=rebind)
+        super(MysqlDump, self).__init__(middleware)
 
-    def execute(self, timeout):
+    def execute(self):
         database = self.database
+        if not isinstance(database.backup, TaskPublicFile):
+            raise TypeError('MysqlDump need database.backup TaskPublicFile')
+        timeout = database.timeout or 3600
         if not database.schema or database.schema.lower() == 'mysql':
             raise RuntimeError('Schema value error')
         mysqldump = systemutils.find_executable('mysqldump')
@@ -118,7 +154,7 @@ class MysqlDump(StandardTask):
                 database.schema]
         LOG.debug(' '.join(args))
         with open(os.devnull, 'wb') as nul:
-            with open(database.backup, 'wb') as f:
+            with open(database.backup.file, 'wb') as f:
                 if systemutils.LINUX:
                     pid = utils.safe_fork(user=self.middleware.entity_user,
                                           group=self.middleware.entity_group)
@@ -136,11 +172,16 @@ class MysqlDump(StandardTask):
         super(MysqlDump, self).revert(result, *args, **kwargs)
         if isinstance(result, failure.Failure):
             database = self.database
-            if os.path.exists(database.backup):
+            if os.path.exists(database.backup.file):
                 os.remove(database.backup)
+                self.middleware.set_return(self.taskname, common.REVERTED)
 
 
 class MysqlUpdate(StandardTask):
+    @property
+    def taskname(self):
+        return self.__class__.__name__ + '-' + self.database.schema
+
     def __init__(self, middleware, database):
         super(MysqlUpdate, self).__init__(middleware)
         self.database = database
@@ -173,6 +214,38 @@ class MysqlUpdate(StandardTask):
                     sub = subprocess.Popen(executable=mysql, args=args, stdin=f.fileno(), stderr=nul.fileno())
                     utils.wait(sub, timeout=timeout)
 
+    def execute_sql_from_row(self, timeout=None):
+        database = self.database
+        db_info = {'user': database.user,
+                   'passwd': database.passwd,
+                   'host': database.host,
+                   'port': database.port,
+                   'schema': database.schema}
+        database_connection = connformater % db_info
+        engine = create_engine(database_connection, thread_checkin=False,
+                               poolclass=NullPool,
+                               charset=database.character_set)
+        overtime = time.time() + timeout
+        with engine.connect() as conn:
+            LOG.info('MysqlUpdate connect %s:%d/%s mysql success' %
+                     (database.host, database.port, database.schema))
+            for sql in database.update.sql:
+                try:
+                    if time.time() > overtime:
+                        raise exceptions.DatabaseExecuteError('Execute overtime')
+                    r = conn.execute(sql)
+                    # count = r.rowcount
+                    r.close()
+                    self.executed += 1
+                except Exception as e:
+                    LOG.debug('%s : [%s]' % (e.__class__.__name__, sql))
+                    msg = 'execute sql fail, index %d, sql file %s' % (self.executed + 1,
+                                                                       database.update.file)
+                    self.middleware.dberrors.append(sql)
+                    LOG.error(msg)
+                    # engine.close()
+                    raise exceptions.DatabaseExecuteError(msg)
+
     def execute(self):
         if self.middleware.is_success(self.__class__.__name__):
             return
@@ -182,46 +255,17 @@ class MysqlUpdate(StandardTask):
             raise RuntimeError('Schema is mysql, not allowed')
         # update by formated sql
         if database.update.sql:
-            db_info = {'user': database.user,
-                       'passwd': database.passwd,
-                       'host': database.host,
-                       'port': database.port,
-                       'schema': database.schema,
-                       }
-            database_connection = connformater % db_info
-            engine = create_engine(database_connection, thread_checkin=False,
-                                   poolclass=NullPool,
-                                   charset=database.character_set)
-            overtime = time.time() + timeout
-            with engine.connect() as conn:
-                LOG.info('MysqlUpdate connect %s:%d/%s mysql success' %
-                         (database.host, database.port, database.schema))
-                for sql in database.update.sql:
-                    try:
-                        if time.time() > overtime:
-                            raise exceptions.DatabaseExecuteError('Execute overtime')
-                        r = conn.execute(sql)
-                        # count = r.rowcount
-                        r.close()
-                        self.executed += 1
-                    except Exception as e:
-                        LOG.debug('%s : [%s]' % (e.__class__.__name__, sql))
-                        msg = 'execute sql fail, index %d' % (self.executed+1)
-                        self.middleware.dberrors.append(sql)
-                        LOG.error(msg)
-                        # engine.close()
-                        raise exceptions.DatabaseExecuteError(msg)
-            # engine.close()
+            self.execute_sql_from_row(timeout)
         # update by execute sql file
         else:
-            self.execute_sql_from_file(database.update.realpath, timeout)
+            self.execute_sql_from_file(database.update.file, timeout)
 
     def revert(self, result, *args, **kwargs):
         super(MysqlUpdate, self).revert(result, *args, **kwargs)
         database = self.database
         if isinstance(result, failure.Failure) or database.update.rollback:
             # revert need backup
-            if database.backup:
+            if database.backup and database.update.revertable:
                 LOG.info('Try revert %s %d database %s:%d/%s ' % (self.middleware.endpoint,
                                                                   self.middleware.entity,
                                                                   database.host,
@@ -233,6 +277,7 @@ class MysqlUpdate(StandardTask):
                                                            database.port,
                                                            database.schema))
                 else:
+                    self.middleware.set_return(self.taskname, common.REVERTED)
                     if not os.path.exists(database.backup):
                         msg = 'No backup database file found! can not revert'
                         LOG.error(msg)
@@ -262,34 +307,37 @@ class MysqlUpdate(StandardTask):
                     raise ValueError('Can not rollback, no backup file found')
 
 
-def mysql_flow_factory(app, store):
+def mysql_flow_factory(app, store,
+                       create_cls=MysqlCreate,
+                       backup_cls=MysqlDump,
+                       update_cls=MysqlUpdate):
     if not app.databases:
         return None
     middleware = app.middleware
     endpoint_name = middleware.endpoint
     entity = middleware.entity
-    uflow = uf.Flow('dmp_and_up_%s_%d' % (endpoint_name, entity))
+    uflow = uf.Flow('db_cbu_%s_%d' % (endpoint_name, entity))
     for index, database in enumerate(app.databases):
         retry = None
         if database.retry:
             retry = Times(attempts=database.retry,
                           name='db_retry_%s_%d_%d' % (endpoint_name, entity, index))
         lfow = lf.Flow(name='db_%s_%d_%d' % (endpoint_name, entity, index), retry=retry)
+        if database.create:
+            lfow.add(create_cls(middleware, database))
         if database.backup:
-            rebind = ['db_dump_timeout']
-            format_store_rebind(store, rebind)
-            lfow.add(MysqlDump(middleware, database, rebind=rebind))
+            lfow.add(backup_cls(middleware, database))
         if database.update:
             if database.update.rollback and not database.backup:
                 raise ValueError('Database rollback need backup')
-            lfow.add(MysqlUpdate(middleware, database))
+            lfow.add(update_cls(middleware, database))
         if len(lfow):
             uflow.add(lfow)
         else:
             del lfow
 
-    def del_flow():
-        del uflow
-        return None
+    if len(uflow):
+        return uflow
 
-    return uflow if len(uflow) else del_flow()
+    del uflow
+    return None

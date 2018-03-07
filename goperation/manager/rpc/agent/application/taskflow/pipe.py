@@ -8,10 +8,11 @@ from simpleflow.patterns import unordered_flow as uf
 from goperation.manager.rpc.agent.application.taskflow import application
 from goperation.manager.rpc.agent.application.taskflow import database
 from goperation.manager.rpc.agent.application.taskflow.base import EntityTask
+from goperation.manager.rpc.agent.application.taskflow.base import TaskPublicFile
 from goperation.manager.rpc.agent.application.taskflow.base import format_store_rebind
 
 
-def entity_factory(session, app, store, db_flow_factory):
+def entity_factory(session, app, store, db_flow_factory, **kwargs):
     """
     @param session:                 class: sqlalchemy:session
     @param middleware:              class: EntityMiddleware
@@ -38,7 +39,7 @@ def entity_factory(session, app, store, db_flow_factory):
         # upgrade app file
         upflow.add(app.upgradetask)
     # backup and update app database
-    database_flow = db_flow_factory(app, store)
+    database_flow = db_flow_factory(app, store, **kwargs)
     if database_flow:
         upflow.add(database_flow)
     if len(upflow):
@@ -62,7 +63,8 @@ def flow_factory(session, applications,
                  upgradefile=None,
                  backupfile=None,
                  store=None,
-                 db_flow_factory=database.mysql_flow_factory):
+                 db_flow_factory=database.mysql_flow_factory,
+                 **kwargs):
     """
     @param session:                 class: sqlalchemy:session
     @param middlewares:             class:list EntityMiddleware
@@ -70,12 +72,20 @@ def flow_factory(session, applications,
     @param backupfile:              class:basestring of path/AppRemoteBackupFile  app backup file
     @param store:                   class:dict
     @param db_flow_factory:         class:function
+    @param create_cls:              class:class
+    @param backup_cls:              class:class
+    @param update_cls:              class:class
     """
     if not applications:
         raise RuntimeError('No application found')
+    if upgradefile and not isinstance(upgradefile, TaskPublicFile):
+        raise TypeError('upgradefile not TaskPublicFile')
+    if backupfile and not isinstance(backupfile, TaskPublicFile):
+        raise TypeError('backupfile not TaskPublicFile')
     store = store or {}
-    if store.get('backupfile'):
-        raise RuntimeError('Backupfile in store')
+    if store.get('backupfile') or store.get('upgradefile'):
+        raise RuntimeError('Backupfile or Upgradefile in store')
+
     endpoint_name = applications[0].middleware.endpoint
 
     main_flow = lf.Flow('%s_taskflow' % endpoint_name)
@@ -93,19 +103,11 @@ def flow_factory(session, applications,
         format_store_rebind(store, rebind)
         #  get app update file, all middlewares use same app upload file
         prepare_uflow.add(application.AppUpgradeFileGet(app.middleware, upgradefile, rebind=rebind))
-    # else:
-    #     if app.upgradetask:
-    #         raise RuntimeError('Application upgrade need upgradefile')
     # 备份程序文件
     if backupfile:
         rebind = ['download_timeout']
         format_store_rebind(store, rebind)
         prepare_uflow.add(application.AppBackUp(app.middleware, backupfile, rebind=rebind))
-    # else:
-    #     if not store.get('backupfile'):
-    #         if app.upgradetask and app.upgradetask.rollback:
-    #             raise RuntimeError('upgrade rollback able, but no backupfile found')
-    #     store.setdefault('backupfile', None)
     # 下载数据库更新文件
     if app.databases:
         rebind = ['download_timeout']
@@ -121,7 +123,7 @@ def flow_factory(session, applications,
     # 批量更新操作
     for app in applications:
         # all entity task
-        entitys_taskflow.add(entity_factory(session, app, store, db_flow_factory))
+        entitys_taskflow.add(entity_factory(session, app, store, db_flow_factory, **kwargs))
         eventlet.sleep(0)
     main_flow.add(entitys_taskflow)
 

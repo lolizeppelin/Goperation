@@ -14,42 +14,103 @@ from simpleflow.types import failure
 
 
 from goperation.utils import safe_fork
-from goperation.filemanager import TargetFile
 from goperation.taskflow import common
 from goperation.manager.rpc.agent.application.taskflow.base import StandardTask
+from goperation.manager.rpc.agent.application.taskflow.base import TaskPublicFile
 
 LOG = logging.getLogger(__name__)
 
 
-class DoNotNeedRevert(Exception):
-    """do not need revert"""
+class AppUpgradeFile(TaskPublicFile):
+    def __init__(self, source,
+                 rollback=False,
+                 revertable=True):
+        if rollback and not revertable:
+            raise ValueError('revert is not enable, can not rollback')
+        self.source = source
+        # update will rollback when task pipe fail
+        self.rollback = rollback
+        # update can be revert when fail or rollback is true
+        self.revertable = revertable
+        self.localfile = None
 
+    def prepare(self, middleware=None, timeout=None):
+        self.localfile = middleware.filemanager.get(self.source, download=True, timeout=timeout)
+        try:
+            self.post_check()
+        except Exception:
+            self.localfile = None
+            middleware.filemanager.delete(self.source)
+            raise
 
-class AppRemoteBackupFile(TargetFile):
+    def clean(self):
+        pass
 
-    def __init__(self, source, checker=None):
-        super(AppRemoteBackupFile, self).__init__(source)
-        self.checker = checker
+    def _file(self):
+        return os.path.abspath(self.localfile.path)
 
     def post_check(self):
-        if self.checker:
-            self.checker(self.realpath)
+        pass
 
 
-class AppUpgradeFile(TargetFile):
-    """App upgrade file"""
+class AppRemoteBackupFile(TaskPublicFile):
+    def __init__(self, source):
+        self.source = source
+        self.localfile = None
 
-    def __init__(self, source, checker=None):
-        """
-        @param source:                  class: dict  下载所需文件信息
-        @param checker:                 class: callable 文件校验函数
-        """
-        super(AppUpgradeFile, self).__init__(source)
-        self.checker = checker
+    def prepare(self, middleware=None, timeout=None):
+        LOG.info('AppBackUp get remote backup file')
+        self.localfile = middleware.filemanager.get(self.source, download=True, timeout=timeout)
+        try:
+            self.post_check()
+        except Exception:
+            middleware.filemanager.delete(self.source)
+            self.localfile = None
+            raise
+
+    def clean(self):
+        pass
+
+    def _file(self):
+        return os.path.abspath(self.localfile.path)
 
     def post_check(self):
-        if self.checker:
-            self.checker(self.realpath)
+        pass
+
+
+class AppLocalBackupFile(TaskPublicFile):
+    def __init__(self, destination, native=True):
+        self.native = native
+        if os.path.exists(destination):
+            raise ValueError('backup file %s alreday exist')
+        self.destination = destination
+
+    def prepare(self, middleware=None, timeout=None):
+        LOG.info('AppBackUp dump local bakcup file from %s %d' % (middleware.endpoint,
+                                                                  middleware.entity))
+        src = middleware.apppath
+        LOG.debug('AppBackUp dump local bakcup from path %s' % src)
+        waiter = zlibutils.async_compress(src, self.destination,
+                                          exclude=self.middleware.exclude,
+                                          native=self.native,
+                                          fork=functools.partial(safe_fork,
+                                                                 user=self.middleware.entity_user,
+                                                                 group=self.middleware.entity_group)
+                                          if systemutils.LINUX else None, timeout=timeout)
+        waiter.wait()
+        self.post_check()
+
+    def clean(self):
+        try:
+            os.remove(self.destination)
+        except (OSError, IOError):
+            LOG.error('Delete file %s fail' % self.destination)
+
+    def _file(self):
+        return os.path.abspath(self.destination)
+
+    def post_check(self):
+        pass
 
 
 class AppKill(Retry):
@@ -80,17 +141,14 @@ class AppUpgradeFileGet(StandardTask):
     def execute(self, timeout):
         if self.middleware.is_success(self.taskname):
             return
-        if not self.upgradefile.realpath:
-            self.middleware.filemanager.get(self.upgradefile, download=True, timeout=timeout)
-        self.upgradefile.post_check()
-        return self.upgradefile.realpath
+        self.upgradefile.prepare(self.middleware, timeout)
+        return self.upgradefile.file
 
     def revert(self, result, *args, **kwargs):
         super(AppUpgradeFileGet, self).revert(result, **kwargs)
         if isinstance(result, failure.Failure):
-            if self.middleware.application.upgrade.realpath:
-                self.middleware.set_return(self.taskname, common.REVERT_FAIL)
-                self.middleware.application.upgrade.clean()
+            self.middleware.set_return(self.taskname, common.REVERT_FAIL)
+            self.upgradefile.clean()
             self.middleware.set_return(self.taskname, common.REVERTED)
 
 
@@ -100,45 +158,18 @@ class AppBackUp(StandardTask):
         super(AppBackUp, self).__init__(middleware, rebind=rebind, provides=provides)
         self.backupfile = backupfile
 
-    def execute(self, timeout, native=True):
+    def execute(self, timeout):
         if self.middleware.is_success(self.taskname):
             return
-        # download remote backup file and check it
-        if isinstance(self.backupfile, AppRemoteBackupFile):
-            LOG.info('AppBackUp get remote backup file')
-            self.middleware.filemanager.get(self.backupfile,
-                                            download=True, timeout=timeout)
-            self.backupfile.post_check()
-            backupfile = self.backupfile.realpath
-        # dump from local application path
-        elif isinstance(self.backupfile, basestring):
-            LOG.info('AppBackUp dump local bakcup file from %s %d' % (self.middleware.endpoint,
-                                                                      self.middleware.entity))
-            src = self.middleware.apppath
-            LOG.debug('AppBackUp dump local bakcup from path %s' % src)
-            dst = self.backupfile
-            waiter = zlibutils.async_compress(src, dst, exclude=self.middleware.exclude,
-                                              native=native,
-                                              fork=functools.partial(safe_fork,
-                                                                     user=self.middleware.entity_user,
-                                                                     group=self.middleware.entity_group)
-                                              if systemutils.LINUX else None, timeout=timeout)
-            waiter.wait()
-            backupfile = self.backupfile
-        else:
-            raise TypeError('AppBackUp find backupfile type error')
-        return backupfile
+
+        self.backupfile.prepare(self.middleware, timeout)
+        return self.backupfile.file
 
     def revert(self, result, **kwargs):
         super(AppBackUp, self).revert(result, **kwargs)
         if isinstance(result, failure.Failure):
-            # delete remote backup file
-            if isinstance(self.backupfile, AppRemoteBackupFile):
-                self.backupfile.clean()
-            # delete local backup file
-            elif isinstance(self.backupfile, basestring):
-                if os.path.exists(self.backupfile):
-                    os.remove(self.middleware.application.backup)
+            self.middleware.set_return(self.taskname, common.REVERT_FAIL)
+            self.backupfile.clean()
             self.middleware.set_return(self.taskname, common.REVERTED)
 
 
@@ -177,23 +208,22 @@ class AppFileUpgradeBase(AppTaskBase):
 
 
 class AppFileUpgradeByFile(AppFileUpgradeBase):
-    def __init__(self, middleware, rollback=False,
+    def __init__(self, middleware,
                  rebind=None, requires='upgradefile',
                  revert_requires='backupfile'):
         super(AppFileUpgradeByFile, self).__init__(middleware=middleware,
                                                    rebind=rebind, requires=requires,
                                                    revert_requires=revert_requires)
-        self.rollback = rollback
 
     def execute(self, upgradefile, timeout=None, native=True):
-        self._extract(upgradefile, self.middleware.entity_home,
+        self._extract(upgradefile.file, self.middleware.entity_home,
                       self.middleware.entity_user, self.middleware.entity_group,
                       native, timeout)
 
     def revert(self, result, backupfile, timeout=None, native=True):
         super(AppFileUpgradeBase, self).revert(result)
-        if isinstance(result, failure.Failure) or self.rollback:
-            self._extract(backupfile, self.middleware.apppath,
+        if isinstance(result, failure.Failure):
+            self._extract(backupfile.file, self.middleware.apppath,
                           self.middleware.entity_user, self.middleware.entity_group,
                           timeout=timeout)
 

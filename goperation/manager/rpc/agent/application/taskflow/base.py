@@ -1,3 +1,5 @@
+import six
+import abc
 from simpleflow import api
 from simpleflow.task import Task
 from simpleflow.types import failure
@@ -50,6 +52,27 @@ class EntityTask(Task):
         finally:
             # cleanup sub taskflow engine logbook
             self.connection.destroy_logbook(self.book_uuid)
+
+
+@six.add_metaclass(abc.ABCMeta)
+class TaskPublicFile(object):
+    @abc.abstractmethod
+    def prepare(self, middleware=None, timeout=None):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def clean(self):
+        """clean """
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def _file(self):
+        raise NotImplementedError
+
+    @property
+    def file(self):
+        """File abspath"""
+        return self._file()
 
 
 def format_store_rebind(store, rebind):
