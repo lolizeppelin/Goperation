@@ -115,8 +115,8 @@ class FileManager(object):
                         self.session.delete(_file_detail)
                         self.session.flush()
                         continue
-                    self.localfiles[file_path] = LocalFile([file_path,
-                                                            _file_detail.md5, _file_detail.size])
+                    self.localfiles[file_path] = LocalFile(file_path,
+                                                           _file_detail.md5, _file_detail.size)
 
             with self.session.begin():
                 while localfiles:
@@ -131,8 +131,7 @@ class FileManager(object):
                     # add file record into database
                     self.session.add(_file_detail)
                     self.session.flush()
-                    self.localfiles[file_path] = LocalFile([file_path,
-                                                            _file_detail.md5, _file_detail.size])
+                    self.localfiles[file_path] = LocalFile(file_path, md5, local_size)
             # delete check fail files
             for _file in not_match_files:
                 os.remove(_file)
@@ -244,7 +243,7 @@ class FileManager(object):
                                            uploadtime=uploadtime)
             self.session.add(file_detil)
             self.session.flush()
-            self.localfiles[path] = md5
+            self.localfiles[path] = LocalFile(path, md5, size)
             ev.send(result=None)
         except Exception as e:
             ev.send(exc=e)
