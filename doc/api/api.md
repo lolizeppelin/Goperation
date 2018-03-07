@@ -233,7 +233,7 @@ address       安装包地址                               str
 
 如果address值为空,fileinfo为必选参数
 fileinfo      包信息,结构为                            object
-              ['md5', 'crc32', 'size', 'filename']
+              ['md5', 'size', 'filename']
 可选参数
 timeout       上传超时时间                             int
 desc          包文件说明                               str

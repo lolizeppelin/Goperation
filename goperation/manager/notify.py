@@ -4,6 +4,8 @@ import abc
 import requests
 import inspect
 
+import eventlet
+
 from simpleutil.log import log as logging
 from simpleutil.utils import jsonutils
 from simpleservice.rpc.target import Target
@@ -64,8 +66,8 @@ NOTIFYSCHEMA = {
 
 @six.add_metaclass(abc.ABCMeta)
 class NotifyInterface(object):
-
-    def __init__(self, notify):
+    def __init__(self, notify, delay=None):
+        self.delay = delay
         self.notify = notify
 
     @abc.abstractmethod
@@ -111,6 +113,8 @@ class GopRpcNotify(NotifyInterface, GeneralNotify):
             return
 
         def wapper():
+            if self.delay:
+                eventlet.sleep(self.delay)
             data = self.notify[keyword]
             target = Target(**data.pop('target'))
             func = getattr(get_client(), data.pop('method'))
@@ -130,6 +134,8 @@ class GopHttpNotify(NotifyInterface, GeneralNotify):
             return
 
         def wapper():
+            if self.delay:
+                eventlet.sleep(self.delay)
             data = self.notify[keyword]
             func = getattr(get_http(), 'do_request')
             func(**data)
@@ -147,6 +153,8 @@ class HttpNotify(NotifyInterface):
             return
 
         def wapper():
+            if self.delay:
+                eventlet.sleep(self.delay)
             data = self.notify[keyword]
             if replace:
                 data = copy.deepcopy(data)

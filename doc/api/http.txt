@@ -7,7 +7,7 @@
 
 %(job_id)s        计划任务id              int
 
-%(file_id)s       文件标识id              uuid md5 crc32
+%(file_id)s       文件标识id              md5
 %(ports)s         端口号                  int
 
 
