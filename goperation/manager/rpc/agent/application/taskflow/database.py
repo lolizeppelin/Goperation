@@ -72,6 +72,7 @@ class Database(object):
         """
         if not backup and update and (update.rollback or update.revertable):
             raise ValueError('No backup, can not rollback or revert')
+        self.create = create
         self.backup = backup
         self.update = update
         self.user = kwargs['user']
