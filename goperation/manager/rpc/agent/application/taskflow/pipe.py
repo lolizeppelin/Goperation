@@ -21,7 +21,7 @@ class ProvidesTask(Task):
         super(ProvidesTask, self).__init__(name=name, provides=['upgradefile', 'backupfile'])
 
     def execute(self):
-        return self.upgradefile, self.backupfile
+        return self.upgradefile.file, self.backupfile.file
 
 
 def entity_factory(session, app, store,
