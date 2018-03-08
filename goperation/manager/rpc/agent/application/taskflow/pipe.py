@@ -109,7 +109,7 @@ def flow_factory(session, applications,
         format_store_rebind(store, rebind)
         prepare_uflow.add(application.AppBackUp(app.middleware, backupfile, rebind=rebind))
     # 下载数据库更新文件
-    if app.databases:
+    if app.databases and not all([False if d.update else True for d in app.databases]):
         rebind = ['download_timeout']
         format_store_rebind(store, rebind)
         # get database upload file, all middlewares use same database upload file
