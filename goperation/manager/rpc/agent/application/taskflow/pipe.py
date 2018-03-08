@@ -39,14 +39,16 @@ def entity_factory(session, app, store,
     endpoint_name = app.middleware.endpoint
     entity = app.middleware.entity
     entity_flow = lf.Flow('entity_%s_%d' % (endpoint_name, entity))
-
+    # 为创建更新和备份提供文件
     entity_flow.add(ProvidesTask(name='provides_%s_%d' % (endpoint_name, entity),
                                  upgradefile=upgradefile,
                                  backupfile=backupfile))
-
+    # 创建任务,串行
     if app.createtask:
+        if not upgradefile:
+            raise ValueError('No file found for createtask')
         entity_flow.add(app.createtask)
-
+    # 停止任务,串行
     if app.stoptask:
         # kill if stop fail
         prepare_flow = uf.Flow('recheck_stop_%s_%d' % (endpoint_name, entity),
@@ -55,18 +57,25 @@ def entity_factory(session, app, store,
         prepare_flow.add(app.stoptask)
         entity_flow.add(prepare_flow)
 
+    # 更新任务(与其他任务并行)
     upflow = uf.Flow('up_%s_%d' % (endpoint_name, entity))
     if app.upgradetask:
+        if not upgradefile:
+            raise ValueError('No file found for upgradetask')
         # upgrade app file
         upflow.add(app.upgradetask)
-    # backup and update app database
+    # 数据库备份与升级任务
     database_flow = db_flow_factory(app, store, **kwargs)
     if database_flow:
         upflow.add(database_flow)
+
+    # 合并工作流
     if len(upflow):
         entity_flow.add(upflow)
     else:
         del upflow
+
+    # 其他串行任务
     # update app (some thing like hotfix or flush config)
     if app.updatetask:
         entity_flow.add(app.updatetask)
@@ -76,6 +85,7 @@ def entity_factory(session, app, store,
     # start appserver
     if app.deletetask:
         entity_flow.add(app.deletetask)
+
     # entity task is independent event
     return EntityTask(session, entity_flow, store)
 
@@ -92,10 +102,10 @@ def flow_factory(session, applications,
     @param upgradefile:             class:AppUpgradeFile    app upgrade file
     @param backupfile:              class:basestring of path/AppRemoteBackupFile  app backup file
     @param store:                   class:dict
-    @param db_flow_factory:         class:function
-    @param create_cls:              class:class
-    @param backup_cls:              class:class
-    @param update_cls:              class:class
+    @param db_flow_factory:         class:function   默认database.mysql_flow_factory
+    @param create_cls:              class:class      数据库创建任务类 参考database.MysqlCreate
+    @param backup_cls:              class:class      数据库备份任务类 参考database.MysqlDump
+    @param update_cls:              class:class      数据库更新任务类  参考database.MysqlUpdate
     """
     if not applications:
         raise RuntimeError('No application found')
