@@ -140,7 +140,7 @@ class AppUpgradeFileGet(StandardTask):
 
     def execute(self, timeout):
         if self.middleware.is_success(self.taskname):
-            return
+            return self.upgradefile.file
         self.upgradefile.prepare(self.middleware, timeout)
         return self.upgradefile.file
 
@@ -160,7 +160,7 @@ class AppBackUp(StandardTask):
 
     def execute(self, timeout):
         if self.middleware.is_success(self.taskname):
-            return
+            return self.backupfile.file
 
         self.backupfile.prepare(self.middleware, timeout)
         return self.backupfile.file
@@ -216,16 +216,27 @@ class AppFileUpgradeByFile(AppFileUpgradeBase):
                                                    revert_requires=revert_requires)
 
     def execute(self, upgradefile, timeout=None, native=True):
-        self._extract(upgradefile.file, self.middleware.entity_home,
+        self._extract(upgradefile, self.middleware.entity_home,
                       self.middleware.entity_user, self.middleware.entity_group,
                       native, timeout)
 
     def revert(self, result, backupfile, timeout=None, native=True):
         super(AppFileUpgradeBase, self).revert(result)
         if isinstance(result, failure.Failure):
-            self._extract(backupfile.file, self.middleware.apppath,
-                          self.middleware.entity_user, self.middleware.entity_group,
-                          timeout=timeout)
+            if backupfile is None:
+                LOG.info('backupfile is none, can not revert')
+            else:
+                self.middleware.set_return(self.taskname, common.REVERT_FAIL)
+                try:
+                    self._extract(backupfile, self.middleware.apppath,
+                                  self.middleware.entity_user, self.middleware.entity_group,
+                                  timeout=timeout)
+                except Exception:
+                    if LOG.isEnabledFor(logging.DEBUG):
+                        LOG.exception('revert from %s fail' % backupfile)
+                    raise
+            self.middleware.set_return(self.taskname, common.REVERTED)
+
 
     def _extract(self, src, dst, user, group, native=True, timeout=None):
         waiter = zlibutils.async_extract(src, dst, exclude=None, native=native,

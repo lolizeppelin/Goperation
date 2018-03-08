@@ -2,8 +2,10 @@
 import random
 import eventlet
 
+from simpleflow.task import Task
 from simpleflow.patterns import linear_flow as lf
 from simpleflow.patterns import unordered_flow as uf
+
 
 from goperation.manager.rpc.agent.application.taskflow import application
 from goperation.manager.rpc.agent.application.taskflow import database
@@ -12,16 +14,35 @@ from goperation.manager.rpc.agent.application.taskflow.base import TaskPublicFil
 from goperation.manager.rpc.agent.application.taskflow.base import format_store_rebind
 
 
-def entity_factory(session, app, store, db_flow_factory, **kwargs):
+class ProvidesTask(Task):
+    def __init__(self, name, upgradefile=None, backupfile=None):
+        self.upgradefile = upgradefile
+        self.backupfile = backupfile
+        super(ProvidesTask, self).__init__(name=name, provides=['upgradefile', 'backupfile'])
+
+    def execute(self):
+        return self.upgradefile, self.backupfile
+
+
+def entity_factory(session, app, store,
+                   upgradefile, backupfile,
+                   db_flow_factory, **kwargs):
     """
     @param session:                 class: sqlalchemy:session
     @param middleware:              class: EntityMiddleware
     @param store:                   class: dict
     @param db_flow_factory:         class: function
+    @param upgradefile:             class: TaskPublicFile
+    @param backupfile:              class: TaskPublicFile
+    @param kwargs:                  class: create_cls,backup_cls,update_cls
     """
     endpoint_name = app.middleware.endpoint
     entity = app.middleware.entity
     entity_flow = lf.Flow('entity_%s_%d' % (endpoint_name, entity))
+
+    entity_flow.add(ProvidesTask(name='provides_%s_%d' % (endpoint_name, entity),
+                                 upgradefile=upgradefile,
+                                 backupfile=backupfile))
 
     if app.createtask:
         entity_flow.add(app.createtask)
@@ -123,7 +144,9 @@ def flow_factory(session, applications,
     # 批量更新操作
     for app in applications:
         # all entity task
-        entitys_taskflow.add(entity_factory(session, app, store, db_flow_factory, **kwargs))
+        entitys_taskflow.add(entity_factory(session, app, store,
+                                            upgradefile, backupfile,
+                                            db_flow_factory, **kwargs))
         eventlet.sleep(0)
     main_flow.add(entitys_taskflow)
 
