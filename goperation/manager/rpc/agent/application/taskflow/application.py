@@ -22,6 +22,7 @@ LOG = logging.getLogger(__name__)
 
 
 class AppUpgradeFile(TaskPublicFile):
+
     def __init__(self, source,
                  rollback=False,
                  revertable=True):
@@ -47,6 +48,8 @@ class AppUpgradeFile(TaskPublicFile):
         pass
 
     def _file(self):
+        if not self.localfile:
+            raise ValueError('localfile not prepare')
         return os.path.abspath(self.localfile.path)
 
     def post_check(self):
@@ -72,6 +75,8 @@ class AppRemoteBackupFile(TaskPublicFile):
         pass
 
     def _file(self):
+        if not self.localfile:
+            raise ValueError('localfile not prepare')
         return os.path.abspath(self.localfile.path)
 
     def post_check(self):
