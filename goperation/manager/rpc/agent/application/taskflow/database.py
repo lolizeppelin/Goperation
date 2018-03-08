@@ -99,9 +99,9 @@ class DbUpdateSqlGet(StandardTask):
 
     def execute(self, timeout):
         for database in self.databases:
-            if not isinstance(database.update, TaskPublicFile):
-                raise TypeError('DbUpdateSqlGet need database.update TaskPublicFile')
             if database.update:
+                if not isinstance(database.update, TaskPublicFile):
+                    raise TypeError('DbUpdateSqlGet need database.update TaskPublicFile')
                 self.database.update.prepare(self.middleware, timeout)
 
     def revert(self, result, *args, **kwargs):
