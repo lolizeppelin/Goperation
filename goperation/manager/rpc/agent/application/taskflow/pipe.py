@@ -16,12 +16,12 @@ from goperation.manager.rpc.agent.application.taskflow.base import format_store_
 
 class ProvidesTask(Task):
     def __init__(self, name, upgradefile=None, backupfile=None):
-        self.upgradefile = upgradefile
-        self.backupfile = backupfile
+        self.upgradefile = upgradefile.file if upgradefile else None
+        self.backupfile = backupfile.file if backupfile else None
         super(ProvidesTask, self).__init__(name=name, provides=['upgradefile', 'backupfile'])
 
     def execute(self):
-        return self.upgradefile.file, self.backupfile.file
+        return self.upgradefile, self.backupfile
 
 
 def entity_factory(session, app, store,
