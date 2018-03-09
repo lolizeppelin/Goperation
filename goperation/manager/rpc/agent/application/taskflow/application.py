@@ -84,11 +84,14 @@ class AppRemoteBackupFile(TaskPublicFile):
 
 
 class AppLocalBackupFile(TaskPublicFile):
-    def __init__(self, destination, native=True):
-        self.native = native
+    def __init__(self, destination, exclude=None, native=True):
         if os.path.exists(destination):
             raise ValueError('backup file %s alreday exist')
+        if exclude and not callable(exclude):
+            raise TypeError('exclude is not callable')
+        self._exclude = exclude
         self.destination = destination
+        self.native = native
 
     def prepare(self, middleware=None, timeout=None):
         LOG.info('AppBackUp dump local bakcup file from %s %d' % (middleware.endpoint,
@@ -96,7 +99,7 @@ class AppLocalBackupFile(TaskPublicFile):
         src = middleware.apppath
         LOG.debug('AppBackUp dump local bakcup from path %s' % src)
         waiter = zlibutils.async_compress(src, self.destination,
-                                          exclude=self.middleware.exclude,
+                                          exclude=self.exclude,
                                           native=self.native,
                                           fork=functools.partial(safe_fork,
                                                                  user=self.middleware.entity_user,
@@ -104,6 +107,10 @@ class AppLocalBackupFile(TaskPublicFile):
                                           if systemutils.LINUX else None, timeout=timeout)
         waiter.wait()
         self.post_check()
+
+    @property
+    def exclude(self):
+        return self._exclude
 
     def clean(self):
         try:
@@ -213,9 +220,13 @@ class AppFileUpgradeBase(AppTaskBase):
 
 
 class AppFileUpgradeByFile(AppFileUpgradeBase):
-    def __init__(self, middleware,
+    def __init__(self, middleware, exclude=None, native=True,
                  rebind=None, requires='upgradefile',
                  revert_requires='backupfile'):
+        if exclude and not callable(exclude):
+            raise TypeError('exclude is not callable')
+        self._exclude = exclude
+        self.native = native
         super(AppFileUpgradeByFile, self).__init__(middleware=middleware,
                                                    rebind=rebind, requires=requires,
                                                    revert_requires=revert_requires)
@@ -244,7 +255,8 @@ class AppFileUpgradeByFile(AppFileUpgradeBase):
 
 
     def _extract(self, src, dst, user, group, native=True, timeout=None):
-        waiter = zlibutils.async_extract(src, dst, exclude=None, native=native,
+        waiter = zlibutils.async_extract(src, dst, exclude=self._exclude,
+                                         native=self.native,
                                          timeout=timeout,
                                          fork=functools.partial(safe_fork, user, group)
                                          if systemutils.LINUX else None)

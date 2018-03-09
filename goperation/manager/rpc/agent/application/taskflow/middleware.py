@@ -15,7 +15,6 @@ class EntityMiddleware(object):
         self.results = collections.OrderedDict()
         self.errors = []
         self.dberrors = []
-        self._exclude = None
 
     @property
     def entity_home(self):
@@ -70,13 +69,6 @@ class EntityMiddleware(object):
             if value is not common.EXECUTE_SUCCESS:
                 return False
         return True
-
-    def _exclude(self, x):
-        return True
-
-    @property
-    def exclude(self):
-        return self._exclude
 
     def iterresults(self):
         return six.iteritems(self.results)
