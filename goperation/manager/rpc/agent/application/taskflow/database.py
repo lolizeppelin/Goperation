@@ -204,8 +204,8 @@ class MysqlUpdate(StandardTask):
         return self.__class__.__name__ + '-' + self.database.schema
 
     def __init__(self, middleware, database):
-        super(MysqlUpdate, self).__init__(middleware)
         self.database = database
+        super(MysqlUpdate, self).__init__(middleware)
         self.executed = 0
 
     def execute_sql_from_file(self, sql_file, timeout=None):
