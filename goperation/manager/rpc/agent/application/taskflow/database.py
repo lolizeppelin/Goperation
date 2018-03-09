@@ -1,7 +1,6 @@
 import time
 import os
-import sys
-import subprocess
+import functools
 
 from simpleutil.log import log as logging
 from simpleutil.utils import systemutils
@@ -10,6 +9,8 @@ from sqlalchemy.pool import NullPool
 from simpleservice.ormdb.argformater import connformater
 from simpleservice.ormdb.engines import create_engine
 from simpleservice.ormdb.tools.utils import re_create_schema
+from simpleservice.ormdb.tools.backup import mysqldump
+from simpleservice.ormdb.tools.backup import mysqlload
 
 from simpleflow.types import failure
 from simpleflow.retry import Times
@@ -27,11 +28,10 @@ LOG = logging.getLogger(__name__)
 
 NOTALLOWD_SCHEMAS = frozenset(['mysql', 'information_schema', 'performance_schema'])
 
-
 class DbUpdateFile(TaskPublicFile):
     def __init__(self, source,
-                 rollback=False,
-                 revertable=False):
+                 revertable=False,
+                 rollback=False):
         if rollback and not revertable:
             raise ValueError('revert is not enable, can not rollback')
         self.source = source
@@ -44,12 +44,15 @@ class DbUpdateFile(TaskPublicFile):
 
     def prepare(self, middleware=None, timeout=None):
         self.localfile = middleware.filemanager.get(self.source, download=True, timeout=timeout)
+        if not (self.localfile.path.endswith('.sql') or self.localfile.path.endswith('.gz')):
+            middleware.filemanager.delete(self.source)
+            raise ValueError('Database file not endwith sql or gz')
         try:
             self.format()
         except Exception:
             self.localfile = None
             middleware.filemanager.delete(self.source)
-            raise
+            raise ValueError('Sql file can not be format')
 
     def clean(self):
         del self.sql[:]
@@ -58,7 +61,31 @@ class DbUpdateFile(TaskPublicFile):
         pass
 
     def _file(self):
-        return os.path.abspath(self.localfile.path)
+        return self.localfile.path
+
+
+class DbBackUpFile(TaskPublicFile):
+    def __init__(self, destination):
+        if os.path.exists(destination):
+            raise ValueError('Database backup file %s alreday exist')
+        if not (destination.endswith('.sql') or destination.endswith('.gz')):
+            raise ValueError('Database backup file name not endwith sql or gz')
+        self.destination = os.path.abspath(self.destination)
+
+    def prepare(self, middleware=None, timeout=None):
+        path = os.path.split(self.destination)
+        if not os.path.exists(path):
+            raise ValueError('Database backup dir not exist')
+        else:
+            if not os.path.isdir():
+                raise ValueError('Database backup dir %s is not dir' % path)
+
+    def clean(self):
+        if os.path.exists(self.destination):
+            os.remove(self.destination)
+
+    def _file(self):
+        return self.destination
 
 
 class Database(object):
@@ -144,38 +171,31 @@ class MysqlDump(StandardTask):
         database = self.database
         if not isinstance(database.backup, TaskPublicFile):
             raise TypeError('MysqlDump need database.backup TaskPublicFile')
+        database.backup.prepare(middleware=self.middleware)
         timeout = database.timeout or 3600
         if not database.schema or database.schema.lower() == 'mysql':
             raise RuntimeError('Schema value error')
-        mysqldump = systemutils.find_executable('mysqldump')
-        args = [mysqldump,
-                '--default-character-set=%s' % (database.character_set or 'utf8'),
-                '-u%s' % database.user, '-p%s' % database.passwd,
-                '-h%s' % database.host, '-P%d' % database.port,
-                database.schema]
-        LOG.debug(' '.join(args))
-        with open(os.devnull, 'wb') as nul:
-            with open(database.backup.file, 'wb') as f:
-                if systemutils.LINUX:
-                    pid = utils.safe_fork(user=self.middleware.entity_user,
-                                          group=self.middleware.entity_group)
-                    if pid == 0:
-                        os.dup2(f.fileno(), sys.stdout.fileno())
-                        os.dup2(nul.fileno(), sys.stderr.fileno())
-                        os.execv(mysqldump, args)
-                    else:
-                        utils.wait(pid, timeout)
-                else:
-                    sub = subprocess.Popen(executable=mysqldump, args=args, stdout=f.fileno(), stderr=nul.fileno())
-                    utils.wait(sub, timeout)
+        func = None
+        if systemutils.LINUX:
+            func = functools.partial(utils.safe_fork,
+                                     user=self.middleware.entity_user,
+                                     group=self.middleware.entity_group)
+        mysqldump(dumpfile=database.backup.file,
+                  host=database.host, port=database.port,
+                  user=database.user, passwd=database.passwd,
+                  schema=database.schema,
+                  character_set=database.character_set,
+                  callable=func,
+                  timeout=timeout)
 
     def revert(self, result, *args, **kwargs):
         super(MysqlDump, self).revert(result, *args, **kwargs)
         if isinstance(result, failure.Failure):
             database = self.database
-            if os.path.exists(database.backup.file):
-                os.remove(database.backup)
-                self.middleware.set_return(self.taskname, common.REVERTED)
+            database.backup.clean()
+            self.middleware.set_return(self.taskname, common.REVERTED)
+            # if os.path.exists(database.backup.file):
+            #     os.remove(database.backup.file)
 
 
 class MysqlUpdate(StandardTask):
@@ -190,30 +210,19 @@ class MysqlUpdate(StandardTask):
 
     def execute_sql_from_file(self, sql_file, timeout=None):
         database = self.database
-        mysql = systemutils.find_executable('mysql')
-        args = [mysql,
-                '--default-character-set=%s' % (database.character_set or 'utf8'),
-                '-u%s' % database.user, '-p%s' % database.passwd,
-                '-h%s' % database.host, '-P%d' % database.port,
-                database.schema]
-        LOG.info('Endpoint %s, entity %d call MysqlUpdate for %s' % (self.middleware.endpoint,
-                                                                     self.middleware.entity,
-                                                                     database.schema))
-        with open(os.devnull, 'wb') as nul:
-            with open(sql_file, 'rb') as f:
-                self.executed = 1
-                if systemutils.LINUX:
-                    pid = utils.safe_fork(user=self.middleware.entity_user,
-                                          group=self.middleware.entity_group)
-                    if pid == 0:
-                        os.dup2(f.fileno(), sys.stdin.fileno())
-                        os.dup2(nul.fileno(), sys.stderr.fileno())
-                        os.execv(mysql, args)
-                    else:
-                        utils.wait(pid, timeout=timeout)
-                else:
-                    sub = subprocess.Popen(executable=mysql, args=args, stdin=f.fileno(), stderr=nul.fileno())
-                    utils.wait(sub, timeout=timeout)
+        func = None
+        if systemutils.LINUX:
+            func = functools.partial(utils.safe_fork,
+                                     user=self.middleware.entity_user,
+                                     group=self.middleware.entity_group)
+        self.executed = 1
+        mysqlload(loadfile=sql_file,
+                  host=database.host, port=database.port,
+                  user=database.user, passwd=database.passwd,
+                  schema=database.schema,
+                  character_set=database.character_set,
+                  callable=func,
+                  timeout=timeout)
 
     def execute_sql_from_row(self, timeout=None):
         database = self.database
@@ -283,29 +292,26 @@ class MysqlUpdate(StandardTask):
                         msg = 'No backup database file found! can not revert'
                         LOG.error(msg)
                         raise exceptions.DatabaseRevertError(msg)
-
-                    db_info = {'user': database.user,
-                               'passwd': database.passwd,
-                               'host': database.host,
-                               'port': database.port,
-                               'schema': database.schema,
-                               }
-                    database_connection = connformater % db_info
-                    engine = create_engine(database_connection, thread_checkin=False,
+                    engine = create_engine(connformater % {'user': database.user,
+                                                           'passwd': database.passwd,
+                                                           'host': database.host,
+                                                           'port': database.port,
+                                                           'schema': database.schema},
+                                           thread_checkin=False,
                                            poolclass=NullPool,
                                            charset=database.character_set)
                     LOG.warning('Database %s will drop and re create in %s:%d' % (database.schema,
                                                                                   database.host,
                                                                                   database.port))
                     re_create_schema(engine)
-                    self.execute_sql_from_file(database.backup)
+                    self.execute_sql_from_file(database.backup.file)
                     self.executed = 0
                     LOG.info('Revert database success')
                 self.middleware.set_return(self.taskname, common.REVERTED)
             else:
                 if isinstance(result, failure.Failure):
-                    LOG.error('Update fail, but not backup file found')
-                    raise ValueError('Can not rollback, no backup file found')
+                    LOG.error('Update fail, but not backup file found or unable revert')
+                    raise ValueError('Can not rollback, no backup file found or unable revert')
 
 
 def mysql_flow_factory(app, store,
