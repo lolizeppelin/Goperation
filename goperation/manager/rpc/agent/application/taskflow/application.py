@@ -102,8 +102,8 @@ class AppLocalBackupFile(TaskPublicFile):
                                           exclude=self.exclude,
                                           native=self.native,
                                           fork=functools.partial(safe_fork,
-                                                                 user=self.middleware.entity_user,
-                                                                 group=self.middleware.entity_group)
+                                                                 user=middleware.entity_user,
+                                                                 group=middleware.entity_group)
                                           if systemutils.LINUX else None, timeout=timeout)
         waiter.wait()
         self.post_check()
@@ -220,6 +220,7 @@ class AppFileUpgradeBase(AppTaskBase):
 
 
 class AppFileUpgradeByFile(AppFileUpgradeBase):
+
     def __init__(self, middleware, exclude=None, native=True,
                  rebind=None, requires='upgradefile',
                  revert_requires='backupfile'):
@@ -231,10 +232,10 @@ class AppFileUpgradeByFile(AppFileUpgradeBase):
                                                    rebind=rebind, requires=requires,
                                                    revert_requires=revert_requires)
 
-    def execute(self, upgradefile, timeout=None, native=True):
+    def execute(self, upgradefile, timeout=None):
         self._extract(upgradefile, self.middleware.entity_home,
                       self.middleware.entity_user, self.middleware.entity_group,
-                      native, timeout)
+                      self.native, timeout)
 
     def revert(self, result, backupfile, timeout=None, native=True):
         super(AppFileUpgradeBase, self).revert(result)
@@ -256,7 +257,7 @@ class AppFileUpgradeByFile(AppFileUpgradeBase):
 
     def _extract(self, src, dst, user, group, native=True, timeout=None):
         waiter = zlibutils.async_extract(src, dst, exclude=self._exclude,
-                                         native=self.native,
+                                         native=native,
                                          timeout=timeout,
                                          fork=functools.partial(safe_fork, user, group)
                                          if systemutils.LINUX else None)
