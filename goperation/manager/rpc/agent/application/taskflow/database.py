@@ -210,7 +210,7 @@ class MysqlUpdate(StandardTask):
         self.executed = 0
         super(MysqlUpdate, self).__init__(middleware)
 
-    def execute_sql_from_file(self, sql_file, timeout=None):
+    def execute_sql_from_file(self, sql_file, logfile=None, timeout=None):
         database = self.database
         func = None
         if systemutils.LINUX:
@@ -223,10 +223,11 @@ class MysqlUpdate(StandardTask):
                   user=database.user, passwd=database.passwd,
                   schema=database.schema,
                   character_set=database.character_set,
+                  logfile=logfile,
                   callable=func,
                   timeout=timeout)
 
-    def execute_sql_from_row(self, timeout=None):
+    def execute_sql_from_row(self, logfile=None, timeout=None):
         database = self.database
         db_info = {'user': database.user,
                    'passwd': database.passwd,
@@ -250,9 +251,12 @@ class MysqlUpdate(StandardTask):
                     r.close()
                     self.executed += 1
                 except Exception as e:
-                    LOG.debug('%s : [%s]' % (e.__class__.__name__, sql))
                     msg = 'execute sql fail, index %d, sql file %s' % (self.executed + 1,
                                                                        database.update.file)
+                    with open(logfile, 'w') as f:
+                        f.write(msg + '\n')
+                        f.write(sql + '\n')
+                        f.write(str(e))
                     self.middleware.dberrors.append(sql)
                     LOG.error(msg)
                     # engine.close()
@@ -265,12 +269,14 @@ class MysqlUpdate(StandardTask):
         timeout = database.timeout or 3600
         if not database.schema or database.schema.lower() in NOTALLOWD_SCHEMAS:
             raise RuntimeError('Schema is mysql, not allowed')
+        logfile = os.path.join(self.middleware.logpath, '%s.%s.log' % (database.schema,
+                                                                       database.update.file))
         # update by formated sql
         if database.update.sql:
-            self.execute_sql_from_row(timeout)
+            self.execute_sql_from_row(logfile, timeout)
         # update by execute sql file
         else:
-            self.execute_sql_from_file(database.update.file, timeout)
+            self.execute_sql_from_file(database.update.file, logfile, timeout)
 
     def revert(self, result, *args, **kwargs):
         super(MysqlUpdate, self).revert(result, *args, **kwargs)

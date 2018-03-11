@@ -25,6 +25,10 @@ class EntityMiddleware(object):
         return self._endpoint.apppath(self.entity)
 
     @property
+    def logpath(self):
+        return self._endpoint.logpath(self.entity)
+
+    @property
     def entity_user(self):
         return self._endpoint.entity_user(self.entity)
 
