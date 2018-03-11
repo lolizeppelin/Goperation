@@ -53,7 +53,7 @@ class DbUpdateFile(TaskPublicFile):
         except Exception:
             self.localfile = None
             middleware.filemanager.delete(self.source)
-            raise ValueError('Sql file can not be format')
+            raise
 
     def clean(self):
         del self.sql[:]
@@ -79,7 +79,7 @@ class DbBackUpFile(TaskPublicFile):
         if not os.path.exists(path):
             raise ValueError('Database backup dir not exist')
         else:
-            if not os.path.isdir():
+            if not os.path.isdir(path):
                 raise ValueError('Database backup dir %s is not dir' % path)
 
     def clean(self):
