@@ -84,13 +84,15 @@ class AppRemoteBackupFile(TaskPublicFile):
 
 
 class AppLocalBackupFile(TaskPublicFile):
-    def __init__(self, destination, exclude=None, native=True):
+    def __init__(self, destination, exclude=None, topdir=True,
+                 native=True):
         if os.path.exists(destination):
             raise ValueError('backup file %s alreday exist')
         if exclude and not callable(exclude):
             raise TypeError('exclude is not callable')
         self._exclude = exclude
         self.destination = destination
+        self.topdir = topdir
         self.native = native
 
     def prepare(self, middleware=None, timeout=None):
@@ -104,7 +106,8 @@ class AppLocalBackupFile(TaskPublicFile):
                                           fork=functools.partial(safe_fork,
                                                                  user=middleware.entity_user,
                                                                  group=middleware.entity_group)
-                                          if systemutils.LINUX else None, timeout=timeout)
+                                          if systemutils.LINUX else None, timeout=timeout,
+                                          topdir=self.topdir)
         waiter.wait()
         self.post_check()
 
