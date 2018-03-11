@@ -236,7 +236,7 @@ class AppFileUpgradeByFile(AppFileUpgradeBase):
                                                    revert_requires=revert_requires)
 
     def execute(self, upgradefile, timeout=None):
-        self._extract(upgradefile, self.middleware.entity_home,
+        self._extract(upgradefile, self.middleware.apppath,
                       self.middleware.entity_user, self.middleware.entity_group,
                       self.native, timeout)
 
@@ -257,7 +257,6 @@ class AppFileUpgradeByFile(AppFileUpgradeBase):
                         LOG.exception('revert from %s fail' % backupfile)
                     raise
             self.middleware.set_return(self.taskname, common.REVERTED)
-
 
     def _extract(self, src, dst, user, group, native=True, timeout=None):
         waiter = zlibutils.async_extract(src, dst, exclude=self._exclude,

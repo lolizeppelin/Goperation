@@ -207,8 +207,8 @@ class MysqlUpdate(StandardTask):
 
     def __init__(self, middleware, database):
         self.database = database
-        super(MysqlUpdate, self).__init__(middleware)
         self.executed = 0
+        super(MysqlUpdate, self).__init__(middleware)
 
     def execute_sql_from_file(self, sql_file, timeout=None):
         database = self.database
@@ -259,7 +259,7 @@ class MysqlUpdate(StandardTask):
                     raise exceptions.DatabaseExecuteError(msg)
 
     def execute(self):
-        if self.middleware.is_success(self.__class__.__name__):
+        if self.middleware.is_success(self.taskname):
             return
         database = self.database
         timeout = database.timeout or 3600
@@ -313,7 +313,6 @@ class MysqlUpdate(StandardTask):
             else:
                 if isinstance(result, failure.Failure):
                     LOG.error('Update fail, but not backup file found or unable revert')
-                    raise ValueError('Can not rollback, no backup file found or unable revert')
 
 
 def mysql_flow_factory(app, store,
