@@ -65,12 +65,13 @@ class DbUpdateFile(TaskPublicFile):
 
 
 class DbBackUpFile(TaskPublicFile):
+
     def __init__(self, destination):
         if os.path.exists(destination):
             raise ValueError('Database backup file %s alreday exist')
         if not (destination.endswith('.sql') or destination.endswith('.gz')):
             raise ValueError('Database backup file name not endwith sql or gz')
-        self.destination = os.path.abspath(self.destination)
+        self.destination = os.path.abspath(destination)
 
     def prepare(self, middleware=None, timeout=None):
         path = os.path.split(self.destination)
@@ -329,7 +330,8 @@ def mysql_flow_factory(app, store,
         if database.retry:
             retry = Times(attempts=database.retry,
                           name='db_retry_%s_%d_%d' % (endpoint_name, entity, index))
-        lfow = lf.Flow(name='db_%s_%d_%d' % (endpoint_name, entity, index), retry=retry)
+        lfow = lf.Flow(name='db_%s_%d_%d' % (endpoint_name, entity, index),
+                       retry=retry)
         if database.create:
             lfow.add(create_cls(middleware, database))
         if database.backup:
