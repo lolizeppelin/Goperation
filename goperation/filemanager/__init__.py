@@ -18,6 +18,7 @@ from simpleservice.ormdb.orm import get_maker
 from simpleservice.ormdb.api import model_query
 
 from goperation.filemanager import common
+from goperation.filemanager import common
 from goperation.filemanager import exceptions
 from goperation.filemanager import models
 from goperation.filemanager import downloader
@@ -174,82 +175,79 @@ class FileManager(object):
             if not self.session:
                 raise RuntimeError('FileManager closed')
             if target not in self.downloading:
-                self._download(target, timeout)
+                th = self._download(target, timeout)
             else:
                 th = self.downloading[target]
-                th.wait()
+        th.wait()
         return self.find(target)
 
-    def _download(self, md5, timeout):
-        if not attributes.is_md5_like(md5):
-            raise ValueError('%s is not md5, can not download' % md5)
-        fileinfo = self.infoget(md5)
-        LOG.info('Try download file of %s' % str(fileinfo))
+    def _download(self, target, timeout):
+        if not attributes.is_md5_like(target):
+            raise ValueError('%s is not md5, can not download' % target)
+        fileinfo = self.infoget(target)
+        LOG.debug('Try download file of %s', str(fileinfo))
         jsonutils.schema_validate(fileinfo, FileManager.SCHEMA)
-        uploadtime = fileinfo.get('uploadtime')
-        if uploadtime:
-            uploadtime = datetime.datetime.strptime(uploadtime, '%Y-%m-%d %H:%M:%S')
-        if md5 in self.downloading:
-            th = self.downloading[md5]
+
+        ev = event.Event()
+        self.downloading[fileinfo['md5']] = ev
+
+        def __download():
+
+            address = fileinfo['address']
+            filename = fileinfo['md5'] + os.extsep + fileinfo['ext']
+            path = os.path.join(self.path, filename)
+
+            if os.path.exists(path):
+                try:
+                    md5 = digestutils.filemd5(path)
+                    size = os.path.getsize(path)
+                except Exception as e:
+                    LOG.error('Download get size,md5 fail')
+                    ev.send(exc=e)
+                    self.downloading.pop(fileinfo['md5'], None)
+                    raise e
+            else:
+                # default downloader http
+                _downloader = downloader_factory(fileinfo.get('downloader', 'http'),
+                                                 fileinfo.get('adapter_args', []))
+                LOG.info('Download %s with %s' % (address, _downloader.__class__.__name__))
+                try:
+                    md5 = _downloader.download(address, path, timeout)
+                    size = os.path.getsize(path)
+                    LOG.info('Download file %s success, wirte to local database' % fileinfo['md5'])
+                except Exception as e:
+                    if os.path.exists(path):
+                        try:
+                            os.remove(path)
+                        except (OSError, IOError):
+                            LOG.error('Download fail, remove path %s fail' % path)
+                    ev.send(exc=e)
+                    self.downloading.pop(fileinfo['md5'], None)
+                    raise
             try:
-                th.wait()
+                if md5 != fileinfo['md5'] or size != fileinfo['size']:
+                    raise exceptions.FileNotMatch('File md5 or size not the same')
+                # write into database
+                uploadtime = fileinfo.get('uploadtime')
+                if uploadtime:
+                    uploadtime = datetime.datetime.strptime(uploadtime, '%Y-%m-%d %H:%M:%S')
+                file_detil = models.FileDetail(md5=md5, size=size,
+                                               ext=fileinfo['ext'],
+                                               desc=fileinfo.get('desc', 'unkonwn file'),
+                                               address=fileinfo['address'],
+                                               uploadtime=uploadtime)
+                self.session.add(file_detil)
+                self.session.flush()
+                self.localfiles[path] = LocalFile(path, md5, size)
+                ev.send(result=None)
+            except Exception as e:
+                ev.send(exc=e)
+                raise
             finally:
                 self.downloading.pop(md5, None)
-            return
-        address = fileinfo['address']
-        filename = md5 + os.extsep + fileinfo['ext']
-        path = os.path.join(self.path, filename)
-        ev = event.Event()
-        self.downloading[md5] = ev
-        if os.path.exists(path):
-            try:
-                md5 = digestutils.filemd5(path)
-                size = os.path.getsize(path)
-                LOG.info('Download file %s already exist' % md5)
-            except Exception as e:
-                LOG.error('Download get size,md5 fail')
-                ev.send(exc=e)
-                self.downloading.pop(md5, None)
-                raise e
-        else:
-            # default downloader http
-            _downloader = downloader_factory(fileinfo.get('downloader', 'http'),
-                                             fileinfo.get('adapter_args', []))
 
-            # async downloading thread start
-            LOG.info('Download %s with %s' % (address, _downloader.__class__.__name__))
-            # th = self.threadpool.add_thread(_downloader.download, address, path, timeout)
-            try:
-                md5 = _downloader.download(address, path, timeout)
-                size = os.path.getsize(path)
-                LOG.info('Download file %s success, wirte to local database' % md5)
-            except Exception as e:
-                if os.path.exists(path):
-                    try:
-                        os.remove(path)
-                    except (OSError, IOError):
-                        LOG.error('Download fail, remove path %s fail' % path)
-                ev.send(exc=e)
-                self.downloading.pop(md5, None)
-                raise
-        try:
-            if md5 != fileinfo['md5'] or size != fileinfo['size']:
-                raise exceptions.FileNotMatch('File md5 or size not the same')
-            # write into database
-            file_detil = models.FileDetail(md5=md5, size=size,
-                                           ext=fileinfo['ext'],
-                                           desc=fileinfo.get('desc', 'unkonwn file'),
-                                           address=fileinfo['address'],
-                                           uploadtime=uploadtime)
-            self.session.add(file_detil)
-            self.session.flush()
-            self.localfiles[path] = LocalFile(path, md5, size)
-            ev.send(result=None)
-        except Exception as e:
-            ev.send(exc=e)
-            raise
-        finally:
-            self.downloading.pop(md5, None)
+        self.threadpool.add_thread(__download)
+        return ev
 
     def delete(self, target):
         try:

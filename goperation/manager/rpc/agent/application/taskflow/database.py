@@ -29,6 +29,7 @@ LOG = logging.getLogger(__name__)
 NOTALLOWD_SCHEMAS = frozenset(['mysql', 'information_schema', 'performance_schema'])
 
 class DbUpdateFile(TaskPublicFile):
+
     def __init__(self, source,
                  revertable=False,
                  rollback=False):
@@ -74,7 +75,7 @@ class DbBackUpFile(TaskPublicFile):
         self.destination = os.path.abspath(destination)
 
     def prepare(self, middleware=None, timeout=None):
-        path = os.path.split(self.destination)
+        path = os.path.split(self.destination)[0]
         if not os.path.exists(path):
             raise ValueError('Database backup dir not exist')
         else:
@@ -130,14 +131,14 @@ class DbUpdateSqlGet(StandardTask):
             if database.update:
                 if not isinstance(database.update, TaskPublicFile):
                     raise TypeError('DbUpdateSqlGet need database.update TaskPublicFile')
-                self.database.update.prepare(self.middleware, timeout)
+                database.update.prepare(self.middleware, timeout)
 
     def revert(self, result, *args, **kwargs):
         super(DbUpdateSqlGet, self).revert(result, *args, **kwargs)
         if isinstance(result, failure.Failure):
             for database in self.databases:
                 if database.update:
-                    self.database.update.clean()
+                    database.update.clean()
 
 
 class MysqlCreate(StandardTask):
