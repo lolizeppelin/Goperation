@@ -88,7 +88,7 @@ class FileReuest(BaseContorller):
                                                                          uploadtime=downfile.uploadtime,
                                                                          downloader=downfile.downloader)])
 
-    def show(self, req, md5):
+    def show(self, req, md5, body=None):
         session = get_session(readonly=True)
         query = model_query(session, DownFile, filter=DownFile.md5 == md5)
         downfile = query.one_or_none()
@@ -99,7 +99,9 @@ class FileReuest(BaseContorller):
                      'ext': downfile.ext,
                      'size': downfile.size,
                      'uploadtime': str(downfile.uploadtime),
-                     'md5': downfile.md5}
+                     'md5': downfile.md5,
+                     'status': downfile.status,
+                     }
         if downfile.adapter_args:
             file_info.setdefault('adapter_args', jsonutils.dumps_as_bytes(downfile.adapter_args))
         if downfile.desc:

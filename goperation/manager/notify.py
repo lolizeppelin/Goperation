@@ -148,7 +148,7 @@ class HttpNotify(NotifyInterface):
         raise NotImplementedError
 
     def _do(self, keyword, replace=None):
-        LOG.debug('Notify %s called' % keyword)
+        LOG.debug('Notify action:%s try send' % keyword)
         if keyword not in self.notify:
             return
 
