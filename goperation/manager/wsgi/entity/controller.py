@@ -241,7 +241,7 @@ class EntityReuest(BaseContorller):
         if not metadata:
             raise InvalidArgument('Can not get log from off line agent')
         target = targetutils.target_agent_by_string(manager_common.APPLICATION, metadata.get('host'))
-        target.namespace = endpoint
+        # target.namespace = endpoint
         rpc = get_client()
         rpc_ret = rpc.call(target,
                            ctxt={'finishtime': rpcfinishtime()},
