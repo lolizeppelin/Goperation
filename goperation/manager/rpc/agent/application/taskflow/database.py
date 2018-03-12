@@ -269,14 +269,22 @@ class MysqlUpdate(StandardTask):
         timeout = database.timeout or 3600
         if not database.schema or database.schema.lower() in NOTALLOWD_SCHEMAS:
             raise RuntimeError('Schema is mysql, not allowed')
-        logfile = os.path.join(self.middleware.logpath, '%s.%s.log' % (database.schema,
-                                                                       database.update.file))
+        localfile = self.middleware.filemanager.find(database.update.file)
+        logfile = os.path.join(self.middleware.logpath, '%s.%s.%s.log' % (self.__class__.__name__.lower(),
+                                                                          database.schema, localfile.md5))
         # update by formated sql
         if database.update.sql:
             self.execute_sql_from_row(logfile, timeout)
         # update by execute sql file
         else:
             self.execute_sql_from_file(database.update.file, logfile, timeout)
+        # remove logfile if not error
+        try:
+            if os.path.exists(logfile):
+                os.remove(logfile)
+        except (OSError, IOError):
+            LOG.error('Remove log file %s fail' % logfile)
+
 
     def revert(self, result, *args, **kwargs):
         super(MysqlUpdate, self).revert(result, *args, **kwargs)
@@ -318,7 +326,7 @@ class MysqlUpdate(StandardTask):
                 self.middleware.set_return(self.taskname, common.REVERTED)
             else:
                 if isinstance(result, failure.Failure):
-                    LOG.error('Update fail, but not backup file found or unable revert')
+                    LOG.error('Database update fail, not revert because not backup file or unable to revert')
 
 
 def mysql_flow_factory(app, store,

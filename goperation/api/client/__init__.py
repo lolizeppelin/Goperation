@@ -24,6 +24,7 @@ class ManagerClient(HttpClientBase):
 
     entitys_agent_path = "/agent/%s/endpoint/%s/entitys"
     entity_path = "/endpoint/%s/entitys/%s"
+    entity_path_ex = "/endpoint/%s/entitys/%s/%s"
 
     ports_path = "/agent/%s/endpoint/%s/entity/%s/ports"
     port_path = "/agent/%s/endpoint/%s/entity/%s/ports/%s"
@@ -242,6 +243,15 @@ class ManagerClient(HttpClientBase):
                                     body=body)
         if results['resultcode'] != common.RESULT_SUCCESS:
             raise ServerExecuteRequestError(message='add entitys fail:%d' % results['resultcode'],
+                                            code=resp.status_code,
+                                            resone=results['result'])
+        return results
+
+    def entity_logs(self, endpoint, entity, body=None):
+        resp, results = self.get(action=self.entity_path_ex % (endpoint, str(entity), 'logs'),
+                                 body=body)
+        if results['resultcode'] != common.RESULT_SUCCESS:
+            raise ServerExecuteRequestError(message='get entity logs fail:%d' % results['resultcode'],
                                             code=resp.status_code,
                                             resone=results['result'])
         return results

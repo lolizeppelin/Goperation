@@ -22,6 +22,9 @@ class Routers(router.RoutersBase):
         self._add_resource(mapper, controller_intance,
                    path='/%s/{endpoint}/entitys/{entity}' % (manager_common.ENDPOINT),
                    delete_action='delete')
+        self._add_resource(mapper, controller_intance,
+                           path='/%s/{endpoint}/entitys/{entity}/logs' % (manager_common.ENDPOINT),
+                           get_action='logs')
         collection = mapper.collection(collection_name=self.collection_name,
                                        resource_name=self.resource_name,
                                        controller=controller_intance,

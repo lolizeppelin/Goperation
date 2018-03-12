@@ -824,8 +824,25 @@ class RpcAgentManager(RpcManagerBase):
     @CheckThreadPoolRpcCtxt
     def rpc_readlog(self, ctxt, **kwargs):
         lines = int(kwargs.pop('lines', 10))
+        target = kwargs.get('target')
+        if target:
+            logpath, user, group = None, None, None
+            entity = target.get('entity')
+            endpoint = target.get('endpoint')
+            for e in self.endpoints:
+                if e.namespace == endpoint:
+                    logpath = e.logpath(entity)
+                    user = e.entity_user(entity)
+                    group = e.entity_group(entity)
+            if not logpath or not user or not group:
+                return UriResult(resultcode=manager_common.RESULT_ERROR,
+                                 result='can not find %s.%d' % (endpoint, entity))
+        else:
+            logpath = CONF.log_dir
+            user = 'nobody'
+            group = 'nobody'
         try:
-            uri = self.readlog(CONF.log_dir, user='nobody', group='nobody', lines=lines)
+            uri = self.readlog(logpath, user=user, group=group, lines=lines)
         except ValueError as e:
             return UriResult(resultcode=manager_common.RESULT_ERROR,
                                    result='read log fail:%s' % e.message)

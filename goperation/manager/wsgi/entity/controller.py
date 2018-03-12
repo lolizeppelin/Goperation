@@ -228,6 +228,7 @@ class EntityReuest(BaseContorller):
 
     def logs(self, req, endpoint, entity, body=None):
         body = body or {}
+        lines = int(body.get('lines', 10))
         endpoint = validateutils.validate_endpoint(endpoint)
         entity = int(entity)
         session = get_session(readonly=True)
@@ -244,7 +245,9 @@ class EntityReuest(BaseContorller):
         rpc = get_client()
         rpc_ret = rpc.call(target,
                            ctxt={'finishtime': rpcfinishtime()},
-                           msg={'method': 'readlog', 'args': {'entity': entity}})
+                           msg={'method': 'readlog',
+                                'args': {'target': dict(entity=entity, endpoint=endpoint),
+                                         'lines': lines}})
         if not rpc_ret:
             raise RpcResultError('Get %s.%d log rpc result is None' % (endpoint, entity))
         if rpc_ret.get('resultcode') != manager_common.RESULT_SUCCESS:
