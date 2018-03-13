@@ -63,8 +63,13 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
         self.timeout = CONF.heartbeat * 3
         websocket.WebSocketRequestHandler.__init__(self, req, addr, server)
 
-    def log_message(self, format, *args):
-        pass
+    def address_string(self):
+        """
+        fuck gethostbyaddr!!!!!
+        fuck gethostbyaddr on logging!!!
+        """
+        host, port = self.client_address[:2]
+        return host
 
     def do_POST(self):
         self.send_error(405, "Method Not Allowed")
