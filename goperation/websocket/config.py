@@ -21,6 +21,6 @@ websocket_opts = [
                 default=True,
                 help='webesocket use strict mode'),
     cfg.IntOpt('heartbeat',
-               default=5,
-               help='webesocket socket connect timeout'),
+               default=3,
+               help='webesocket socket connect and heartbeat timeout'),
 ]

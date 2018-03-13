@@ -837,13 +837,15 @@ class RpcAgentManager(RpcManagerBase):
             if not logpath or not user or not group:
                 return UriResult(resultcode=manager_common.RESULT_ERROR,
                                  result='can not find %s.%d' % (endpoint, entity))
+            result = 'get %s.%d log success' % (endpoint, entity)
         else:
             logpath = CONF.log_dir
             user = 'nobody'
             group = 'nobody'
+            result = 'get agent log success'
         try:
             uri = self.readlog(logpath, user=user, group=group, lines=lines)
         except ValueError as e:
             return UriResult(resultcode=manager_common.RESULT_ERROR,
                                    result='read log fail:%s' % e.message)
-        return UriResult(resultcode=manager_common.RESULT_SUCCESS, result='get log success', uri=uri)
+        return UriResult(resultcode=manager_common.RESULT_SUCCESS, result=result, uri=uri)

@@ -63,6 +63,9 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
         self.timeout = CONF.heartbeat * 3
         websocket.WebSocketRequestHandler.__init__(self, req, addr, server)
 
+    def log_message(self, format, *args):
+        pass
+
     def do_POST(self):
         self.send_error(405, "Method Not Allowed")
 
@@ -92,6 +95,7 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
             if self.only_upgrade:
                 self.send_error(405, "Method Not Allowed")
             else:
+                logging.info('handle websocket finish')
                 # 如果path是文件夹,允许列出文件夹
                 if os.path.isdir(path):
                     if not self.path.endswith('/'):
@@ -130,16 +134,16 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
     def new_websocket_client(self):
         # websocket握手成功后设置自动关闭链接
         self.close_connection = 1
-        logging.info('Suicide cancel')
+        logging.info('Suicide cancel at %d' % int(time.time()))
         # 取消自动退出
         self.server.suicide.cancel()
 
-        cqueue = []
+        cqueue = {'cqueue': []}
         rlist = [self.request]
         wlist = [self.request]
 
         def output(buf):
-            cqueue.append(buf)
+            cqueue['cqueue'].append(buf)
             self.lastsend = int(time.time())
 
         path = self.translate_path(self.path)
@@ -184,14 +188,15 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
                 if excepts:
                     raise Exception("Socket exception")
 
-                if not cqueue:
-                    eventlet.sleep(0.01)
-
-                if cqueue and self.request in outs:
-                    # Send queued target data to the client
-                    self.send_frames(cqueue)
-                    self.lastsend = int(time.time())
-                    cqueue = []
+                if self.request in outs:
+                    if not cqueue['cqueue']:
+                        eventlet.sleep(0.01)
+                    else:
+                        buffs = cqueue['cqueue']
+                        cqueue['cqueue'] = []
+                        # Send queued target data to the client
+                        self.send_frames(buffs)
+                        self.lastsend = int(time.time())
 
                 if self.request in ins:
                     # Receive client data, decode it, and queue for target
@@ -208,3 +213,4 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
 class FileReadWebSocketServer(GopWebSocketServerBase):
     def __init__(self):
         super(FileReadWebSocketServer, self).__init__(RequestHandlerClass=FileSendRequestHandler)
+        self.logger = logging.getLogger()
