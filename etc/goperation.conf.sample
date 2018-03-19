@@ -236,7 +236,7 @@
 #redis_heartbeat_overtime_max_count = 3
 
 # redis key prefix value (string value)
-#redis_key_prefix = goper
+#redis_key_prefix = gop
 
 
 [rabbit]
