@@ -70,6 +70,9 @@ class FileReuest(BaseContorller):
         status = body.get('status', manager_common.DOWNFILE_FILEOK)
         if not ext:
             ext = address.split('.')[-1]
+        else:
+            if ext.startswith('.'):
+                ext = ext[1:]
         session = get_session()
         downfile = DownFile(md5=md5,
                             downloader=body.get('downloader', 'http'),
