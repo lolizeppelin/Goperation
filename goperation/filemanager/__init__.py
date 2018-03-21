@@ -256,15 +256,18 @@ class FileManager(object):
             return
         query = model_query(self.session, models.FileDetail,
                             filter=models.FileDetail.md5 == localfile.md5)
-        fileobj = query.one_or_none()
-        if fileobj:
-            self.session.delete(fileobj)
-            self.session.flush()
-        if os.path.exists(localfile.path):
+        with self.lock:
             try:
-                os.remove(localfile.path)
+                fileobj = query.one_or_none()
+                if fileobj:
+                    self.session.delete(fileobj)
+                    self.session.flush()
+                if os.path.exists(localfile.path):
+                    os.remove(localfile.path)
             except (OSError, IOError):
                 LOG.error('Remove file %s fail' % localfile.path)
+            finally:
+                self.localfiles.pop(localfile.md5, None)
 
 
 def downloader_factory(adapter_cls, cls_args):
