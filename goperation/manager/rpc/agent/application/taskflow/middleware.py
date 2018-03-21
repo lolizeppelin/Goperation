@@ -68,6 +68,13 @@ class EntityMiddleware(object):
         return True
 
     @property
+    def notexecuted(self):
+        for value in self.itervalues():
+            if value is not common.NOT_EXECUTED:
+                return False
+        return True
+
+    @property
     def success(self):
         for value in self.itervalues():
             if value is not common.EXECUTE_SUCCESS:
