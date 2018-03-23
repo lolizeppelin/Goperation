@@ -150,8 +150,9 @@ class RpcServerManager(RpcManagerBase):
                                                      filter=Agent.status > manager_common.DELETED).all()]
         else:
             wait_agents = rpc_ctxt.get('agents')
-        rpc_ctxt.setdefault('request_id', asyncrequest.request_id)
-        rpc_ctxt.setdefault('expire', asyncrequest.expire)
+        rpc_ctxt.update({'request_id': asyncrequest.request_id,
+                         'expire': asyncrequest.expire,
+                         'finishtime': asyncrequest.finishtime})
 
         target = Target(**rpc_target)
         rpc = get_client()
