@@ -149,6 +149,8 @@ class AgentReuest(BaseContorller):
         try:
             agent = global_data.add_agent(body)
         except (CacheStoneError, AgentHostExist) as e:
+            if LOG.isEnabledFor(logging.DEBUG):
+                LOG.exception('Agent create fail')
             result = resultutils.results(resultcode=manager_common.RESULT_ERROR,
                                          result='Create agent fail,%s:%s' % (e.__class__.__name__, e.message))
             return result

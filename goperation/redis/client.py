@@ -159,17 +159,17 @@ class GRedisPool(StrictRedis):
         timeout = float(timeout)
         self.running = True
         # 孵化心跳循环线程
-        heartbeat_greenlet = eventlet.spawn_n(self.heart_beat_loop)
+        eventlet.spawn_n(self.heart_beat_loop)
         eventlet.sleep(0.1)
         overtime = monotonic() + timeout
         while True:
             if self.connection_pool._created_connections > 0:
                 break
             if monotonic() > overtime:
+                LOG.error('Redis connection pool init fail')
                 self.running = False
-                heartbeat_greenlet.throw(TimeoutError)
                 # 等待前面的绿色线程结束
-                eventlet.sleep(1.0)
+                # eventlet.sleep(1.0)
                 raise ConnectionError('redis connection pool empty over %1.2f seconds' % timeout)
             eventlet.sleep(timeout/5.0)
         # 孵化垃圾key删除循环
