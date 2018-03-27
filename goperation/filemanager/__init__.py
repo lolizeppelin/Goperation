@@ -158,7 +158,6 @@ class FileManager(object):
         for localfile in six.itervalues(self.localfiles):
             if target == localfile.md5:
                 return localfile
-
         raise exceptions.NoFileFound('File Manager can not find file of %s' % target)
 
     def get(self, target, download=True, timeout=None):
@@ -267,7 +266,7 @@ class FileManager(object):
             except (OSError, IOError):
                 LOG.error('Remove file %s fail' % localfile.path)
             finally:
-                self.localfiles.pop(localfile.md5, None)
+                self.localfiles.pop(localfile.path, None)
 
 
 def downloader_factory(adapter_cls, cls_args):
