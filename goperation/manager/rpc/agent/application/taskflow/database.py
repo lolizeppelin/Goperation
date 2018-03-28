@@ -131,6 +131,7 @@ class DbUpdateSqlGet(StandardTask):
             if database.update:
                 if not isinstance(database.update, TaskPublicFile):
                     raise TypeError('DbUpdateSqlGet need database.update TaskPublicFile')
+                LOG.info('Prepare database update source %s' % database.update.source)
                 database.update.prepare(self.middleware, timeout)
 
     def revert(self, result, *args, **kwargs):
@@ -269,14 +270,16 @@ class MysqlUpdate(StandardTask):
         timeout = database.timeout or 3600
         if not database.schema or database.schema.lower() in NOTALLOWD_SCHEMAS:
             raise RuntimeError('Schema is mysql, not allowed')
-        localfile = self.middleware.filemanager.find(database.update.file)
+        localfile = database.update.localfile
         logfile = os.path.join(self.middleware.logpath, '%s.%s.%s.log' % (self.__class__.__name__.lower(),
                                                                           database.schema, localfile.md5))
         # update by formated sql
         if database.update.sql:
+            LOG.debug('Execute database update from row')
             self.execute_sql_from_row(logfile, timeout)
         # update by execute sql file
         else:
+            LOG.debug('Execute database update from file')
             self.execute_sql_from_file(database.update.file, logfile, timeout)
         # remove logfile if not error
         try:
@@ -284,7 +287,6 @@ class MysqlUpdate(StandardTask):
                 os.remove(logfile)
         except (OSError, IOError):
             LOG.error('Remove log file %s fail' % logfile)
-
 
     def revert(self, result, *args, **kwargs):
         super(MysqlUpdate, self).revert(result, *args, **kwargs)
