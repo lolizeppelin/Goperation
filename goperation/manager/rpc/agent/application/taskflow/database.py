@@ -155,9 +155,6 @@ class MysqlCreate(StandardTask):
     def execute(self):
         raise NotImplementedError
 
-    def revert(self, result, *args, **kwargs):
-        raise NotImplementedError
-
 
 class MysqlDump(StandardTask):
 
