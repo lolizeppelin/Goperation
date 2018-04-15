@@ -40,3 +40,8 @@ websocket实现文件上传                                                     
 
 sql执行超时方式确认                                                                         暂时关闭功能
 编写调度器                                                                                  差调度器载入任务
+
+
+objtypefiles  表改动  增加resource_id
+cdndomains    表改动  增加desc
+packages    表改动   geversion类型
