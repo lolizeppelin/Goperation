@@ -121,13 +121,12 @@ def flow_factory(session, applications,
     if store.get('backupfile') or store.get('upgradefile'):
         raise RuntimeError('Backupfile or Upgradefile in store')
 
-    endpoint_name = applications[0].middleware.endpoint
-
-    main_flow = lf.Flow('%s_taskflow' % endpoint_name)
-
     # choice one entity by randomizing
     # 随机选择一个app
     app = applications[random.randint(0, len(applications)-1)]
+    # 获取endpoint的名称
+    endpoint_name = app.middleware.endpoint
+    main_flow = lf.Flow('%s_taskflow' % endpoint_name)
 
     # prepare file for app update and database
     # 准备工作
