@@ -15,6 +15,9 @@ from goperation.manager.rpc.agent.application.taskflow.base import format_store_
 
 
 class ProvidesTask(Task):
+    """
+    这是任务用于提供后续任务所需参数
+    """
     def __init__(self, name, upgradefile=None, backupfile=None):
         self.upgradefile = upgradefile
         self.backupfile = backupfile
@@ -58,32 +61,32 @@ def entity_factory(session, app, store,
         prepare_flow.add(app.stoptask)
         entity_flow.add(prepare_flow)
 
-    # 更新任务(与其他任务并行)
+    # 创建一个并行工作流
     upflow = uf.Flow('up_%s_%d' % (endpoint_name, entity))
+    # 更新任务(与其他任务并行)
     if app.upgradetask:
         if not upgradefile:
             raise ValueError('No file found for upgradetask')
         # upgrade app file
         upflow.add(app.upgradetask)
-    # 数据库备份与升级任务
+    # 数据库备份与升级任务, 与更新任务并行
     database_flow = db_flow_factory(app, store, **kwargs)
     if database_flow:
         upflow.add(database_flow)
 
-    # 合并工作流
+    # 并行工作流插入到主工作流中
     if len(upflow):
         entity_flow.add(upflow)
     else:
         del upflow
 
-    # 其他串行任务
-    # update app (some thing like hotfix or flush config)
+    # 其他串行任务(更新完成后)
     if app.updatetask:
         entity_flow.add(app.updatetask)
     # start appserver
     if app.startstak:
         entity_flow.add(app.startstak)
-    # start appserver
+    # delete appserver
     if app.deletetask:
         entity_flow.add(app.deletetask)
 
