@@ -40,7 +40,7 @@ cors_opts = [
                      'request.'),
     cfg.ListOpt('allow_headers',
                 default=['Content-Type', 'Cache-Control', 'Content-Language',
-                         'Expires', 'Last-Modified', 'Pragma', 'token'],
+                         'Expires', 'Last-Modified', 'Pragma', 'Auth-Token'],
                 help='Indicate which header field names may be used during '
                      'the actual request.')
 ]
