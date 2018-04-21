@@ -15,7 +15,7 @@ def configure(config_files=None, config_dirs=None):
     # init goperation config
     gcenter_group = goperation_config.configure(name, config_files, config_dirs)
     # init endpoint opts
-    CONF.register_cli_opts(goperation_config.endpoint_load_opts)
+    CONF.register_opts(goperation_config.endpoint_load_opts)
 
     from simpleservice.rpc.config import rpc_server_opts
     from goperation.manager.rpc.server.config import gop_rpc_server_opts

@@ -15,7 +15,7 @@ def configure(config_files=None, config_dirs=None):
     # init goperation config
     gcenter_group = goperation_config.configure(name, config_files, config_dirs)
     # init endpoint opts
-    CONF.register_cli_opts(goperation_config.endpoint_load_opts)
+    CONF.register_opts(goperation_config.endpoint_load_opts)
 
     from simpleutil.utils import importutils
     from simpleservice.wsgi.config import wsgi_server_options

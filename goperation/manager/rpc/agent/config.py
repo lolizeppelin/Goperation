@@ -62,7 +62,7 @@ rpc_endpoint_opts = [
                help='Endpoint max lock size'),
 ]
 
-CONF.register_cli_opts(endpoint_load_opts, agent_group)
+CONF.register_opts(endpoint_load_opts, agent_group)
 CONF.register_opts(rpc_agent_opts, agent_group)
 CONF.register_opts(filemanager_opts, agent_group)
 
