@@ -387,9 +387,9 @@ class RpcAgentManager(RpcManagerBase):
                                        infoget=lambda x: self.client.file_show(x)['data'][0])
 
         # init endpoint
-        if CONF.endpoints:
+        if conf.endpoints:
             # endpoint class must be singleton
-            for endpoint in CONF.endpoints:
+            for endpoint in conf.endpoints:
                 endpoint_group = cfg.OptGroup(endpoint.lower(),
                                               title='endpopint of %s' % endpoint)
                 CONF.register_group(endpoint_group)
@@ -710,7 +710,7 @@ class RpcAgentManager(RpcManagerBase):
 
             rpms = ['python-simpleutil-*', 'python-simpleservice-*',
                     'python-simpleflow-*', 'python-goperation-*']
-            for cls in CONF.endpoints:
+            for cls in self.conf.endpoints:
                 rpms.append('python-%s-*' % cls)
             args.extend(rpms)
             LOG.info('Rpm upgrade command %s' % ' '.join(args))

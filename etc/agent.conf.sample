@@ -7,6 +7,9 @@
 # From agent
 #
 
+# The endpoint group name or namespace (list value)
+#endpoints = <None>
+
 # Agent zone mark (string value)
 #zone = all
 

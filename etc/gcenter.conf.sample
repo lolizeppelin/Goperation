@@ -10,8 +10,11 @@
 # Manager extend route module string (multi import string)
 #routes =
 
-# Trusted token limit ipaddress (list value)
+# Allowed ipaddress without token (list value)
 #allowed_trusted_ip =
+
+# Allow ipaddress without token in same subnet (boolean value)
+#allowed_same_subnet = true
 
 # Allow hostname (hostname value)
 #allowed_hostname = <None>
@@ -40,7 +43,7 @@
 
 # Indicate which header field names may be used during the actual request.
 # (list value)
-#allow_headers = Content-Type,Cache-Control,Content-Language,Expires,Last-Modified,Pragma
+#allow_headers = Content-Type,Cache-Control,Content-Language,Expires,Last-Modified,Pragma,Auth-Token,X-Real-IP
 
 # Rpc agent status expire time (integer value)
 # Minimum value: 2
@@ -90,7 +93,7 @@
 #max_header_line = 16384
 
 # If False, closes the client socket connection explicitly. (boolean value)
-#wsgi_keep_alive = true
+#wsgi_keep_alive = false
 
 # Timeout for client connections' socket operations. If an incoming connection
 # is idle for this number of seconds it will be closed. A value of '0' means

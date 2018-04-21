@@ -12,10 +12,13 @@ from simpleservice import config as base_config
 
 CONF = cfg.CONF
 
-service_base_opts = [
+endpoint_load_opts = [
     cfg.ListOpt('endpoints',
                 item_type=types.String(),
                 help='The endpoint group name or namespace'),
+]
+
+service_base_opts = [
     cfg.IPOpt('local_ip',
               version=4,
               required=True,
@@ -94,4 +97,4 @@ def configure(name, config_files, config_dirs=None):
 
 
 def list_opts():
-    return service_base_opts
+    return endpoint_load_opts + service_base_opts
