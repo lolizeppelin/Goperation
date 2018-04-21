@@ -323,6 +323,7 @@ class AuthFilter(FilterBase):
 
         conf = CONF[manager_common.SERVER]
         self.allowed_hostname = conf.allowed_hostname
+        self.allowed_same_subnet = conf.allowed_same_subnet
         self.allowed_clients = set(conf.allowed_trusted_ip)
         self.allowed_clients.add('127.0.0.1')
         self.allowed_clients.add(CONF.local_ip)
@@ -407,12 +408,12 @@ class AuthFilter(FilterBase):
         if token_info.get('ipaddr') != req.client_addr:
             raise self.client_error('Client ipaddr not match')
 
-    def _trusted_allowed(self, req):
+    def _address_allowed(self, req):
         # 来源ip在允许的ip列表中
         if req.client_addr in self.allowed_clients:
             return True
         # 来源ip子网相同
-        if netaddr.IPAddress(req.client_addr) in self.ipnetwork:
+        if self.allowed_same_subnet and netaddr.IPAddress(req.client_addr) in self.ipnetwork:
             return True
         return False
 
@@ -423,10 +424,11 @@ class AuthFilter(FilterBase):
             return self.no_auth()
         if self.trusted and token == self.trusted:
             # 可信任token,一般为用于服务组件之间的wsgi请求
-            if not self._trusted_allowed(req):
-                raise self.client_error('Trused token not from allowd ipaddr')
-            LOG.debug('Trusted token passed, address %s' % req.client_addr)
+            LOG.debug('Trusted token passed, address %s', req.client_addr)
             return None
+        if self._address_allowed(req):
+            return None
+        # token缓存部分
         if token in self.tokens:
             self.will_expire_soon(token)
         else:
@@ -450,7 +452,8 @@ class AuthFilter(FilterBase):
             return webob.exc.HTTPInternalServerError(**kwargs)
         if method == 'POST' and path_info == '/goperation/auth':
             LOG.debug('AuthFilter auth')
-            if not self._trusted_allowed(req):
+            # 获取认证的来源地址必须在可信任地址列表中
+            if not self._address_allowed(req):
                 return webob.Response(request=req, status=403,
                                       content_type=DEFAULT_CONTENT_TYPE)
             ipaddr = req.headers.get('X-Real-IP')
