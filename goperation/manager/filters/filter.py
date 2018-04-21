@@ -419,7 +419,7 @@ class AuthFilter(FilterBase):
 
     def fetch_and_validate_token(self, req):
         """取出并校验token"""
-        token = req.headers.get(service_common.TOKENNAME)
+        token = req.headers.get(service_common.TOKENNAME.lower())
         if not token:
             return self.no_auth()
         if self.trusted and token == self.trusted:
@@ -457,11 +457,12 @@ class AuthFilter(FilterBase):
                 LOG.warning('Auth request from illegal address %s' % req.client_addr)
                 return webob.Response(request=req, status=403,
                                       content_type=DEFAULT_CONTENT_TYPE)
-            ipaddr = req.headers.get('X-Real-IP')
+            ipaddr = req.headers.get('X-Real-IP'.lower())
             if not netaddr.valid_ipv4(ipaddr, netaddr.core.INET_PTON):
                 return webob.Response(request=req, status=412,
                                       content_type=DEFAULT_CONTENT_TYPE,
                                       body=jsonutils.dumps_as_bytes(dict(message='X-Real-IP value error')))
+            # 分配token
             token = str(uuidutils.generate_uuid()).replace('-', '')
             cache_store = api.get_cache()
             if not cache_store.set(token, ipaddr, ex=3600, nx=True):
