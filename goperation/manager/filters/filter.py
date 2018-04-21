@@ -454,6 +454,7 @@ class AuthFilter(FilterBase):
             LOG.debug('AuthFilter auth')
             # 获取认证的来源地址必须在可信任地址列表中
             if not self._address_allowed(req):
+                LOG.warning('Auth request from illegal address %s' % req.client_addr)
                 return webob.Response(request=req, status=403,
                                       content_type=DEFAULT_CONTENT_TYPE)
             ipaddr = req.headers.get('X-Real-IP')
