@@ -9,6 +9,7 @@ authfilter_opts = [
                 default=[],
                 help='Allowed ipaddress without token'),
     cfg.BoolOpt('allowed_same_subnet',
+                default=True,
                 help='Allow ipaddress without token in same subnet'),
     cfg.HostnameOpt('allowed_hostname',
                     help='Allow hostname'),
