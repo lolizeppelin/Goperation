@@ -184,9 +184,9 @@ class RpcServerManager(RpcManagerBase):
 
         def check_respone():
             wait = finishtime - int(time.time())
-            # 先等待5秒,可以提前检查
-            if wait > 5:
-                eventlet.sleep(5)
+            # 先等待3秒,可以做一次提前检查
+            if wait > 3:
+                eventlet.sleep(3)
             not_response_agents = set(wait_agents)
 
             not_overtime = 2
