@@ -142,7 +142,7 @@ class EntityReuest(BaseContorller):
                         notify = create_result
         return resultutils.results(result=result, data=[dict(entity=entity, agent_id=agent_id,
                                                              metadata=metadata,
-                                                             endpoint=endpoint, port=ports or [],
+                                                             endpoint=endpoint, ports=ports or [],
                                                              notify=notify)
                                                         ])
 
