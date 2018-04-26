@@ -261,7 +261,7 @@ class RpcServerManager(RpcManagerBase):
 
     def _sort_by_weigher(self, weighters, chioces):
 
-        LOG.info('Sort by weighters')
+        LOG.debug('Sort by weighters')
         if LOG.isEnabledFor(logging.DEBUG):
             LOG.debug('weighters %s' % str(weighters))
             LOG.debug('chioces %s' % str(chioces))
@@ -293,7 +293,10 @@ class RpcServerManager(RpcManagerBase):
         chioces.sort(key=_weight)
 
     def _exclud_filter(self, includes, chioces):
+        LOG.debug('include filters')
         _includes = utils.include(includes)
+        if LOG.isEnabledFor(logging.DEBUG):
+            LOG.debug('includes %s' % str(includes))
         removes = set()
         for agent_id in chioces:
             include = False
