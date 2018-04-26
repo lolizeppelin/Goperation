@@ -59,20 +59,9 @@ class PortReuest(BaseContorller):
     def create(self, req, agent_id, endpoint, entity, body):
         body = body or {}
         ports = argutils.map_with(body.get('ports'), validators['type:port'])
-        session = get_session()
         glock = get_global().lock('agents')
         with glock([agent_id, ]):
-            with session.begin():
-                query = model_query(session, AgentEntity,
-                                    filter=and_(AgentEntity.endpoint == endpoint,
-                                                AgentEntity.entity == entity))
-                _entity = query.one()
-                for port in ports:
-                    session.add(AllocatedPort(agent_id=agent_id, port=port,
-                                              endpoint_id=_entity.endpoint_id,
-                                              entity_id=_entity.id,
-                                              endpoint=endpoint, entity=entity))
-                    session.flush()
+            self.unsafe_create(agent_id, endpoint, entity, ports)
         return resultutils.results(result='edit ports success')
 
     @BaseContorller.AgentIdformater
@@ -104,3 +93,18 @@ class PortReuest(BaseContorller):
                                               (len(ports), need_to_delete))
 
         return resultutils.results(result='edit ports success')
+
+    @staticmethod
+    def unsafe_create(agent_id, endpoint, entity, ports):
+        session = get_session()
+        with session.begin():
+            query = model_query(session, AgentEntity,
+                                filter=and_(AgentEntity.endpoint == endpoint,
+                                            AgentEntity.entity == entity))
+            _entity = query.one()
+            for port in ports:
+                session.add(AllocatedPort(agent_id=agent_id, port=port,
+                                          endpoint_id=_entity.endpoint_id,
+                                          entity_id=_entity.id,
+                                          endpoint=endpoint, entity=entity))
+                session.flush()
