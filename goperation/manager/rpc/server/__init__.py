@@ -188,7 +188,11 @@ class RpcServerManager(RpcManagerBase):
             if wait > 3:
                 eventlet.sleep(3)
             not_response_agents = set(wait_agents)
-
+            interval = int(wait / 10)
+            if interval < 3:
+                interval = 3
+            elif interval > 10:
+                interval = 10
             not_overtime = 2
             while True:
                 not_response_agents = responeutils.norespones(storage=storage,
@@ -197,8 +201,7 @@ class RpcServerManager(RpcManagerBase):
                 if not not_response_agents:
                     break
                 if int(time.time()) < finishtime:
-                    wait = finishtime - int(time.time())
-                    eventlet.sleep(wait)
+                    eventlet.sleep(interval)
                 if int(time.time()) > deadline:
                     not_overtime -= 1
                     if not not_overtime:
