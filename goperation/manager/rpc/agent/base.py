@@ -849,3 +849,12 @@ class RpcAgentManager(RpcManagerBase):
             return UriResult(resultcode=manager_common.RESULT_ERROR,
                                    result='read log fail:%s' % e.message)
         return UriResult(resultcode=manager_common.RESULT_SUCCESS, result=result, uri=uri)
+
+    def rpc_flush_metadata(self, ctxt, **kwargs):
+        body = {'metadata': self.metadata,
+                'expire': kwargs.get('expire'),
+                'snapshot': None}
+        self.client.agent_report(self.agent_id, body)
+        return AgentRpcResult(self.agent_id, ctxt,
+                              resultcode=manager_common.RESULT_SUCCESS,
+                              result='Agent report has been send')

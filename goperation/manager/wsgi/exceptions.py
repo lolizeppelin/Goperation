@@ -8,3 +8,7 @@ class RpcPrepareError(Exception):
 
 class AsyncRpcPrepareError(RpcPrepareError):
     """async rpc msg prepare error"""
+
+
+class AgentMetadataMiss(Exception):
+    """Agent meta data miss"""

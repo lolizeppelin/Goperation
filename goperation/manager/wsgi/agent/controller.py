@@ -40,6 +40,7 @@ from goperation.manager.exceptions import EndpointNotEmpty
 from goperation.manager.wsgi.contorller import BaseContorller
 from goperation.manager.wsgi.exceptions import RpcPrepareError
 from goperation.manager.wsgi.exceptions import RpcResultError
+from goperation.manager.wsgi.exceptions import AgentMetadataMiss
 
 
 LOG = logging.getLogger(__name__)
@@ -318,16 +319,32 @@ class AgentReuest(BaseContorller):
         if metadata:
             # 随机延迟最长时间是15秒,所以expire时间增加15秒
             eventlet.spawn_n(BaseContorller.agent_metadata_flush, agent_id, metadata,
-                             expire+manager_common.ONLINE_EXIST_EXPAND)
+                             expire + manager_common.ONLINE_EXIST_EXPAND)
         # 没有元数据,延长缓存中的元数据持续时间
         else:
-            # 随机延迟3~RANDOMDELAYMAX秒
+            # 随机延迟0~RANDOMDELAYMAX秒
             # 避免所有agent在同一时间调用redis延长key
             delay = random.randint(0, min(RANDOMDELAYMAX, expire/10))
+
+            # 计算补偿时间
             fix = manager_common.ONLINE_EXIST_EXPAND - delay
-            eventlet.spawn_after(delay, BaseContorller.agent_metadata_expire(agent_id, expire+fix))
+
+            def _expire():
+                try:
+                    BaseContorller.agent_metadata_expire(agent_id, expire + fix)
+                except AgentMetadataMiss:
+                    # 元数据丢失, 通知agent重新上报
+                    rpc = get_client()
+                    # send to rpc server
+                    rpc.cast(targetutils.target_all(fanout=True),
+                             ctxt={'agents': [agent_id, ]},
+                             msg={'method': 'flush_metadata',
+                                  'args': {'expire': expire}})
+
+            eventlet.spawn_after(delay, _expire)
         if snapshot:
             snapshot.setdefault('agent_id', agent_id)
+
             def wapper():
                 eventlet.sleep(random.randint(0, 5))
                 # save report log

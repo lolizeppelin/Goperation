@@ -23,6 +23,7 @@ from goperation.manager.api import get_redis
 from goperation.manager.api import rpcfinishtime
 from goperation.manager.models import AsyncRequest
 from goperation.manager.wsgi.exceptions import RpcResultError
+from goperation.manager.wsgi.exceptions import AgentMetadataMiss
 
 
 LOG = logging.getLogger(__name__)
@@ -176,8 +177,8 @@ class BaseContorller(MiddlewareContorller):
     def agent_metadata_expire(agent_id, expire):
         cache_store = get_redis()
         host_online_key = targetutils.host_online_key(agent_id)
-        cache_store.expire(host_online_key, expire)
-
+        if not cache_store.expire(host_online_key, expire):
+            raise AgentMetadataMiss(host_online_key)
 
     @staticmethod
     def send_asyncrequest(asyncrequest, rpc_target,
