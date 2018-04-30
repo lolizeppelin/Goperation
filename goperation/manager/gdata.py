@@ -72,13 +72,15 @@ class GlobalData(object):
                     break
             eventlet.sleep(0)
 
-    def garbage_member_collection(self, key, members):
+    def garbage_member_collection(self, key, members, action='srem'):
         overtime = self.alloctime + int(time.time()*1000)
         client = self.client
+        func = getattr(client, action)
         while True:
             try:
                 # count = client.srem(key, *members)
-                count = client.zrem(key, *members)
+                # count = client.zrem(key, *members)
+                count = func(key, *members)
                 if count != len(members):
                     LOG.critical('REM %s from %s, just success %d' % (str(members), key, count))
                 break
@@ -338,7 +340,7 @@ class GlobalData(object):
                 yield target_agent
             self.metadatas.pop(agent_id, None)
             self.metatimes.pop(agent_id, None)
-            self.garbage_member_collection(self.ALL_AGENTS_KEY, [str(agent_id), ])
+            self.garbage_member_collection(self.ALL_AGENTS_KEY, [str(agent_id), ], 'zrem')
 
     def flush_onlines(self):
         with self._lock_all_agents():
