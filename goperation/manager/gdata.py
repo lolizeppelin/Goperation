@@ -51,7 +51,9 @@ class GlobalData(object):
         self.client = client
         self.session = session
         self.alloctime = int(CONF[manager_group.name].glock_alloctime*1000)
+        # metadata cache dict
         self.metadatas = dict()
+        # metadata cache time and baseline
         self.metatimes = dict()
 
     @staticmethod
@@ -370,11 +372,21 @@ class GlobalData(object):
 
         now = int(time.time())
         cached = set(self.metadatas.keys())
+        # agent has been deleted
+        deleted = cached - agents
+        if deleted:
+            for agent_id in deleted:
+                # remove target from metadata cache and cached list
+                self.metatimes.pop(agent_id, None)
+                self.metadatas.pop(agent_id, None)
+                cached.remove(agent_id)
+        # agent not in cache
         missed = list(agents - cached)
 
         for agent_id in cached:
+            # cache overtime or baseline changed
             if self.metatimes[agent_id][0] != zsources[agent_id] \
-                    or self.metatimes[agent_id][1] > now:
+                    or self.metatimes[agent_id][1] < now:
                 missed.append(agent_id)
 
         if missed:
@@ -385,7 +397,6 @@ class GlobalData(object):
             ttls = pipe.execute()
             metadatas = ttls.pop(0)
             # metadatas = pipe.mget(*[self.host_online_key(agent_id) for agent_id in missed])
-            now = int(time.time())
             for index, metadata in enumerate(metadatas):
                 agent_id = missed[index]
                 if metadata:
