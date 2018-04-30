@@ -37,10 +37,10 @@ from goperation.manager.models import AgentReportLog
 from goperation.manager.exceptions import CacheStoneError
 from goperation.manager.exceptions import AgentHostExist
 from goperation.manager.exceptions import EndpointNotEmpty
+from goperation.manager.exceptions import AgentMetadataMiss
 from goperation.manager.wsgi.contorller import BaseContorller
 from goperation.manager.wsgi.exceptions import RpcPrepareError
 from goperation.manager.wsgi.exceptions import RpcResultError
-from goperation.manager.wsgi.exceptions import AgentMetadataMiss
 
 
 LOG = logging.getLogger(__name__)
@@ -318,7 +318,7 @@ class AgentReuest(BaseContorller):
         # 有元数据传入,更新缓存中元数据
         if metadata:
             # 随机延迟最长时间是15秒,所以expire时间增加15秒
-            eventlet.spawn_n(BaseContorller.agent_metadata_flush, agent_id, metadata,
+            eventlet.spawn_n(BaseContorller._agent_metadata_flush, agent_id, metadata,
                              expire + manager_common.ONLINE_EXIST_EXPAND)
         # 没有元数据,延长缓存中的元数据持续时间
         else:
@@ -331,7 +331,7 @@ class AgentReuest(BaseContorller):
 
             def _expire():
                 try:
-                    BaseContorller.agent_metadata_expire(agent_id, expire + fix)
+                    BaseContorller._agent_metadata_expire(agent_id, expire + fix)
                 except AgentMetadataMiss:
                     # 元数据丢失, 通知agent重新上报
                     rpc = get_client()

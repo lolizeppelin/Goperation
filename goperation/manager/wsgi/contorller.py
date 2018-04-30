@@ -1,13 +1,10 @@
 import contextlib
 
-from redis.exceptions import WatchError
-
+from simpleutil.log import log as logging
 from simpleutil.utils import timeutils
 from simpleutil.utils import argutils
 from simpleutil.utils import uuidutils
 from simpleutil.utils import attributes
-from simpleutil.utils import jsonutils
-from simpleutil.log import log as logging
 from simpleutil.common.exceptions import InvalidArgument
 
 from simpleservice.wsgi.middleware import MiddlewareContorller
@@ -19,11 +16,9 @@ from goperation.manager import common as manager_common
 from goperation.manager.api import get_client
 from goperation.manager.api import get_session
 from goperation.manager.api import get_global
-from goperation.manager.api import get_redis
 from goperation.manager.api import rpcfinishtime
 from goperation.manager.models import AsyncRequest
 from goperation.manager.wsgi.exceptions import RpcResultError
-from goperation.manager.wsgi.exceptions import AgentMetadataMiss
 
 
 LOG = logging.getLogger(__name__)
@@ -42,7 +37,8 @@ class BaseContorller(MiddlewareContorller):
     query_interval = 0.7
     interval_increase = 0.3
 
-    def agents_id_check(self, agents_id):
+    @staticmethod
+    def agents_id_check(agents_id):
         global_data = get_global()
         if agents_id == 'all':
             return global_data.all_agents
@@ -50,15 +46,16 @@ class BaseContorller(MiddlewareContorller):
         all_id = global_data.all_agents
         if agents_set != all_id:
             errors = agents_set - all_id
-            if (errors):
+            if errors:
                 raise InvalidArgument('agents id %s can not be found' % str(list(errors)))
         return agents_set
 
-    def agent_id_check(self, agent_id):
+    @staticmethod
+    def agent_id_check(agent_id):
         """For one agent"""
         if agent_id == 'all':
             raise InvalidArgument('Just for one agent')
-        agent_id = self.agents_id_check(agent_id)
+        agent_id = BaseContorller.agents_id_check(agent_id)
         if len(agent_id) > 1:
             raise InvalidArgument('Just for one agent')
         return agent_id.pop()
@@ -117,68 +114,30 @@ class BaseContorller(MiddlewareContorller):
 
     @staticmethod
     def agent_metadata(agent_id):
-        cache_store = get_redis()
-        metadata = cache_store.get(targetutils.host_online_key(agent_id))
-        return metadata if not metadata else jsonutils.loads_as_bytes(metadata)
+        global_data = get_global()
+        metadatas = global_data.agents_metadata()
+        return metadatas.get(agent_id)
 
     @staticmethod
     def agents_metadata(agents):
         agents = list(agents)
-        cache_store = get_redis()
-        metadatas = cache_store.mget(*[targetutils.host_online_key(agent_id) for agent_id in agents])
+        global_data = get_global()
+        metadatas = global_data.agents_metadata()
         maps = dict.fromkeys(agents, None)
-        for index, metadata in enumerate(metadatas):
-            if metadata:
-                maps[agents[index]] = jsonutils.loads_as_bytes(metadata)
+        for agent_id in agents:
+            maps[agent_id] = metadatas.get(agent_id)
         return maps
 
     @staticmethod
-    def agent_metadata_flush(agent_id, metadata, expire):
-        cache_store = get_redis()
-        agent_ipaddr = metadata.get('local_ip')
-        host_online_key = targetutils.host_online_key(agent_id)
-        with cache_store.pipeline() as pipe:
-            pipe.watch(host_online_key)
-            pipe.multi()
-            pipe.get(host_online_key)
-            pipe.ttl(host_online_key)
-            pipe.expire(host_online_key, expire or manager_common.ONLINE_EXIST_TIME)
-            try:
-                results = pipe.execute()
-            except WatchError:
-                raise InvalidArgument('Host changed')
-        exist_agent_metadata, ttl, expire_result = results
-        if exist_agent_metadata is not None:
-            exist_agent_metadata = jsonutils.loads_as_bytes(exist_agent_metadata)
-            if exist_agent_metadata.get('local_ip') != agent_ipaddr:
-                LOG.error('Host call online with %s, but %s alreday exist with same key' %
-                          (agent_ipaddr, exist_agent_metadata.get('local_ip')))
-                if ttl > 3:
-                    if not cache_store.expire(host_online_key, ttl):
-                        LOG.error('Revet ttl of %s fail' % host_online_key)
-                raise InvalidArgument('Agent %d with ipaddr %s alreday eixst' %
-                                      (agent_id, exist_agent_metadata.get('local_ip')))
-            else:
-                # replace metadata
-                if exist_agent_metadata != metadata:
-                    LOG.warning('Agent %d metadata change' % agent_id)
-                    if not cache_store.set(host_online_key, jsonutils.dumps_as_bytes(metadata),
-                                           ex=expire or manager_common.ONLINE_EXIST_TIME):
-                        raise InvalidArgument('Another agent login with same host or '
-                                              'someone set key %s' % host_online_key)
-        else:
-            if not cache_store.set(host_online_key, jsonutils.dumps_as_bytes(metadata),
-                                   ex=expire or manager_common.ONLINE_EXIST_TIME, nx=True):
-                raise InvalidArgument('Another agent login with same host or '
-                                      'someone set key %s' % host_online_key)
-
+    def _agent_metadata_flush(agent_id, metadata, expire):
+        global_data = get_global()
+        global_data.agent_metadata_flush(agent_id, metadata, expire)
+        LOG.info('update agent source in global data')
 
     @staticmethod
-    def agent_metadata_expire(agent_id, expire):
-        cache_store = get_redis()
-        host_online_key = targetutils.host_online_key(agent_id)
-        if not cache_store.expire(host_online_key, expire):
-            raise AgentMetadataMiss(host_online_key)
+    def _agent_metadata_expire(agent_id, expire):
+        global_data = get_global()
+        global_data.agent_metadata_expire(agent_id, expire)
 
     @staticmethod
     def send_asyncrequest(asyncrequest, rpc_target,
@@ -224,7 +183,7 @@ class BaseContorller(MiddlewareContorller):
         """return a agents list sort by weigher"""
         rpc = get_client()
         chioces_result = rpc.call(targetutils.target_rpcserver(),
-                                  ctxt = {},
+                                  ctxt=dict(),
                                   msg={'method': 'chioces',
                                        'args': {'target': endpoint, 'includes': includes,
                                                 'weighters': weighters}})

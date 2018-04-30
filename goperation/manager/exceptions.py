@@ -31,3 +31,7 @@ class AgentHostExist(Exception):
 
 class DeleteCountNotSame(Exception):
     """delete count not eq"""
+
+
+class AgentMetadataMiss(Exception):
+    """Agent meta data miss"""

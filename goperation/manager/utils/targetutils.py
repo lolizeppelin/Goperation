@@ -19,10 +19,6 @@ def agent_all_id():
     return '%s-%s-id-all' % (prefix, AGENT)
 
 
-def host_online_key(agent_id):
-    return '%s-online-%s-%s' % (prefix, AGENT, str(agent_id))
-
-
 def async_request_key(request_id, agent_id):
     return '%s-async-%s-%d' % (prefix, request_id, agent_id)
 

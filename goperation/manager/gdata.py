@@ -36,7 +36,6 @@ LOG = logging.getLogger(__name__)
 
 CONF = cfg.CONF
 
-
 class GlobalData(object):
 
     PREFIX = CONF[manager_group.name].redis_key_prefix
@@ -52,6 +51,12 @@ class GlobalData(object):
         self.client = client
         self.session = session
         self.alloctime = int(CONF[manager_group.name].glock_alloctime*1000)
+        self.metadatas = dict()
+        self.metatimes = dict()
+
+    @staticmethod
+    def host_online_key(agent_id):
+        return '%s-online-%s-%s' % (GlobalData.PREFIX, manager_common.AGENT, str(agent_id))
 
     def garbage_key_collection(self, key):
         overtime = self.alloctime + int(time.time()*1000)
@@ -132,7 +137,7 @@ class GlobalData(object):
         while True:
             wpipe = None
             try:
-                if (agents  - self.all_agents):
+                if (agents - self.all_agents):
                     raise exceptions.TargetCountUnequal('Target agents not in all agents id list')
                 locked = True
                 while int(time.time()*1000) < overtime:
@@ -331,4 +336,107 @@ class GlobalData(object):
                 query.update({'status': manager_common.DELETED})
                 # Delete endpoint of agent
                 yield target_agent
+            self.metadatas.pop(agent_id, None)
+            self.metatimes.pop(agent_id, None)
             self.garbage_member_collection(self.ALL_AGENTS_KEY, [str(agent_id), ])
+
+    def flush_onlines(self):
+        with self._lock_all_agents():
+            # clean host online key
+            keys = self.client.keys(self.host_online_key('*'))
+            self.metadatas.clear()
+            self.metatimes.clear()
+            if keys:
+                with self.client.pipeline() as pipe:
+                    for key in keys:
+                        pipe.delete(key)
+                    pipe.execute()
+        return self.all_agents
+
+    def agents_metadata(self, agents):
+        client = self.client
+        key = self.ALL_AGENTS_KEY
+
+        all_ids = client.zrange(name=key, start=0, end=-1, withscores=True)
+        zsources = dict()
+        for zsource in all_ids:
+            zsources[int(zsource[0])] = int(zsource[1])
+
+        agents = set(agents)
+        if agents - set(zsources.keys()):
+            raise InvalidArgument('Agents Can not find be found in %s' % self.ALL_AGENTS_KEY)
+
+        now = int(time.time())
+        cached = set(self.metadatas.keys())
+        missed = list(agents - cached)
+
+        for agent_id in cached:
+            if self.metatimes[agent_id][0] != zsources[agent_id] \
+                    or self.metatimes[agent_id][1] > now:
+                missed.append(agent_id)
+
+        if missed:
+            pipe = self.client.pipeline()
+            pipe.mget(*[self.host_online_key(agent_id) for agent_id in missed])
+            for agent_id in missed:
+                pipe.ttl(self.host_online_key(agent_id))
+            ttls = pipe.execute()
+            metadatas = ttls.pop(0)
+            # metadatas = pipe.mget(*[self.host_online_key(agent_id) for agent_id in missed])
+            now = int(time.time())
+            for index, metadata in enumerate(metadatas):
+                agent_id = missed[index]
+                if metadata:
+                    self.metatimes[agent_id] = (zsources[agent_id], now + ttls[index])
+                    self.metadatas[agent_id] = jsonutils.loads_as_bytes(metadata)
+                else:
+                    self.metatimes.pop(agent_id, None)
+                    self.metadatas.pop(agent_id, None)
+
+        return self.metadatas
+
+    def agent_metadata_flush(self, agent_id, metadata, expire):
+        host = metadata.get('host')
+        host_online_key = self.host_online_key(agent_id)
+
+        pipe = self.client.pipeline()
+        pipe.watch(host_online_key)
+        pipe.multi()
+        pipe.get(host_online_key)
+        pipe.ttl(host_online_key)
+        pipe.expire(host_online_key, expire or manager_common.ONLINE_EXIST_TIME)
+        try:
+            exist_agent_metadata, ttl, expire_result = pipe.execute()
+        except WatchError:
+            raise InvalidArgument('Host changed')
+
+        if exist_agent_metadata is not None:
+            exist_agent_metadata = jsonutils.loads_as_bytes(exist_agent_metadata)
+            if exist_agent_metadata.get('host') != host:
+                LOG.error('Host call online with %s, but %s alreday exist with same key' %
+                          (host, exist_agent_metadata.get('host')))
+                if ttl > 3:
+                    if not self.client.expire(host_online_key, ttl):
+                        LOG.error('Revet ttl of %s fail' % host_online_key)
+                raise InvalidArgument('Agent %d with host %s alreday eixst' %
+                                      (agent_id, exist_agent_metadata.get('host')))
+            else:
+                # replace metadata
+                if exist_agent_metadata != metadata:
+                    LOG.info('Agent %d metadata change' % agent_id)
+                    if not self.client.set(host_online_key, jsonutils.dumps_as_bytes(metadata),
+                                           ex=expire or manager_common.ONLINE_EXIST_TIME):
+                        raise InvalidArgument('Another agent login with same host or '
+                                              'someone set key %s' % host_online_key)
+                    self.client.zadd(self.ALL_AGENTS_KEY, int(time.time()), str(agent_id))
+        else:
+            if not self.client.set(host_online_key, jsonutils.dumps_as_bytes(metadata),
+                                   ex=expire or manager_common.ONLINE_EXIST_TIME, nx=True):
+                raise InvalidArgument('Another agent login with same host or '
+                                      'someone set key %s' % host_online_key)
+            self.client.zadd(self.ALL_AGENTS_KEY, int(time.time()), str(agent_id))
+
+    def agent_metadata_expire(self, agent_id, expire):
+        host_online_key = self.host_online_key(agent_id)
+        if not self.client.expire(host_online_key, expire):
+            raise exceptions.AgentMetadataMiss(host_online_key)

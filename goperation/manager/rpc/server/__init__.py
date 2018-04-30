@@ -24,7 +24,7 @@ from goperation.manager import common as manager_common
 from goperation.manager.api import get_client
 from goperation.manager.api import get_session
 from goperation.manager.api import get_cache
-from goperation.manager.api import get_redis
+from goperation.manager.api import get_global
 from goperation.manager.models import AsyncRequest
 from goperation.manager.models import AgentEndpoint
 from goperation.manager.models import AgentEntity
@@ -252,10 +252,12 @@ class RpcServerManager(RpcManagerBase):
         else:
             # 当前agent没有元数据,尝试获取元数据
             if not self.agents_loads[agent_id].get('metadata'):
-                cache_store = get_redis()
-                metadata = cache_store.get(targetutils.host_online_key(agent_id))
-                new_status['metadata'] = metadata if not metadata else jsonutils.loads_as_bytes(metadata)
-
+                # cache_store = get_redis()
+                # metadata = cache_store.get(targetutils.host_online_key(agent_id))
+                # new_status['metadata'] = metadata if not metadata else jsonutils.loads_as_bytes(metadata)
+                global_data = get_global()
+                metadatas = global_data.agents_metadata([agent_id, ])
+                new_status['metadata'] = metadatas.get(agent_id)
         self.agents_loads[agent_id].update(new_status)
 
     def rpc_deletesource(self, ctxt, agent_id):

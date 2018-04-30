@@ -17,8 +17,6 @@ from simpleservice.rpc.exceptions import NoSuchMethod
 
 from goperation.manager import common as manager_common
 from goperation.manager.utils import resultutils
-from goperation.manager.utils import targetutils
-from goperation.manager.api import get_cache
 from goperation.manager.api import get_global
 from goperation.manager.api import get_session
 from goperation.manager.models import Agent
@@ -47,20 +45,11 @@ class CacheReuest(BaseContorller):
 
     def flush(self, req, body=None):
         """flush cached key"""
-        cache_store = get_cache()
-        get_global().flush_all_agents()
+        global_data = get_global()
+        global_data.flush_all_agents()
         if body.get('online', False):
-            glock = get_global().lock('all_agents')
-            with glock():
-                # clean host online key
-                keys = cache_store.keys(targetutils.host_online_key('*'))
-                if keys:
-                    with cache_store.pipeline() as pipe:
-                        # pipe.multi()
-                        for key in keys:
-                            pipe.delete(key)
-                        pipe.execute()
-        return resultutils.results(result='Delete cache id success')
+            global_data.flush_onlines()
+        return resultutils.results(result='Flush agents cache id success')
 
     def online(self, req, host, body):
         """call buy agent
@@ -86,6 +75,7 @@ class CacheReuest(BaseContorller):
             LOG.info('Cache online called but no Agent found')
             ret = {'agent_id': None}
         else:
+            self.agent_id_check(agent.agent_id)
             local_ip = metadata.get('local_ip')
             external_ips = str(metadata.get('external_ips'))
             LOG.debug('Cache online called. agent_id:%(agent_id)s, type:%(agent_type)s, '
@@ -96,7 +86,7 @@ class CacheReuest(BaseContorller):
                        'local_ip': local_ip,
                        'external_ips': external_ips})
             ret = {'agent_id': agent.agent_id}
-            BaseContorller.agent_metadata_flush(agent.agent_id, metadata, expire=expire)
+            BaseContorller._agent_metadata_flush(agent.agent_id, metadata, expire=expire)
         result = resultutils.results(result='Cache online function run success')
         result['data'].append(ret)
         return result
