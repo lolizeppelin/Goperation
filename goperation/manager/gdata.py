@@ -72,13 +72,14 @@ class GlobalData(object):
         client = self.client
         while True:
             try:
-                count = client.srem(key, *members)
+                # count = client.srem(key, *members)
+                count = client.zrem(key, *members)
                 if count != len(members):
-                    LOG.critical('SREM %s from %s, just success %d' % (str(members), key, count))
+                    LOG.critical('REM %s from %s, just success %d' % (str(members), key, count))
                 break
             except (ConnectionError, TimeoutError) as e:
                 if int(time.time())*1000 > overtime:
-                    LOG.critical('SREM %s from %s fail %s' % (str(members), key, e.__class__.__name__))
+                    LOG.critical('REM %s from %s fail %s' % (str(members), key, e.__class__.__name__))
                     break
             except ResponseError:
                 break
@@ -241,20 +242,24 @@ class GlobalData(object):
     def all_agents(self):
         client = self.client
         key = self.ALL_AGENTS_KEY
-        all_ids = client.smembers(key)
+        # all_ids = client.smembers(key)
+        all_ids = client.zrange(name=key, start=0, end=-1, withscores=False)
         id_set = set()
         if not all_ids:
             # lazy init all agent id cache
             session = self.session(readonly=True)
-            # doble check
             with self._lock_all_agents():
-                all_ids = client.smembers(key)
+                # doble check after lock
+                all_ids = client.zrange(name=key, start=0, end=-1, withscores=False)
                 if not all_ids:
                     query = session.query(Agent.agent_id).filter(Agent.status > manager_common.DELETED)
                     for result in query:
                         id_set.add(result[0])
+                    # add agent id into redis
                     if id_set:
-                        client.sadd(key, *[str(_id) for _id in id_set])
+                        now = int(time.time())
+                        # client.sadd(key, *[str(_id) for _id in id_set])
+                        client.zadd(key, *[y for x in id_set for y in [now, str(x)]])
                     return id_set
         for agent_id in all_ids:
             id_set.add(int(agent_id))
@@ -301,9 +306,11 @@ class GlobalData(object):
                         session.add(AgentEndpoint(agent_id=agent_id, endpoint=endpoint))
                         session.flush()
                 # add new agent_id to cache all agent_id
-                if not self.client.sadd(self.ALL_AGENTS_KEY, str(agent.agent_id)):
+                # if not self.client.sadd(self.ALL_AGENTS_KEY, str(agent.agent_id)):
+                if not self.client.zadd(self.ALL_AGENTS_KEY, int(time.time()), str(agent.agent_id)):
                     raise exceptions.CacheStoneError('Cant not add agent_id to redis, key %s' % self.ALL_AGENTS_KEY)
-                agent.endpoints
+                _endpoints = [e.endpoint for e in agent.endpoints]
+                LOG.info('New anget with endpoints %s' % ','.join(_endpoints))
         return agent
 
     @contextlib.contextmanager
