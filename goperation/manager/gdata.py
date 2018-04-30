@@ -138,7 +138,8 @@ class GlobalData(object):
                 while int(time.time()*1000) < overtime:
                     try:
                         for _id in agents_ids:
-                            if client.sismember(self.AGENT_KEY, _id):
+                            # if client.sismember(self.AGENT_KEY, _id):
+                            if client.zscore(self.AGENT_KEY, _id):
                                 eventlet.sleep(0.01)
                                 continue
                         locked = False
@@ -190,7 +191,8 @@ class GlobalData(object):
                     with client.pipeline() as pipe:
                         pipe.multi()
                         for _id in agents_ids:
-                            pipe.sismember(self.AGENT_KEY, str(_id))
+                            # pipe.sismember(self.AGENT_KEY, str(_id))
+                            pipe.zscore(self.AGENT_KEY, str(_id))
                         for _id in entitys_ids:
                             pipe.sismember(endpoint_key, str(_id))
                         results = pipe.execute()
