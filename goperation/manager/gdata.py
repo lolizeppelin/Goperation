@@ -396,6 +396,7 @@ class GlobalData(object):
         return self.metadatas
 
     def agent_metadata_flush(self, agent_id, metadata, expire):
+        LOG.info('try update agent metadata in global data')
         host = metadata.get('host')
         host_online_key = self.host_online_key(agent_id)
 
@@ -437,6 +438,7 @@ class GlobalData(object):
             self.client.zadd(self.ALL_AGENTS_KEY, int(time.time()), str(agent_id))
 
     def agent_metadata_expire(self, agent_id, expire):
+        LOG.info('try expire agent metadata in global data')
         host_online_key = self.host_online_key(agent_id)
         if not self.client.expire(host_online_key, expire):
             raise exceptions.AgentMetadataMiss(host_online_key)

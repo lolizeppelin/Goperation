@@ -115,14 +115,14 @@ class BaseContorller(MiddlewareContorller):
     @staticmethod
     def agent_metadata(agent_id):
         global_data = get_global()
-        metadatas = global_data.agents_metadata()
+        metadatas = global_data.agents_metadata([agent_id, ])
         return metadatas.get(agent_id)
 
     @staticmethod
     def agents_metadata(agents):
         agents = list(agents)
         global_data = get_global()
-        metadatas = global_data.agents_metadata()
+        metadatas = global_data.agents_metadata(agents)
         maps = dict.fromkeys(agents, None)
         for agent_id in agents:
             maps[agent_id] = metadatas.get(agent_id)
@@ -132,7 +132,6 @@ class BaseContorller(MiddlewareContorller):
     def _agent_metadata_flush(agent_id, metadata, expire):
         global_data = get_global()
         global_data.agent_metadata_flush(agent_id, metadata, expire)
-        LOG.info('update agent source in global data')
 
     @staticmethod
     def _agent_metadata_expire(agent_id, expire):
