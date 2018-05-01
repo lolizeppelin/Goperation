@@ -109,7 +109,7 @@ class OnlinTaskReporter(IntervalLoopinTask):
         if times > 0:
             delay = ((times + 1) * interval - tmin) * 60 - sec
         else:
-            delay = (interval-min)*60 - sec
+            delay = (interval - tmin) * 60 - sec
 
         self.cpu_stat = None
         self.cpu_times = None
