@@ -113,7 +113,7 @@ class OnlinTaskReporter(IntervalLoopinTask):
 
         self.cpu_stat = None
         self.cpu_times = None
-
+        LOG.debug('Report will execute after %1.2fs at the first time' % delay)
         super(OnlinTaskReporter, self).__init__(periodic_interval=self.interval,
                                                 initial_delay=delay,
                                                 stop_on_exception=False)
