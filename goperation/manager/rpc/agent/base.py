@@ -99,22 +99,24 @@ class OnlinTaskReporter(IntervalLoopinTask):
         interval = CONF[manager_common.AGENT].online_report_interval
         self.interval = interval*60
 
+        # 计算延迟时间,延迟直至时间点(周期性上报时间点,根据配置, 在1 3 5 6 12分时上报)
         _now = time.time()
         fix = _now - int(_now)
         now = time.gmtime(int(_now)-time.timezone)
-        min = now.tm_min
+        tmin = now.tm_min
         sec = now.tm_sec + fix
-        times, mod = divmod(min, interval)
+        times, mod = divmod(tmin, interval)
         if times > 0:
-            delay = ((times+1)*interval - min)*60 - sec
+            delay = ((times + 1) * interval - tmin) * 60 - sec
         else:
             delay = (interval-min)*60 - sec
+
+        self.cpu_stat = None
+        self.cpu_times = None
 
         super(OnlinTaskReporter, self).__init__(periodic_interval=self.interval,
                                                 initial_delay=delay,
                                                 stop_on_exception=False)
-        self.cpu_stat = None
-        self.cpu_times = None
 
     def __call__(self, *args, **kwargs):
 
@@ -127,9 +129,21 @@ class OnlinTaskReporter(IntervalLoopinTask):
             LOG.warning('Agent report fail')
             raise
 
+    def flush_metadata(self, metadata, expire):
+        body = {'metadata': metadata,
+                'expire': expire,
+                'snapshot': None}
+        eventlet.spawn_n(self.manager.client.agent_report, self.manager.agent_id, body)
+
+    def flush_performance(self):
+        body = {'metadata': None,
+                'expire': self.interval * 2,
+                'snapshot': self.performance_snapshot()}
+        eventlet.spawn_n(self.manager.client.agent_report, self.manager.agent_id, body)
+
     @property
     def metadata(self):
-        # 除第一次外,随机更新元数据
+        # 除第一次外,随机选择是否更新元数据,减少通信量
         if not self.cpu_stat:
             return self.manager.metadata
         if not random.randint(0, self.probability):
@@ -188,6 +202,7 @@ class OnlinTaskReporter(IntervalLoopinTask):
         enable = 0
         closeing = 0
         count = 0
+        # psutil版本要求5.4+
         for proc in psutil.process_iter(attrs=['status', 'num_fds', 'num_threads']):
             num_threads += proc.info.get('num_threads')
             num_fds += proc.info.get('num_fds')
@@ -229,6 +244,23 @@ class OnlinTaskReporter(IntervalLoopinTask):
                     buffers=memory.buffers/(1024*1024), free=memory.free/(1024*1024),
                     left=self.manager.partion_left_size,
                     listen=listen, syn=syn, enable=enable, closeing=closeing)
+
+
+class Cleaner(IntervalLoopinTask):
+    """清理循环,清理过期数据"""
+
+    def __init__(self, manager):
+        self.manager = manager
+        # 每天检查一次
+        super(Cleaner, self).__init__(periodic_interval=86400,
+                                      initial_delay=3600,
+                                      stop_on_exception=False)
+
+    def __call__(self, *args, **kwargs):
+        self.manager.clean_expired(day=7)
+        for endpoint in self.manager.endpoints:
+            endpoint.clean_expired()
+            eventlet.sleep(1)
 
 
 class RpcAgentEndpointBase(EndpointBase):
@@ -343,6 +375,12 @@ class RpcAgentEndpointBase(EndpointBase):
     def entitys(self):
         return self.entitys_map.keys()
 
+    def clean_expired(self):
+        """clean expired data
+        注意: 清理一定数量的数据后调用eventlet.sleep(0) 调度cpu时间
+        """
+        pass
+
 
 class RpcAgentManager(RpcManagerBase):
 
@@ -408,6 +446,7 @@ class RpcAgentManager(RpcManagerBase):
                     self.endpoints.add(obj)
         self.endpoint_lock = lockutils.Semaphores()
         self.websockets = dict()
+        self.reporter = OnlinTaskReporter(self)
 
     def in_range(self, port):
         """if port in ports range"""
@@ -428,7 +467,9 @@ class RpcAgentManager(RpcManagerBase):
         # if agent not exist,call create
         self.client.agent_init_self(manager=self)
         # add online report periodic tasks
-        self._periodic_tasks.insert(0, OnlinTaskReporter(self))
+        self._periodic_tasks.insert(0, self.reporter)
+        # clean periodic tasks
+        self._periodic_tasks.append(Cleaner(self))
         for endpoint in self.endpoints:
             endpoint.pre_start(self._metadata)
 
@@ -583,11 +624,15 @@ class RpcAgentManager(RpcManagerBase):
                 return True
             return False
 
-    def add_entity(self, endpoint, entity):
-        if entity in self.allocked_ports[endpoint]:
-            LOG.error('Add entity %d to %s faile' % (entity, endpoint))
-            raise RuntimeError('entity exist')
-        self.allocked_ports[self.namespace][entity] = set()
+    # def add_entity(self, endpoint, entity):
+    #     if entity in self.allocked_ports[endpoint]:
+    #         LOG.error('Add entity %d to %s faile' % (entity, endpoint))
+    #         raise RuntimeError('entity exist')
+    #     self.allocked_ports[self.namespace][entity] = set()
+
+    def change_performance(self):
+        """call by endpoint when create or delete entitys"""
+        self.reporter.flush_performance()
 
     @property
     def agent_id(self):
@@ -851,10 +896,7 @@ class RpcAgentManager(RpcManagerBase):
         return UriResult(resultcode=manager_common.RESULT_SUCCESS, result=result, uri=uri)
 
     def rpc_flush_metadata(self, ctxt, **kwargs):
-        body = {'metadata': self.metadata,
-                'expire': kwargs.get('expire'),
-                'snapshot': None}
-        self.client.agent_report(self.agent_id, body)
+        self.reporter.flush_metadata(self.metadata, kwargs.get('expire'))
         return AgentRpcResult(self.agent_id, ctxt,
                               resultcode=manager_common.RESULT_SUCCESS,
                               result='Agent report has been send')

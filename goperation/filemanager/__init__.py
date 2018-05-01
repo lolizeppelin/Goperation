@@ -138,7 +138,7 @@ class FileManager(object):
                 os.remove(_file)
             del not_match_files[:]
 
-    def clean_expired(self):
+    def clean_expired(self, day=7):
         pass
 
     def stop(self):
