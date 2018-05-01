@@ -257,7 +257,7 @@ class Cleaner(IntervalLoopinTask):
                                       stop_on_exception=False)
 
     def __call__(self, *args, **kwargs):
-        self.manager.clean_expired(day=7)
+        self.manager.filemanager.clean_expired(day=7)
         for endpoint in self.manager.endpoints:
             endpoint.clean_expired()
             eventlet.sleep(1)
