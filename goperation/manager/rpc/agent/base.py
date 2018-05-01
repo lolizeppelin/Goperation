@@ -599,9 +599,11 @@ class RpcAgentManager(RpcManagerBase):
             _ports.add(ports)
         else:
             _ports = set(ports)
+        LOG.info('Free ports, delete an entity?')
         for entitys in six.itervalues(self.allocked_ports):
             for entity_ports in six.itervalues(entitys):
                 for port in (entity_ports & _ports):
+                    LOG.debug('Free port %d' % port)
                     entity_ports.remove(port)
                     _ports.remove(port)
                     self.left_ports.add(port)
