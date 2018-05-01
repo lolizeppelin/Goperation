@@ -192,7 +192,7 @@ class OnlinTaskReporter(IntervalLoopinTask):
         now = time.gmtime(int(time.time())-time.timezone)
         date = '%04d-%02d-%02d' % (now.tm_year, now.tm_mon, now.tm_mday)
         hour = now.tm_hour
-        min = now.tm_min
+        tmin = now.tm_min
         running = 0
         sleeping = 0
         num_fds = 0
@@ -231,10 +231,10 @@ class OnlinTaskReporter(IntervalLoopinTask):
                     elif conn.status == 'CLOSING':
                         closeing += 1
                     count += 1
-            except (psutil.NoSuchProcess):
+            except psutil.NoSuchProcess:
                 continue
         memory = psutil.virtual_memory()
-        return dict(date=date, hour=hour, min=min,
+        return dict(date=date, hour=hour, min=tmin,
                     running=running, sleeping=sleeping, num_fds=num_fds, num_threads=num_threads,
                     context=interrupt[0], interrupts=interrupt[1], sinterrupts=interrupt[2],
                     irq=cputimes.irq, sirq=cputimes.softirq,
