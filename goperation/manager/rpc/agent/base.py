@@ -765,6 +765,7 @@ class RpcAgentManager(RpcManagerBase):
                 self.status = last_status
                 return AgentRpcResult(self.agent_id, ctxt, resultcode=manager_common.RESULT_ERROR,
                                       result='upgrade call yum clean metadata fail')
+            LOG.info('Call yum clean success')
             args = [executable, '-y', '--disablerepo=*', '--enablerepo=goputil', 'update']
             rpms = ['python-simpleutil-*', 'python-simpleservice-*',
                     'python-simpleflow-*', 'python-goperation-*']
