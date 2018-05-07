@@ -753,8 +753,19 @@ class RpcAgentManager(RpcManagerBase):
                 endpont.frozen = True
             last_status = self.status
             executable = systemutils.find_executable(YUM)
+            # CALL yum --disablerepo=* --enablerepo=goputil clean metadata FIRST
+            pid = safe_fork()
+            args = [executable, '-y', '--disablerepo=*', '--enablerepo=goputil', 'clean', 'metadata']
+            if pid == 0:
+                os.closerange(3, systemutils.MAXFD)
+                os.execv(executable, args)
+            try:
+                posix.wait(pid, 5)
+            except Exception:
+                self.status = last_status
+                return AgentRpcResult(self.agent_id, ctxt, resultcode=manager_common.RESULT_ERROR,
+                                      result='upgrade call yum clean metadata fail')
             args = [executable, '-y', '--disablerepo=*', '--enablerepo=goputil', 'update']
-
             rpms = ['python-simpleutil-*', 'python-simpleservice-*',
                     'python-simpleflow-*', 'python-goperation-*']
             for cls in self.conf.endpoints:
