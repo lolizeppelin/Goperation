@@ -8,7 +8,7 @@ redis_opts = [
                 default=6379,
                 help='Redis connect Port'),
     cfg.IntOpt('redis_db',
-               required=True,
+               default=1,
                help='Redis datababse id'),
     cfg.StrOpt('redis_password',
                max_length=32,
