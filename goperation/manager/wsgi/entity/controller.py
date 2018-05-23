@@ -73,7 +73,7 @@ class EntityReuest(BaseContorller):
                                               ports=[port.port for port in entity.ports] if show_ports else [])
                                          for entity in entitys])
 
-    def create(self, req, agent_id, endpoint, body=None):
+    def create(self, req, agent_id, endpoint, body=None, action='create'):
         body = body or {}
         endpoint = validateutils.validate_endpoint(endpoint)
         ports = body.pop('ports', None)
@@ -133,7 +133,7 @@ class EntityReuest(BaseContorller):
                     if notify:
                         target = targetutils.target_agent(agent)
                         target.namespace = endpoint
-                        create_result = self.notify_create(target, agent.agent_id, entity, body)
+                        create_result = self.notify_create(target, agent.agent_id, entity, body, action)
                         if not create_result:
                             raise RpcResultError('create entitys result is None')
                         if create_result.get('resultcode') != manager_common.RESULT_SUCCESS:
@@ -189,7 +189,7 @@ class EntityReuest(BaseContorller):
                                               entity=_entity.entity,
                                               ports=sorted([x.port for x in _entity.ports]) if show_ports else [])])
 
-    def delete(self, req, endpoint, entity, body=None):
+    def delete(self, req, endpoint, entity, body=None, action='delete'):
         body = body or {}
         notify = body.pop('notify', True)
         endpoint = validateutils.validate_endpoint(endpoint)
@@ -216,7 +216,7 @@ class EntityReuest(BaseContorller):
                     target = targetutils.target_agent_by_string(metadata.get('agent_type'),
                                                                 metadata.get('host'))
                     target.namespace = endpoint
-                    delete_result = self.notify_delete(target, agent_id, entity, body)
+                    delete_result = self.notify_delete(target, agent_id, entity, body, action)
                     if not delete_result:
                         raise RpcResultError('delete entitys result is None')
                     if delete_result.get('resultcode') != manager_common.RESULT_SUCCESS:
@@ -255,7 +255,7 @@ class EntityReuest(BaseContorller):
         return resultutils.results(result=rpc_ret.get('result'), data=[rpc_ret.get('uri')])
 
     @staticmethod
-    def notify_create(target, agent_id, entity, body):
+    def notify_create(target, agent_id, entity, body, action='create'):
         rpc = get_client()
         body.setdefault('entity', entity)
         finishtime = body.pop('finishtime', None)
@@ -267,12 +267,12 @@ class EntityReuest(BaseContorller):
             raise InvalidArgument('Timeout less then 3')
         create_ret = rpc.call(target, ctxt={'finishtime': finishtime,
                                             'agents': [agent_id, ], 'entitys': [entity, ]},
-                              msg={'method': 'create_entity', 'args': body},
+                              msg={'method': '%s_entity' % action, 'args': body},
                               timeout=timeout)
         return create_ret
 
     @staticmethod
-    def notify_delete(target, agent_id, entity, body):
+    def notify_delete(target, agent_id, entity, body, action='delete'):
         rpc = get_client()
         body.setdefault('entity', entity)
         token = body.get('token')
@@ -290,7 +290,7 @@ class EntityReuest(BaseContorller):
                      msg={'method': 'entity_token', 'args': {'entity': entity, 'token': token}})
         delete_ret = rpc.call(target, ctxt={'finishtime': finishtime,
                                             'agents': [agent_id, ], 'entitys': [entity, ]},
-                              msg={'method': 'delete_entity', 'args': body},
+                              msg={'method': '%s_entity' % action, 'args': body},
                               timeout=timeout)
         return delete_ret
 
