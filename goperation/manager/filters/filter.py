@@ -328,7 +328,7 @@ class AuthFilter(FilterBase):
         self.allowed_clients.add('127.0.0.1')
         self.allowed_clients.add(CONF.local_ip)
         for ipaddr in self.allowed_clients:
-            LOG.info('Allowd client %s' % ipaddr)
+            LOG.debug('Allowd client %s' % ipaddr)
         # 进程token缓存最大数量
         self.token_cache_size = conf.token_cache_size
 
