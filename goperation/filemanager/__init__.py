@@ -222,7 +222,7 @@ class FileManager(object):
                             LOG.error('Download fail, remove path %s fail' % path)
                     ev.send(exc=e)
                     self.downloading.pop(fileinfo['md5'], None)
-                    raise
+                    raise e
             try:
                 if md5 != fileinfo['md5'] or size != fileinfo['size']:
                     raise exceptions.FileNotMatch('File md5 or size not the same')
