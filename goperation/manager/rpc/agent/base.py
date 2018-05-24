@@ -91,6 +91,8 @@ class AgentManagerClient(GopHttpClientApi):
 class OnlinTaskReporter(IntervalLoopinTask):
     """Report Agent online
     """
+    PROCESSATTR = ['status', 'num_fds', 'num_threads', 'name', 'pid']
+
     def __init__(self, manager):
         self.manager = manager
         self.with_performance = CONF[manager_common.AGENT].report_performance
@@ -203,7 +205,7 @@ class OnlinTaskReporter(IntervalLoopinTask):
         closeing = 0
         count = 0
         # psutil版本要求5.4+
-        for proc in psutil.process_iter(attrs=['status', 'num_fds', 'num_threads']):
+        for proc in psutil.process_iter(self.PROCESSATTR):
             num_threads += proc.info.get('num_threads')
             num_fds += proc.info.get('num_fds')
             status = proc.info.get('status')
@@ -212,7 +214,10 @@ class OnlinTaskReporter(IntervalLoopinTask):
             elif status == 'running':
                 running += 1
             else:
-                LOG.error('process status not sleeping or running, status %s' % status)
+                LOG.error('process %s with pid %d status '
+                          'not sleeping or running, status %s' %
+                          (proc.info.get('name'), proc.info.get('pid'), status))
+                continue
             if hasattr(proc, 'connection_iter'):
                 proc_iter = proc.connection_iter
             else:
