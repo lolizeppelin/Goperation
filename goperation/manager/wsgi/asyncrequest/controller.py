@@ -95,7 +95,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
                                                  ],
                                         counter=AsyncRequest.request_id,
                                         order=order, desc=desc,
-                                        filter=request_filter, page_num=page_num)
+                                        filter=request_filter, page_num=page_num, limit=200)
 
     @Idformater
     def show(self, req, request_id, body=None):
