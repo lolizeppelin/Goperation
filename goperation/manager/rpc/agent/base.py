@@ -349,10 +349,10 @@ class RpcAgentEndpointBase(EndpointBase):
                 for _lock in success:
                     _lock.release()
                 raise RpcTargetLockException(self.namespace, entity, 'get lock timeout')
+        self.frozen = False
         try:
             yield
         finally:
-            self.frozen = False
             for _lock in success:
                 _lock.release()
 
