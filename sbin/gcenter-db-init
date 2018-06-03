@@ -2,9 +2,12 @@
 import logging
 
 from simpleutil.config import cfg
-from simpleservice.ormdb.tools.utils import database_init_opts
+from simpleservice.ormdb.tools.config import database_init_opts
 
+from simpleservice.ormdb.tools import utils as dbutils
 from goperation.cmd.db import utils
+
+dbutils.LOG = logging
 
 
 def main():
