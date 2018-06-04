@@ -100,14 +100,14 @@ class AppLocalBackupFile(TaskPublicFile):
                                                                   middleware.entity))
         src = middleware.apppath
         LOG.debug('AppBackUp dump local bakcup from path %s' % src)
-        ft = zlibutils.async_compress(src, self.destination, topdir=self.topdir,
-                                      exclude=self.exclude, timeout=timeout,
-                                      native=self.native,
-                                      fork=functools.partial(safe_fork,
-                                                             user=middleware.entity_user,
-                                                             group=middleware.entity_group)
-                                      if systemutils.LINUX else None)
-        ft.result()
+        waiter = zlibutils.async_compress(src, self.destination, topdir=self.topdir,
+                                          exclude=self.exclude, timeout=timeout,
+                                          native=self.native,
+                                          fork=functools.partial(safe_fork,
+                                                                 user=middleware.entity_user,
+                                                                 group=middleware.entity_group)
+                                          if systemutils.LINUX else None)
+        waiter.wait()
         self.post_check()
 
     @property
