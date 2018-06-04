@@ -100,15 +100,14 @@ class AppLocalBackupFile(TaskPublicFile):
                                                                   middleware.entity))
         src = middleware.apppath
         LOG.debug('AppBackUp dump local bakcup from path %s' % src)
-        waiter = zlibutils.async_compress(src, self.destination,
-                                          exclude=self.exclude,
-                                          native=self.native,
-                                          fork=functools.partial(safe_fork,
-                                                                 user=middleware.entity_user,
-                                                                 group=middleware.entity_group)
-                                          if systemutils.LINUX else None, timeout=timeout,
-                                          topdir=self.topdir)
-        waiter.wait()
+        ft = zlibutils.async_compress(src, self.destination, topdir=self.topdir,
+                                      exclude=self.exclude, timeout=timeout,
+                                      native=self.native,
+                                      fork=functools.partial(safe_fork,
+                                                             user=middleware.entity_user,
+                                                             group=middleware.entity_group)
+                                      if systemutils.LINUX else None)
+        ft.result()
         self.post_check()
 
     @property
@@ -260,9 +259,8 @@ class AppFileUpgradeByFile(AppFileUpgradeBase):
             self.middleware.set_return(self.taskname, common.REVERTED)
 
     def _extract(self, src, dst, user, group, native=True, timeout=None):
-        waiter = zlibutils.async_extract(src, dst, exclude=self._exclude,
+        waiter = zlibutils.async_extract(src, dst, exclude=self._exclude, timeout=timeout,
                                          native=native,
-                                         timeout=timeout,
                                          fork=functools.partial(safe_fork, user, group)
                                          if systemutils.LINUX else None)
         waiter.wait()
