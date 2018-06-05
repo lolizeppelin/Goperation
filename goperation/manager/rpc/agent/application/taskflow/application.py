@@ -250,7 +250,7 @@ class AppFileUpgradeByFile(AppFileUpgradeBase):
     def revert(self, result, backupfile=None, timeout=None, *args, **kwargs):
         super(AppFileUpgradeBase, self).revert(result, *args, **kwargs)
         if isinstance(result, failure.Failure):
-            LOG.info('App upgrade by file execut fail, try revert')
+            LOG.info('App upgrade by file execute extract fail by %s' % result.exception_str)
             if backupfile is None:
                 LOG.info('backupfile is none, can not revert')
             else:
