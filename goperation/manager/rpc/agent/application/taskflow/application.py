@@ -232,8 +232,8 @@ class AppFileUpgradeBase(AppTaskBase):
 class AppFileUpgradeByFile(AppFileUpgradeBase):
 
     def __init__(self, middleware, exclude=None, native=True,
-                 rebind=None, requires='upgradefile',
-                 revert_requires='backupfile'):
+                 rebind=None, requires=None,
+                 revert_requires=None):
         if exclude and not callable(exclude):
             raise TypeError('exclude is not callable')
         self._exclude = exclude
@@ -248,7 +248,7 @@ class AppFileUpgradeByFile(AppFileUpgradeBase):
                       self.middleware.entity_user, self.middleware.entity_group,
                       self.native, timeout)
 
-    def revert(self, result, backupfile, timeout=None, *args, **kwargs):
+    def revert(self, result, backupfile=None, timeout=None, *args, **kwargs):
         super(AppFileUpgradeBase, self).revert(result, *args, **kwargs)
         if isinstance(result, failure.Failure):
             if backupfile is None:
