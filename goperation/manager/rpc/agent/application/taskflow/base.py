@@ -4,7 +4,6 @@ from simpleflow import api
 from simpleflow.task import Task
 from simpleflow.types import failure
 from simpleflow.storage import Connection
-from simpleflow.storage.middleware import LogBook
 from simpleflow.engines.engine import ParallelActionEngine
 
 from goperation.taskflow import common
@@ -44,7 +43,10 @@ class EntityTask(Task):
                                engine_cls=ParallelActionEngine)
 
     def execute(self):
-        self.engine.run()
+        try:
+            self.engine.run()
+        except Exception:
+            pass
 
 
 @six.add_metaclass(abc.ABCMeta)

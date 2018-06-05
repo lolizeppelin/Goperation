@@ -183,7 +183,6 @@ class AppBackUp(StandardTask):
     def execute(self, timeout):
         if self.middleware.is_success(self.taskname):
             return self.backupfile.file
-
         self.backupfile.prepare(self.middleware, timeout)
         return self.backupfile.file
 
@@ -251,6 +250,7 @@ class AppFileUpgradeByFile(AppFileUpgradeBase):
     def revert(self, result, backupfile=None, timeout=None, *args, **kwargs):
         super(AppFileUpgradeBase, self).revert(result, *args, **kwargs)
         if isinstance(result, failure.Failure):
+            LOG.info('App upgrade by file execut fail, try revert')
             if backupfile is None:
                 LOG.info('backupfile is none, can not revert')
             else:
