@@ -40,7 +40,7 @@ class EntityTask(Task):
     def __init__(self, session, book, flow, store):
         super(EntityTask, self).__init__(name='engine_%s' % flow.name)
         self.connection = Connection(session)
-        self.engine = api.load(self.connection, flow, book, store=store,
+        self.engine = api.load(self.connection, flow, book=book, store=store,
                                engine_cls=ParallelActionEngine)
 
     def execute(self):

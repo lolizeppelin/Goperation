@@ -254,6 +254,7 @@ class AppFileUpgradeByFile(AppFileUpgradeBase):
             if backupfile is None:
                 LOG.info('backupfile is none, can not revert')
             else:
+                LOG.info('Try revert from backupfile %s' % backupfile)
                 self.middleware.set_return(self.taskname, common.REVERT_FAIL)
                 try:
                     self._extract(backupfile, self.middleware.apppath,
