@@ -37,21 +37,14 @@ class StandardTask(Task):
 
 
 class EntityTask(Task):
-
-    def __init__(self, session, flow, store):
+    def __init__(self, session, book, flow, store):
         super(EntityTask, self).__init__(name='engine_%s' % flow.name)
-        book = LogBook(self.name)
-        self.book_uuid = book.uuid
         self.connection = Connection(session)
-        self.engine = api.load(self.connection, flow, book=book, store=store,
+        self.engine = api.load(self.connection, flow, book, store=store,
                                engine_cls=ParallelActionEngine)
 
     def execute(self):
-        try:
-            self.engine.run()
-        finally:
-            # cleanup sub taskflow engine logbook
-            self.connection.destroy_logbook(self.book_uuid)
+        self.engine.run()
 
 
 @six.add_metaclass(abc.ABCMeta)

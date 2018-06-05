@@ -263,7 +263,9 @@ class AppFileUpgradeByFile(AppFileUpgradeBase):
                 except Exception:
                     if LOG.isEnabledFor(logging.DEBUG):
                         LOG.exception('revert from %s fail' % backupfile)
-                    raise
+                    else:
+                        LOG.error('revert from %s fail' % backupfile)
+                    return
             self.middleware.set_return(self.taskname, common.REVERTED)
 
     def _extract(self, src, dst, user, group, native=True, timeout=None):

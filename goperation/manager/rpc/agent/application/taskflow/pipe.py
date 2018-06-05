@@ -6,7 +6,6 @@ from simpleflow.task import Task
 from simpleflow.patterns import linear_flow as lf
 from simpleflow.patterns import unordered_flow as uf
 
-
 from goperation.manager.rpc.agent.application.taskflow import application
 from goperation.manager.rpc.agent.application.taskflow import database
 from goperation.manager.rpc.agent.application.taskflow.base import EntityTask
@@ -28,12 +27,12 @@ class ProvidesTask(Task):
                self.backupfile.file if self.backupfile else None
 
 
-def entity_factory(session, app, store,
+def entity_factory(session, book, app, store,
                    upgradefile, backupfile,
                    db_flow_factory, **kwargs):
     """
     @param session:                 class: sqlalchemy:session
-    @param middleware:              class: EntityMiddleware
+    @param book:                    class: taskflow book
     @param store:                   class: dict
     @param db_flow_factory:         class: function
     @param upgradefile:             class: TaskPublicFile
@@ -91,10 +90,11 @@ def entity_factory(session, app, store,
         entity_flow.add(app.deletetask)
 
     # entity task is independent event
-    return EntityTask(session, entity_flow, store)
+    return EntityTask(session, book, entity_flow, store)
 
 
-def flow_factory(session, applications,
+def flow_factory(session, book,
+                 applications,
                  upgradefile=None,
                  backupfile=None,
                  store=None,
@@ -157,7 +157,7 @@ def flow_factory(session, applications,
     # 批量更新操作
     for app in applications:
         # all entity task
-        entitys_taskflow.add(entity_factory(session, app, store,
+        entitys_taskflow.add(entity_factory(session, book, app, store,
                                             upgradefile, backupfile,
                                             db_flow_factory, **kwargs))
         eventlet.sleep(0)
