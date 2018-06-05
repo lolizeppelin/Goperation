@@ -14,6 +14,7 @@ from simpleflow.types import failure
 
 
 from goperation.utils import safe_fork
+from goperation.utils import umask
 from goperation.taskflow import common
 from goperation.manager.rpc.agent.application.taskflow.base import StandardTask
 from goperation.manager.rpc.agent.application.taskflow.base import TaskPublicFile
@@ -100,13 +101,20 @@ class AppLocalBackupFile(TaskPublicFile):
                                                                   middleware.entity))
         src = middleware.apppath
         LOG.debug('AppBackUp dump local bakcup from path %s' % src)
+        fork = prefunc = None
+        if systemutils.LINUX:
+            if self.native:
+                fork = functools.partial(safe_fork, middleware.entity_user, middleware.entity_group)
+            else:
+                def _prefunc():
+                    systemutils.drop_privileges(middleware.entity_user, middleware.entity_group)
+                    umask()
+
+                prefunc = _prefunc
         waiter = zlibutils.async_compress(src, self.destination, topdir=self.topdir,
                                           exclude=self.exclude, timeout=timeout,
                                           native=self.native,
-                                          fork=functools.partial(safe_fork,
-                                                                 user=middleware.entity_user,
-                                                                 group=middleware.entity_group)
-                                          if systemutils.LINUX else None)
+                                          fork=fork, prefunc=prefunc)
         waiter.wait()
         self.post_check()
 
@@ -259,10 +267,19 @@ class AppFileUpgradeByFile(AppFileUpgradeBase):
             self.middleware.set_return(self.taskname, common.REVERTED)
 
     def _extract(self, src, dst, user, group, native=True, timeout=None):
-        waiter = zlibutils.async_extract(src, dst, exclude=self._exclude, timeout=timeout,
-                                         native=native,
-                                         fork=functools.partial(safe_fork, user, group)
-                                         if systemutils.LINUX else None)
+        fork = prefunc = None
+        if systemutils.LINUX:
+            if native:
+                fork = functools.partial(safe_fork, user, group)
+            else:
+                def _prefunc():
+                    systemutils.drop_privileges(user, group)
+                    umask()
+
+                prefunc = _prefunc
+        waiter = zlibutils.async_extract(src, dst,
+                                         exclude=self._exclude, timeout=timeout,
+                                         native=native, fork=fork, prefunc=prefunc)
         waiter.wait()
 
 

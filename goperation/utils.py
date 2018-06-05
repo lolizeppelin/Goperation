@@ -44,7 +44,10 @@ def nirvana(delay=1):
 if systemutils.LINUX:
 
     from simpleutil.utils.systemutils import posix
-    from simpleutil.utils.systemutils.posix import linux
+
+
+    def umask(umask=022):
+        os.umask(umask)
 
     def safe_fork(user=None, group=None, umask=022):
         # Disable gc to avoid bug where gc -> file_dealloc ->
@@ -82,7 +85,7 @@ if systemutils.LINUX:
             signal_handler.add_handler('SIGHUP', sysexit)
             signal_handler.add_handler('SIGALRM', sysexit)
 
-            posix.linux.drop_privileges(user, group)
+            systemutils.drop_privileges(user, group)
             os.umask(umask)
 
         else:
@@ -99,6 +102,10 @@ if systemutils.LINUX:
 else:
     def safe_fork(*args):
         raise NotImplementedError
+
+
+    def umask(*args, **kwargs):
+        pass
 
     wait = systemutils.subwait
 
