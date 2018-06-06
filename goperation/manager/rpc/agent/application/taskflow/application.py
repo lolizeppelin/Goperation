@@ -188,7 +188,8 @@ class AppBackUp(StandardTask):
 
     def revert(self, result, *args, **kwargs):
         super(AppBackUp, self).revert(result, *args, **kwargs)
-        LOG.error('App backup fail by %s' % result.exception_str)
+        LOG.error('Appentity %d backup fail by %s' %
+                  (self.middleware.entity, result.exception_str))
         if isinstance(result, failure.Failure):
             self.middleware.set_return(self.taskname, common.REVERT_FAIL)
             self.backupfile.clean()
@@ -251,7 +252,8 @@ class AppFileUpgradeByFile(AppFileUpgradeBase):
     def revert(self, result, backupfile=None, timeout=None, *args, **kwargs):
         super(AppFileUpgradeBase, self).revert(result, *args, **kwargs)
         if isinstance(result, failure.Failure):
-            LOG.error('App upgrade by file execute extract fail: %s' % result.exception_str)
+            LOG.error('Appentity %d upgrade by file execute extract fail: %s' %
+                      (self.middleware.entity, result.exception_str))
             if backupfile is None:
                 LOG.info('App upgrade fail but backupfile is none, can not revert')
             else:
