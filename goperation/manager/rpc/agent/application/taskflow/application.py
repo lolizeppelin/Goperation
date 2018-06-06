@@ -253,7 +253,7 @@ class AppFileUpgradeByFile(AppFileUpgradeBase):
         if isinstance(result, failure.Failure):
             LOG.error('App upgrade by file execute extract fail: %s' % result.exception_str)
             if backupfile is None:
-                LOG.info('backupfile is none, can not revert')
+                LOG.info('App upgrade fail but backupfile is none, can not revert')
             else:
                 LOG.info('Try revert from backupfile %s' % backupfile)
                 self.middleware.set_return(self.taskname, common.REVERT_FAIL)
