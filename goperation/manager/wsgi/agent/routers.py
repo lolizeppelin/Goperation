@@ -39,5 +39,5 @@ class Routers(router.RoutersBase):
         # agent report system info
         collection.member.link('report', method='POST')
         # get agent logs
-        collection.member.link('logs', method='GET')
+        collection.member.link('readlog', method='GET')
         return collection

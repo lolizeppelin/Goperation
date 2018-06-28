@@ -12,6 +12,7 @@ from goperation.manager.rpc.agent.base import RpcAgentEndpointBase
 from goperation.manager.rpc.exceptions import RpcEntityError
 
 from goperation.manager.utils.resultutils import UriResult
+from goperation.manager.utils.resultutils import DirResult
 
 
 CONF = cfg.CONF
@@ -71,16 +72,45 @@ class AppEndpointBase(RpcAgentEndpointBase):
 
         self.entitys_tokens.setdefault(entity, {'token': token, 'timer': timer})
 
-    def rpc_logs(self, ctxt, entity):
+    def rpc_readlog(self, ctxt, entity, path, lines=10):
         entity = int(entity)
-        logpath = self.logpath(entity)
+        lines = int(lines)
+        path = str(path)
+        if path.startswith('/') or '..' in path:
+            return UriResult(resultcode=manager_common.RESULT_ERROR, result='path value error')
+        logpath = os.path.join(self.logpath(entity), path)
+        if not os.path.exists(logpath) or os.path.isdir(path):
+            return UriResult(resultcode=manager_common.RESULT_ERROR,
+                             result='path not exist or not a file' % path)
         try:
-            uri = self.manager.readlog(logpath, self.entity_user(entity), self.entity_group(entity))
+            uri = self.manager.readlog(logpath, self.entity_user(entity), self.entity_group(entity), lines)
         except ValueError as e:
             return UriResult(resultcode=manager_common.RESULT_ERROR,
                              result='read log of %s fail:%s' % (self.namespace, e.message))
         return UriResult(resultcode=manager_common.RESULT_SUCCESS,
                          result='get log of %s success' % self.namespace, uri=uri)
+
+    def rpc_logs(self, ctxt, entity, path=None):
+        if path:
+            path = os.path.join(self.logpath(entity), path)
+        else:
+            path = self.logpath(entity)
+        if not os.path.exists(path) or not os.path.isdir(path):
+            return DirResult(resultcode=manager_common.RESULT_ERROR,
+                             result='list log directory of %s.%d fail, path value error' % (self.namespace, entity))
+        files = []
+        dirs = []
+        for _path in os.listdir(path):
+            if _path.startswith('.'):
+                continue
+            fullpath = os.path.join(path, _path)
+            if os.path.isdir(fullpath):
+                dirs.append(_path)
+            elif os.path.isfile(fullpath):
+                files.append(_path)
+        return DirResult(resultcode=manager_common.RESULT_SUCCESS,
+                         result='list log directory of %s.%d success' % (self.namespace, entity),
+                         dirs=dirs, files=files)
 
     def _entity_token(self, entity):
         info = self.entitys_tokens.pop(entity, None)

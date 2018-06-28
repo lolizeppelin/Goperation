@@ -190,3 +190,17 @@ class UriResult(BaseRpcResult):
                     'uri': self.uri,
                     'result': self.result if self.result else 'unkonwn result'}
         return ret_dict
+
+
+class DirResult(BaseRpcResult):
+    def __init__(self, resultcode=0, result=None, dirs=None, files=None):
+        self.dirs = dirs or []
+        self.files = files or []
+        super(DirResult, self).__init__(resultcode, result)
+
+    def to_dict(self):
+        ret_dict = {'resultcode': self.resultcode,
+                    'dirs': self.dirs,
+                    'files': self.files,
+                    'result': self.result if self.result else 'unkonwn result'}
+        return ret_dict

@@ -162,10 +162,13 @@ class EntityReuest(BaseContorller):
         body = dict(entity=entity)
         body.update(kwargs)
         rpc = get_client()
-        rpc.cast(target, ctxt={'finishtime': body.pop('finishtime', rpcfinishtime()[0]), 'entitys': [entity, ]},
+        rpc.cast(target,
+                 ctxt={'finishtime': body.pop('finishtime', rpcfinishtime()[0]),
+                       'entitys': [entity, ]},
                  msg={'method': 'post_create_entity', 'args': body})
         return resultutils.results(result='notify post create success',
-                                   data=[dict(entity=entity, agent_id=_entity.agent_id,
+                                   data=[dict(entity=entity,
+                                              agent_id=_entity.agent_id,
                                               endpoint=endpoint)])
 
     def show(self, req, endpoint, entity, body=None):
@@ -228,7 +231,7 @@ class EntityReuest(BaseContorller):
 
     def logs(self, req, endpoint, entity, body=None):
         body = body or {}
-        lines = int(body.get('lines', 10))
+        path = body.get('path')
         endpoint = validateutils.validate_endpoint(endpoint)
         entity = int(entity)
         session = get_session(readonly=True)
@@ -241,13 +244,43 @@ class EntityReuest(BaseContorller):
         if not metadata:
             raise InvalidArgument('Can not get log from off line agent')
         target = targetutils.target_agent_by_string(manager_common.APPLICATION, metadata.get('host'))
-        # target.namespace = endpoint
+        target.namespace = endpoint
         rpc = get_client()
         rpc_ret = rpc.call(target,
-                           ctxt={'finishtime': rpcfinishtime()},
-                           msg={'method': 'readlog',
-                                'args': {'target': dict(entity=entity, endpoint=endpoint),
-                                         'lines': lines}})
+                           ctxt={'finishtime': rpcfinishtime()[0]},
+                           msg={'method': 'logs',
+                                'args': {'entity': entity, 'path': path}
+                                })
+        if not rpc_ret:
+            raise RpcResultError('Get %s.%d log rpc result is None' % (endpoint, entity))
+        if rpc_ret.get('resultcode') != manager_common.RESULT_SUCCESS:
+            raise RpcResultError(('Get %s.%d log agent rpc result: ' % (endpoint, entity)) + rpc_ret.get('result'))
+        return resultutils.results(result=rpc_ret.get('result'),
+                                   data=[dict(dirs=rpc_ret.get('dirs'), files=rpc_ret.get('files'))])
+
+    def readlog(self, req, endpoint, entity, body=None):
+        body = body or {}
+        path = body.get('path')
+        lines = body.get('lines', 10)
+        if not path or '..' in path:
+            raise InvalidArgument('Path value error')
+        endpoint = validateutils.validate_endpoint(endpoint)
+        entity = int(entity)
+        session = get_session(readonly=True)
+        query = model_query(session, AgentEntity, filter=and_(AgentEntity.endpoint == endpoint,
+                                                              AgentEntity.entity == entity))
+        _entity = query.one_or_none()
+        if not _entity:
+            raise InvalidArgument('no entity found for %s' % endpoint)
+        metadata = BaseContorller.agent_metadata(_entity.agent_id)
+        if not metadata:
+            raise InvalidArgument('Can not get log from off line agent')
+        target = targetutils.target_agent_by_string(manager_common.APPLICATION, metadata.get('host'))
+        target.namespace = endpoint
+        rpc = get_client()
+        rpc_ret = rpc.call(target,
+                           ctxt={'finishtime': rpcfinishtime()[0]},
+                           msg={'method': 'readlog', 'args': {'entity': entity, 'path': path, 'lines': lines}})
         if not rpc_ret:
             raise RpcResultError('Get %s.%d log rpc result is None' % (endpoint, entity))
         if rpc_ret.get('resultcode') != manager_common.RESULT_SUCCESS:

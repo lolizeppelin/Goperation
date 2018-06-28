@@ -136,8 +136,9 @@ class ManagerClient(HttpClientBase):
                                             resone=results['result'])
         return results
 
-    def agent_logs(self, agent_id):
-        resp, results = self.get(action=self.agent_ext_path % (str(agent_id), 'logs'))
+    def agent_readlog(self, agent_id, lines=10):
+        resp, results = self.get(action=self.agent_ext_path % (str(agent_id), 'readlog'),
+                                 body={'lines': lines})
         if results['resultcode'] != common.RESULT_SUCCESS:
             raise ServerExecuteRequestError(message='get agent log fail:%d' % results['resultcode'],
                                             code=resp.status_code,
@@ -250,6 +251,15 @@ class ManagerClient(HttpClientBase):
     def entity_logs(self, endpoint, entity, body=None):
         resp, results = self.get(action=self.entity_path_ex % (endpoint, str(entity), 'logs'),
                                  body=body)
+        if results['resultcode'] != common.RESULT_SUCCESS:
+            raise ServerExecuteRequestError(message='get entity logs fail:%d' % results['resultcode'],
+                                            code=resp.status_code,
+                                            resone=results['result'])
+        return results
+
+    def entity_readlog(self, endpoint, entity, path, lines=10):
+        resp, results = self.get(action=self.entity_path_ex % (endpoint, str(entity), 'readlog'),
+                                 body={'path': path, 'lines': lines})
         if results['resultcode'] != common.RESULT_SUCCESS:
             raise ServerExecuteRequestError(message='get entity logs fail:%d' % results['resultcode'],
                                             code=resp.status_code,

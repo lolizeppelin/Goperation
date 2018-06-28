@@ -265,7 +265,7 @@ class AgentReuest(BaseContorller):
         with session.begin():
             agent.update({'status': status})
             active_agent = rpc.call(targetutils.target_agent(agent),
-                                    ctxt={'finishtime': rpcfinishtime()},
+                                    ctxt={'finishtime': rpcfinishtime()[0]},
                                     msg={'method': 'active_agent',
                                          'args': {'agent_id': agent_id,
                                                   'agent_ipaddr': agent_ipaddr,
@@ -426,9 +426,10 @@ class AgentReuest(BaseContorller):
                                    data=[asyncrequest.to_dict()])
 
     @BaseContorller.AgentIdformater
-    def logs(self, req, agent_id, body=None):
+    def readlog(self, req, agent_id, body=None):
         """call by agent"""
         body = body or {}
+        lines = body.get('lines', 10)
         rpc = get_client()
         metadata = BaseContorller.agent_metadata(agent_id)
         if metadata is None:
@@ -438,8 +439,8 @@ class AgentReuest(BaseContorller):
         query = model_query(session, Agent, filter=Agent.agent_id == agent_id)
         agent = query.one()
         rpc_ret = rpc.call(targetutils.target_agent(agent),
-                           ctxt={'finishtime': rpcfinishtime()},
-                           msg={'method': 'readlog', 'args': body})
+                           ctxt={'finishtime': rpcfinishtime()[0]},
+                           msg={'method': 'readlog', 'args': {'lines': lines}})
         if not rpc_ret:
             raise RpcResultError('Get log agent rpc result is None')
         if rpc_ret.get('resultcode') != manager_common.RESULT_SUCCESS:

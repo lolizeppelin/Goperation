@@ -897,39 +897,21 @@ class RpcAgentManager(RpcManagerBase):
                     LOG.error('Websocket reader wait catch error %s' % str(e))
                 LOG.info('Websocket reader with pid %d has been exit' % pid)
                 self.websockets.pop(pid, None)
-                self.left_ports.add(port)
                 _timer.cancel()
 
             eventlet.spawn_n(_wait)
-
-        except Exception:
+        finally:
             self.left_ports.add(port)
-            raise
         return dict(port=port, token=token, ipaddr=ipaddr)
 
     @CheckManagerRpcCtxt
     @CheckThreadPoolRpcCtxt
     def rpc_readlog(self, ctxt, **kwargs):
         lines = int(kwargs.pop('lines', 10))
-        target = kwargs.get('target')
-        if target:
-            logpath, user, group = None, None, None
-            entity = target.get('entity')
-            endpoint = target.get('endpoint')
-            for e in self.endpoints:
-                if e.namespace == endpoint:
-                    logpath = e.logpath(entity)
-                    user = e.entity_user(entity)
-                    group = e.entity_group(entity)
-            if not logpath or not user or not group:
-                return UriResult(resultcode=manager_common.RESULT_ERROR,
-                                 result='can not find %s.%d' % (endpoint, entity))
-            result = 'get %s.%d log success' % (endpoint, entity)
-        else:
-            logpath = CONF.log_dir
-            user = 'nobody'
-            group = 'nobody'
-            result = 'get agent log success'
+        logpath = CONF.log_dir
+        user = 'nobody'
+        group = 'nobody'
+        result = 'get agent log success'
         try:
             uri = self.readlog(logpath, user=user, group=group, lines=lines)
         except ValueError as e:
