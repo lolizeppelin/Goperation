@@ -3,10 +3,13 @@ import six
 
 from collections import namedtuple
 
+import time
 import datetime
+import eventlet
 from eventlet import event
 from eventlet.semaphore import Semaphore
 
+from simpleutil import systemutils
 from simpleutil.utils import attributes
 from simpleutil.utils import digestutils
 from simpleutil.utils import jsonutils
@@ -138,8 +141,13 @@ class FileManager(object):
                 os.remove(_file)
             del not_match_files[:]
 
-    def clean_expired(self, day=7):
-        pass
+    def clean_expired(self, day=10):
+        timeline = day * 86400
+        now = int(time.time())
+        for localfile in six.itervalues(self.localfiles):
+            if (now - systemutils.acctime(localfile.path)) > timeline:
+                self.delete(localfile.md5)
+            eventlet.sleep(0)
 
     def stop(self):
         with self.lock:
@@ -154,9 +162,12 @@ class FileManager(object):
 
     def find(self, target):
         if target in self.localfiles:
-            return self.localfiles[target]
+            localfile = self.localfiles[target]
+            systemutils.touch(localfile.path)
+            return localfile
         for localfile in six.itervalues(self.localfiles):
             if target == localfile.md5:
+                systemutils.touch(localfile.path)
                 return localfile
         raise exceptions.NoFileFound('File Manager can not find file of %s' % target)
 

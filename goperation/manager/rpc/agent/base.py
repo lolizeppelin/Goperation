@@ -262,7 +262,7 @@ class Cleaner(IntervalLoopinTask):
                                       stop_on_exception=False)
 
     def __call__(self, *args, **kwargs):
-        self.manager.filemanager.clean_expired(day=7)
+        self.manager.filemanager.clean_expired(day=10)
         for endpoint in self.manager.endpoints:
             endpoint.clean_expired()
             eventlet.sleep(1)
@@ -382,9 +382,38 @@ class RpcAgentEndpointBase(EndpointBase):
 
     def clean_expired(self):
         """clean expired data
-        注意: 清理一定数量的数据后调用eventlet.sleep(0) 调度cpu时间
         """
-        pass
+        self.clean(self.endpoint_backup, 864000)
+
+    @staticmethod
+    def clean(path, maxtime):
+        now = int(time.time())
+        count = 0
+        for root, dirs, files in os.walk(path):
+            for _file in files:
+                if count >= 100:
+                    count = 0
+                    eventlet.sleep(0)
+                count += 1
+                fullpath = os.path.join(root, _file)
+                try:
+                    atime = systemutils.acctime(fullpath)
+                    if (now - atime) > maxtime:
+                        os.remove(fullpath)
+                except (OSError, IOError):
+                    continue
+            for _dir in dirs:
+                if count >= 100:
+                    count = 0
+                    eventlet.sleep(0)
+                count += 1
+                fullpath = os.path.join(root, _dir)
+                try:
+                    atime = systemutils.acctime(fullpath)
+                    if not os.listdir(fullpath) and (now - atime) > maxtime:
+                        os.rmdir(fullpath)
+                except (OSError, IOError):
+                    continue
 
 
 class RpcAgentManager(RpcManagerBase):

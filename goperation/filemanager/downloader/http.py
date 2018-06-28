@@ -1,9 +1,10 @@
 import time
-import zlib
 import hashlib
 import requests
 from requests.exceptions import RequestException
 from contextlib import closing
+
+from simpleutil import systemutils
 
 from goperation.filemanager import exceptions
 from goperation.filemanager.downloader.base import DonwerAdapter
@@ -19,7 +20,9 @@ class HttpAdapter(DonwerAdapter):
 
     def download(self, address, dst, timeout):
         try:
-            return self._download_200(address, dst, timeout)
+            md5 = self._download_200(address, dst, timeout)
+            systemutils.touch(dst)
+            return md5
         except RequestException as e:
             raise exceptions.DownLoadFail('Download from %s Catch %s %s' % (address,
                                                                             e.__class__.__name__, e.message))
