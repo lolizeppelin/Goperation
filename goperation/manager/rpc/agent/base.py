@@ -660,12 +660,6 @@ class RpcAgentManager(RpcManagerBase):
                 return True
             return False
 
-    # def add_entity(self, endpoint, entity):
-    #     if entity in self.allocked_ports[endpoint]:
-    #         LOG.error('Add entity %d to %s faile' % (entity, endpoint))
-    #         raise RuntimeError('entity exist')
-    #     self.allocked_ports[self.namespace][entity] = set()
-
     def change_performance(self):
         """call by endpoint when create or delete entitys"""
         self.reporter.flush_performance()
