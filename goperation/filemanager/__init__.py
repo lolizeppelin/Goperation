@@ -144,9 +144,10 @@ class FileManager(object):
     def clean_expired(self, day=10):
         timeline = day * 86400
         now = int(time.time())
-        for localfile in six.itervalues(self.localfiles):
+        for md5 in self.localfiles.keys():
+            localfile = self.localfiles[md5]
             if (now - systemutils.acctime(localfile.path)) > timeline:
-                self.delete(localfile.md5)
+                self.delete(md5)
             eventlet.sleep(0)
 
     def stop(self):
