@@ -1,3 +1,4 @@
+import logging
 from websockify import websocket
 
 try:
@@ -19,6 +20,8 @@ CONF = cfg.CONF
 
 class GopWebSocketServerBase(websocket.WebSocketServer):
     def __init__(self, RequestHandlerClass):
+        if CONF.logfile:
+            logging.basicConfig(filename=CONF.logfile)
         # suicide after 120s
         self.suicide = suicide(delay=120)
         super(GopWebSocketServerBase, self).__init__(RequestHandlerClass=RequestHandlerClass,
