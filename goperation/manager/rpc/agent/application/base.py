@@ -110,7 +110,7 @@ class AppEndpointBase(RpcAgentEndpointBase):
                 files.append(_path)
         return DirResult(resultcode=manager_common.RESULT_SUCCESS,
                          result='list log directory of %s.%d success' % (self.namespace, entity),
-                         dirs=dirs, files=files)
+                         dirs=dirs, files=sorted(files))
 
     def _entity_token(self, entity):
         info = self.entitys_tokens.pop(entity, None)

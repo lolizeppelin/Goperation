@@ -840,13 +840,19 @@ class RpcAgentManager(RpcManagerBase):
                               result='getfile success')
 
     def readlog(self, logpath, user, group, lines):
-        if logpath == '/':
+        if os.path.isfile(logpath):
+            loghome = os.path.split(logpath)[0]
+        elif os.path.isdir(logpath):
+            loghome = logpath
+        else:
+            raise ValueError('Log path is not file or dir')
+        if loghome == '/':
             raise ValueError('Log path is root')
         self.max_websocket()
         lines = int(lines)
         executable = systemutils.find_executable(WEBSOCKETREADER)
         token = str(uuidutils.generate_uuid()).replace('-', '')
-        args = [executable, '--home', logpath, '--token', token]
+        args = [executable, '--home', loghome, '--token', token]
         port = max(self.left_ports)
         self.left_ports.remove(port)
         args.extend(['--port', str(port)])

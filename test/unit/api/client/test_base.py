@@ -9,8 +9,9 @@ from goperation.manager import common
 
 host = 'surface'
 local_ip = '127.0.0.1'
-wsgi_url = '127.0.0.1'
+wsgi_url = '172.31.0.110'
 wsgi_port = 7999
+
 
 
 
@@ -72,8 +73,11 @@ def test_ports():
     print client.ports_index(1, 'mszl', 3)
 
 
+def get_logs(endpoint, entity):
+    print client.entity_logs(endpoint, entity)
 
 # test_endpoint()
 # test_agent()
 # test_entitys()
-test_ports()
+# test_ports()
+get_logs('gogamechen1', 9)
