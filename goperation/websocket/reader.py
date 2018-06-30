@@ -143,6 +143,10 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
         # 取消自动退出
         self.server.suicide.cancel()
 
+        path = self.translate_path(self.path)
+        if os.path.isdir(path):
+            return
+
         cqueue = {'cqueue': []}
         rlist = [self.request]
         wlist = [self.request]
@@ -151,7 +155,6 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
             cqueue['cqueue'].append(buf)
             self.lastsend = int(time.time())
 
-        path = self.translate_path(self.path)
         # 实现
         tailf = TailWithF(path=path, output=output,
                           logger=logging.error, rows=CONF.lines)

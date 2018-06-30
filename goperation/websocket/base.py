@@ -29,7 +29,7 @@ class GopWebSocketServerBase(websocket.WebSocketServer):
         super(GopWebSocketServerBase, self).__init__(RequestHandlerClass=RequestHandlerClass,
                                                      web=CONF.home, run_once=True,
                                                      listen_host=CONF.listen, listen_port=CONF.port,
-                                                     timeout=CONF.home, cert='none_none_none',
+                                                     timeout=15, cert='none_none_none',
                                                      strict_mode=CONF.strict,
                                                      tcp_keepalive=False)
 
