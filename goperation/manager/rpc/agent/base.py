@@ -877,7 +877,10 @@ class RpcAgentManager(RpcManagerBase):
                         os.dup2(nul.fileno(), sys.stdout.fileno())
                         os.dup2(nul.fileno(), sys.stderr.fileno())
                         os.closerange(3, systemutils.MAXFD)
-                        os.execv(executable, args)
+                        try:
+                            os.execv(executable, args)
+                        except (OSError, IOError):
+                            os._exit(1)
                 self.websockets.setdefault(pid, WEBSOCKETREADER)
                 LOG.info('Websocket start with pid %d' % pid)
 
