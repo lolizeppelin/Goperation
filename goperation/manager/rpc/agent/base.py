@@ -866,7 +866,7 @@ class RpcAgentManager(RpcManagerBase):
         try:
             with open(os.devnull, 'wb') as nul:
                 LOG.debug('Websocket command %s %s' % (executable, ' '.join(args)))
-                if systemutils.POSIX:
+                if systemutils.WINDOWS:
                     sub = subprocess.Popen(executable=executable, args=args,
                                            stdout=nul.fileno(), stderr=nul.fileno(),
                                            close_fds=True)

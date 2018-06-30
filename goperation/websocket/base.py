@@ -21,6 +21,8 @@ CONF = cfg.CONF
 class GopWebSocketServerBase(websocket.WebSocketServer):
     def __init__(self, RequestHandlerClass):
         if CONF.logfile:
+            for hd in logging.root.handlers:
+                logging.root.removeHandler(hd)
             logging.basicConfig(filename=CONF.logfile)
         # suicide after 120s
         self.suicide = suicide(delay=120)
