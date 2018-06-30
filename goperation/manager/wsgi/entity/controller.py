@@ -284,7 +284,7 @@ class EntityReuest(BaseContorller):
         if not rpc_ret:
             raise RpcResultError('Get %s.%d log rpc result is None' % (endpoint, entity))
         if rpc_ret.get('resultcode') != manager_common.RESULT_SUCCESS:
-            raise RpcResultError(('Get %s.%d log agent rpc result: ' % (endpoint, entity)) + rpc_ret.get('result'))
+            raise InvalidArgument(('Get %s.%d log agent rpc result: ' % (endpoint, entity)) + rpc_ret.get('result'))
         return resultutils.results(result=rpc_ret.get('result'), data=[rpc_ret.get('uri')])
 
     @staticmethod
