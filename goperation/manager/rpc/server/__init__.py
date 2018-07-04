@@ -93,6 +93,17 @@ class ExpiredAgentStatusTask(IntervalLoopinTask):
                 self.manager.agents_loads.pop(agent_id)
 
 
+# class NotifySendTask(IntervalLoopinTask):
+#     """emergency"""
+#     def __init__(self, manager):
+#         self.manager = manager
+#         conf = CONF[manager_common.SERVER]
+#         super(NotifySendTask, self).__init__(periodic_interval=60*3,
+#                                              initial_delay=15,
+#                                              stop_on_exception=False)
+#         self.notifys = {}
+
+
 class RpcServerManager(RpcManagerBase):
 
     def __init__(self):
@@ -105,6 +116,9 @@ class RpcServerManager(RpcManagerBase):
     def post_start(self):
         self.force_status(manager_common.ACTIVE)
         self.add_periodic_task(ExpiredAgentStatusTask(self))
+
+    def post_stop(self):
+        super(RpcServerManager, self).post_stop()
 
     def full(self):
         if not self.is_active:
@@ -370,3 +384,7 @@ class RpcServerManager(RpcManagerBase):
             # 按照排序规则排序
             self._sort_by_weigher(weighters, chioces)
         return ChiocesResult(chioces)
+
+        # def rpc_notify(self, ctxt, endpoint, entity,
+        #                message, async=True, **kwargs):
+        #     pass

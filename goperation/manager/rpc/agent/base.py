@@ -373,6 +373,9 @@ class RpcAgentEndpointBase(EndpointBase):
     def filemanager(self):
         return self.manager.filemanager
 
+    def notify(self, entity, message):
+        self.manager.notify(self, entity, message)
+
     def post_start(self):
         self.entitys_map = self.manager.allocked_ports[self.namespace]
 
@@ -914,6 +917,13 @@ class RpcAgentManager(RpcManagerBase):
         finally:
             self.left_ports.add(port)
         return dict(port=port, token=token, ipaddr=ipaddr)
+
+    def notify(self, endpoint, entity, message):
+        """NotImplemented notify api"""
+        LOG.info('Notify not NotImplemented')
+        # entity = entity
+        # endpoint = endpoint.namespace
+        # agent_id = self.agent_id
 
     @CheckManagerRpcCtxt
     @CheckThreadPoolRpcCtxt
