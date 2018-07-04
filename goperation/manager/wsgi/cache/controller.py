@@ -1,3 +1,6 @@
+import time
+import string
+import random
 import webob.exc
 
 from sqlalchemy.sql import and_
@@ -5,8 +8,10 @@ from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.orm.exc import MultipleResultsFound
 
 from simpleutil.utils import singleton
+from simpleutil.utils import jsonutils
 from simpleutil.common.exceptions import InvalidArgument
 from simpleutil.common.exceptions import InvalidInput
+from simpleutil.config import cfg
 from simpleutil.log import log as logging
 from simpleutil.utils.attributes import validators
 
@@ -16,9 +21,11 @@ from simpleservice.rpc.exceptions import MessagingTimeout
 from simpleservice.rpc.exceptions import NoSuchMethod
 
 from goperation.manager import common as manager_common
+from goperation.manager.config import manager_group
 from goperation.manager.utils import resultutils
 from goperation.manager.api import get_global
 from goperation.manager.api import get_session
+from goperation.manager.api import get_cache
 from goperation.manager.models import Agent
 from goperation.manager.exceptions import CacheStoneError
 from goperation.manager.wsgi.contorller import BaseContorller
@@ -27,6 +34,8 @@ from goperation.manager.wsgi.exceptions import RpcResultError
 
 
 LOG = logging.getLogger(__name__)
+
+CONF = cfg.CONF
 
 FAULT_MAP = {InvalidArgument: webob.exc.HTTPClientError,
              NoSuchMethod: webob.exc.HTTPNotImplemented,
@@ -42,6 +51,42 @@ FAULT_MAP = {InvalidArgument: webob.exc.HTTPClientError,
 
 @singleton.singleton
 class CacheReuest(BaseContorller):
+    PREFIX = CONF[manager_group.name].redis_key_prefix
+
+    def create(self, req, body=None):
+        expire = int(body.get('expire') or 30)
+        cache = get_cache()
+        salt = ''.join(random.sample(string.lowercase, 6))
+        key = '-'.join([self.PREFIX, 'caches', str(int(time.time())), salt])
+        if not cache.set(key, jsonutils.dumps_as_bytes(body) if body else '',
+                         ex=expire or manager_common.ONLINE_EXIST_TIME, nx=True):
+            raise CacheStoneError('Cache key value error')
+        return resultutils.results(result='Make cache success', data=[key])
+
+    def show(self, req, key, body=None):
+        if not key.startswith('-'.join([self.PREFIX, 'caches'])):
+            raise InvalidArgument('Key prefix not match')
+        if '*' in key:
+            raise InvalidArgument('* in key!')
+        cache = get_cache()
+        data = cache.get(key)
+        if data is None:
+            return resultutils.results(result='Get cache fail, key not exist or expired')
+        if data:
+            data = jsonutils.loads_as_bytes(data)
+        return resultutils.results(result='Delete cache success', data=[data, ])
+
+    def delete(self, req, key, body=None):
+        if not key.startswith('-'.join([self.PREFIX, 'caches'])):
+            raise InvalidArgument('Key prefix not match')
+        if '*' in key:
+            raise InvalidArgument('* in key!')
+        cache = get_cache()
+        cache.delete(key)
+        return resultutils.results(result='Delete cache success', data=[key])
+
+    def update(self, req, key, body=None):
+        raise NotImplementedError('Cache can not be update')
 
     def flush(self, req, body=None):
         """flush cached key"""

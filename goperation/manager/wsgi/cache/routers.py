@@ -3,6 +3,8 @@ from simpleservice.wsgi.middleware import controller_return_response
 
 from goperation.manager.wsgi.cache import controller
 
+COLLECTION_ACTIONS = ['create']
+MEMBER_ACTIONS = ['show', 'update', 'delete']
 
 class Routers(router.RoutersBase):
 
@@ -19,11 +21,10 @@ class Routers(router.RoutersBase):
         self._add_resource(mapper, controller_intance,
                            path='/%s/flush' % self.collection_name,
                            post_action='flush')
-        # collection = mapper.collection(collection_name=self.collection_name,
-        #                                resource_name=self.resource_name,
-        #                                controller=controller_intance,
-        #                                path_prefix='/%s/{endpoint}' % (manager_common.ENDPOINT + 's'),
-        #                                member_prefix='/{entity}',
-        #                                collection_actions=COLLECTION_ACTIONS,
-        #                                member_actions=MEMBER_ACTIONS)
-        # return collection
+
+        mapper.collection(collection_name=self.collection_name,
+                          resource_name=self.resource_name,
+                          controller=controller_intance,
+                          member_prefix='/{key}',
+                          collection_actions=COLLECTION_ACTIONS,
+                          member_actions=MEMBER_ACTIONS)
