@@ -71,7 +71,8 @@ class CacheReuest(BaseContorller):
         cache = get_cache()
         data = cache.get(key)
         if data is None:
-            return resultutils.results(result='Get cache fail, key not exist or expired')
+            return resultutils.results(result='Get cache fail, key not exist or expired',
+                                       resultcode=manager_common.RESULT_ERROR)
         if data:
             data = jsonutils.loads_as_bytes(data)
         return resultutils.results(result='Delete cache success', data=[data, ])
