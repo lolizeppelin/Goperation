@@ -316,7 +316,7 @@ class AuthFilter(FilterBase):
         interface, self.ipnetwork = get_network(CONF.local_ip)
         if not self.ipnetwork:
             raise RuntimeError('can not find ipaddr %s on any interface' % CONF.local_ip)
-        LOG.info('Local ip %s/%s on interface %s' % (CONF.local_ip, self.ipnetwork.netmask, interface))
+        LOG.debug('Local ip %s/%s on interface %s' % (CONF.local_ip, self.ipnetwork.netmask, interface))
 
         conf = CONF[manager_group.name]
         self.trusted = conf.trusted
