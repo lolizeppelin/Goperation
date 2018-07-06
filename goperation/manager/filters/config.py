@@ -7,7 +7,7 @@ authfilter_opts = [
     cfg.ListOpt('allowed_trusted_ip',
                 item_type=types.IPAddress(version=4),
                 default=[],
-                help='Allowed ipaddress without token'),
+                help='Allowed ipaddress without token, 127.0.0.1 and local ip is allowed'),
     cfg.BoolOpt('allowed_same_subnet',
                 default=True,
                 help='Allow ipaddress without token in same subnet'),
@@ -17,7 +17,14 @@ authfilter_opts = [
                default=25,
                min=10,
                max=250,
-               help='Token cache dict size')
+               help='Token cache dict size'),
+    cfg.BoolOpt('auth_limit',
+                default=True,
+                help='limit auth ipaddress'),
+    cfg.ListOpt('allowed_auth_clients',
+                item_type=types.IPAddress(version=4),
+                default=[],
+                help='Allowed login ipaddress'),
 ]
 
 cors_opts = [

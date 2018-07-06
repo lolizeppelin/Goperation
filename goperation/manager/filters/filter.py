@@ -327,6 +327,8 @@ class AuthFilter(FilterBase):
         self.allowed_clients = set(conf.allowed_trusted_ip)
         self.allowed_clients.add('127.0.0.1')
         self.allowed_clients.add(CONF.local_ip)
+        self.auth_limit = conf.auth_limit
+        self.allowed_auth_clients = set(conf.allowed_auth_clients)
         for ipaddr in self.allowed_clients:
             LOG.debug('Allowd client %s' % ipaddr)
         # 进程token缓存最大数量
@@ -376,6 +378,11 @@ class AuthFilter(FilterBase):
                 self.tokens[token]['last'] = int(time.time())
                 self.tokens[token]['th'] = eventlet.spawn_after(3600, self.tokens.pop, token, None)
 
+    def validate_host(self, req):
+        if req.domain != self.allowed_hostname:
+            LOG.error('remote hostname %s not match' % req.host)
+            raise self.no_found('Hostname can not be found')
+
     def _fetch_token_from_cache(self, token):
         # token缓存过大, 不能缓存token,直接抛异常
         if len(self.tokens) > self.token_cache_size:
@@ -400,46 +407,55 @@ class AuthFilter(FilterBase):
                                                th=th))
             self.will_expire_soon(token)
 
-    def validate_token(self, req, token):
-        try:
-            token_info = self.tokens[token]
-        except KeyError:
-            return self.no_auth()
-        if token_info.get('ipaddr') != req.client_addr:
-            raise self.client_error('Client ipaddr not match')
-
     def _address_allowed(self, req):
         # 来源ip在允许的ip列表中
         if req.client_addr in self.allowed_clients:
             return True
         # 来源ip子网相同
-        if self.allowed_same_subnet and netaddr.IPAddress(req.client_addr) in self.ipnetwork:
-            return True
+        if self.allowed_same_subnet:
+            return (netaddr.IPAddress(req.client_addr) in self.ipnetwork)
         return False
 
-    def fetch_and_validate_token(self, req):
-        """取出并校验token"""
+    def _auth_address_allowed(self, req):
+        # 认证接口无限制
+        if not self.auth_limit:
+            return True
+        # 来源ip在白名单ip列表中
+        if self._address_allowed(req):
+            return True
+        self.validate_host(req)
+        return (req.client_addr in self.allowed_auth_clients)
+
+    def validate_token(self, req, token):
+        try:
+            token_info = self.tokens[token]
+        except KeyError:
+            return self.no_auth()
+        # 校验token所用IP是否匹配
+        if token_info.get('ipaddr') != req.client_addr:
+            raise self.client_error('Client ipaddr not match')
+        return None
+
+    def fetch_and_validate(self, req):
+        """取出数据并校验"""
+        if self._address_allowed(req):
+            return None
         token = req.headers.get(service_common.TOKENNAME.lower())
         if not token:
             return self.no_auth()
+        # 可信任token,一般为用于服务组件之间的wsgi请求
         if self.trusted and token == self.trusted:
-            # 可信任token,一般为用于服务组件之间的wsgi请求
             LOG.debug('Trusted token passed, address %s', req.client_addr)
             return None
-        if self._address_allowed(req):
-            return None
-        # token缓存部分
+        # 校验host
+        self.validate_host(req)
+        # token在本地缓存中
         if token in self.tokens:
             self.will_expire_soon(token)
         else:
+            # 查询缓存是否在缓存服务器中
             self._fetch_token_from_cache(token)
-        self.validate_host(req)
         return self.validate_token(req, token)
-
-    def validate_host(self, req):
-        if req.domain != self.allowed_hostname:
-            LOG.error('remote hostname %s not match' % req.host)
-            raise self.no_found('Hostname can not be found')
 
     def process_request(self, req):
         try:
@@ -453,7 +469,7 @@ class AuthFilter(FilterBase):
         if method == 'POST' and path_info == '/goperation/auth':
             LOG.debug('AuthFilter auth')
             # 获取认证的来源地址必须在可信任地址列表中
-            if not self._address_allowed(req):
+            if not self._auth_address_allowed(req):
                 LOG.warning('Auth request from illegal address %s' % req.client_addr)
                 return webob.Response(request=req, status=403,
                                       content_type=DEFAULT_CONTENT_TYPE)
@@ -478,7 +494,7 @@ class AuthFilter(FilterBase):
                                   body=jsonutils.dumps_as_bytes(dict(token=token,
                                                                      name=service_common.TOKENNAME)))
         else:
-            return self.fetch_and_validate_token(req)
+            return self.fetch_and_validate(req)
 
 
 class RequestLimitFilter(FilterBase):
