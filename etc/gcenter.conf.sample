@@ -20,8 +20,8 @@
 # Allow ipaddress without token in same subnet (boolean value)
 #allowed_same_subnet = true
 
-# Allow hostname (hostname value)
-#allowed_hostname = <None>
+# Allow hostname (list value)
+#allowed_hostname = *
 
 # Token cache dict size (integer value)
 # Minimum value: 10

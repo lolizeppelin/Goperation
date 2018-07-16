@@ -320,7 +320,8 @@ class AuthFilter(FilterBase):
         self.trusted = conf.trusted
 
         conf = CONF[manager_common.SERVER]
-        self.allowed_hostname = conf.allowed_hostname
+        # self.allowed_hostname = conf.allowed_hostname
+        self.allowed_hostname = {}
         self.allowed_same_subnet = conf.allowed_same_subnet
         self.allowed_clients = set(conf.allowed_trusted_ip)
         self.allowed_clients.add('127.0.0.1')
@@ -375,9 +376,10 @@ class AuthFilter(FilterBase):
                 self.tokens[token]['th'] = eventlet.spawn_after(3600, self.tokens.pop, token, None)
 
     def validate_host(self, req):
-        if req.domain != self.allowed_hostname:
-            LOG.error('remote hostname %s not match' % req.host)
-            raise self.no_found('Hostname can not be found')
+        pass
+        # if req.host != self.allowed_hostname:
+        #     LOG.error('remote hostname %s not match' % req.host)
+        #     raise self.no_found('Hostname can not be found')
 
     def _fetch_token_from_cache(self, token):
         # token缓存过大, 不能缓存token,直接抛异常
