@@ -33,12 +33,12 @@ def configure(config_files=None, config_dirs=None):
 
     for cls in CONF[gcenter_group.name].auths:
         # route_class = '%s.Routers' % route
-        AUTH_ROUTES.append(importutils.import_class(cls))
+        AUTH_ROUTES.append(importutils.import_module(cls))
         LOG.info('Add login route %s success' % cls)
 
     for cls in CONF[gcenter_group.name].routes:
         # route_class = '%s.Routers' % route
-        EXTEND_ROUTES.append(importutils.import_class(cls))
+        EXTEND_ROUTES.append(importutils.import_module(cls))
         LOG.info('Add extend route %s success' % cls)
 
     # set endpoint config
