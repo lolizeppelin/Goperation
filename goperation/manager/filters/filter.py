@@ -8,8 +8,6 @@ import netaddr
 
 from simpleutil.config import cfg
 from simpleutil.log import log as logging
-from simpleutil.utils import uuidutils
-from simpleutil.utils import jsonutils
 
 from simpleservice import common as service_common
 from simpleservice.wsgi.middleware import default_serializer
@@ -395,7 +393,7 @@ class AuthFilter(FilterBase):
         results = pipe.execute()
         # 过期时间小于15s, 认为已经过期
         if not results[0] or results[1] < 15:
-            raise self.no_auth('Token has been expired')
+            raise self.no_auth('Token has been expired or not exist')
         # io操作后有可能其他线程设置了token,再次判断
         elif token not in self.tokens:
             th = eventlet.spawn_after(results[1], self.tokens.pop, token, None)
