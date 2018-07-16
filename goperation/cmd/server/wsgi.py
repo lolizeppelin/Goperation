@@ -31,15 +31,15 @@ def configure(config_files=None, config_dirs=None):
     # add gcenter extend route
     CONF.register_opts(route_opts, gcenter_group)
 
-    for route in CONF[gcenter_group.name].auths:
-        route_class = '%s.Route' % route
-        AUTH_ROUTES.append(importutils.import_class(route_class))
-        LOG.info('Add login route %s success' % route)
+    for cls in CONF[gcenter_group.name].auths:
+        # route_class = '%s.Routers' % route
+        AUTH_ROUTES.append(importutils.import_class(cls))
+        LOG.info('Add login route %s success' % cls)
 
-    for route in CONF[gcenter_group.name].routes:
-        route_class = '%s.Route' % route
-        EXTEND_ROUTES.append(importutils.import_class(route_class))
-        LOG.info('Add extend route %s success' % route)
+    for cls in CONF[gcenter_group.name].routes:
+        # route_class = '%s.Routers' % route
+        EXTEND_ROUTES.append(importutils.import_class(cls))
+        LOG.info('Add extend route %s success' % cls)
 
     # set endpoint config
     if CONF.endpoints:
