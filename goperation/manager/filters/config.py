@@ -18,13 +18,6 @@ authfilter_opts = [
                min=10,
                max=250,
                help='Token cache dict size'),
-    cfg.BoolOpt('auth_limit',
-                default=True,
-                help='limit auth ipaddress'),
-    cfg.ListOpt('allowed_auth_clients',
-                item_type=types.IPAddress(version=4),
-                default=[],
-                help='Allowed login ipaddress'),
 ]
 
 cors_opts = [

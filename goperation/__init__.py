@@ -19,6 +19,7 @@ threadpool = ThreadGroup(thread_pool_size=100)
 #  Routes or wsgi
 CORE_ROUTES = []
 EXTEND_ROUTES = []
+AUTH_ROUTES = []
 
 # public locks
 lock = lockutils.Semaphores()

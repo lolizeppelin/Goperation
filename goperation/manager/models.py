@@ -311,3 +311,18 @@ class ScheduleJob(PluginTableBase):
     __table_args__ = (
             InnoDBTableBase.__table_args__
     )
+
+
+class User(PluginTableBase):
+    id = sa.Column(INTEGER(unsigned=True), nullable=False, primary_key=True, autoincrement=True)
+    username = sa.Column(VARCHAR(12), nullable=False)
+    salt = sa.Column(CHAR(6), nullable=False)
+    password = sa.Column(VARCHAR(32), nullable=False)
+    email = sa.Column(VARCHAR(32), nullable=True)
+    mobile = sa.Column(VARCHAR(32), nullable=True)
+    webchat = sa.Column(VARCHAR(32), nullable=True)
+    desc = sa.Column(VARCHAR(256), nullable=True, default=None)
+    __table_args__ = (
+        sa.UniqueConstraint('username', name='username_unique'),
+        InnoDBTableBase.__table_args__
+    )

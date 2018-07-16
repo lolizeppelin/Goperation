@@ -10,7 +10,11 @@
 # Manager extend route module string (multi import string)
 #routes =
 
-# Allowed ipaddress without token (list value)
+# Manager authentication route module string (multi import string)
+#auths =
+
+# Allowed ipaddress without token, 127.0.0.1 and local ip is allowed (list
+# value)
 #allowed_trusted_ip =
 
 # Allow ipaddress without token in same subnet (boolean value)
@@ -93,7 +97,7 @@
 #max_header_line = 16384
 
 # If False, closes the client socket connection explicitly. (boolean value)
-#wsgi_keep_alive = false
+#wsgi_keep_alive = true
 
 # Timeout for client connections' socket operations. If an incoming connection
 # is idle for this number of seconds it will be closed. A value of '0' means

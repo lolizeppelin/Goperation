@@ -21,6 +21,7 @@ def configure(config_files=None, config_dirs=None):
     from simpleservice.wsgi.config import wsgi_server_options
     from simpleservice.wsgi.config import find_paste_abs
     from goperation import EXTEND_ROUTES
+    from goperation import AUTH_ROUTES
     from goperation.manager.wsgi.config import route_opts
 
     # set wsgi config
@@ -29,10 +30,16 @@ def configure(config_files=None, config_dirs=None):
     goperation_config.set_wsgi_default()
     # add gcenter extend route
     CONF.register_opts(route_opts, gcenter_group)
+
+    for route in CONF[gcenter_group.name].auths:
+        route_class = '%s.Route' % route
+        AUTH_ROUTES.append(importutils.import_class(route_class))
+        LOG.info('Add login route %s success' % route)
+
     for route in CONF[gcenter_group.name].routes:
         route_class = '%s.Route' % route
         EXTEND_ROUTES.append(importutils.import_class(route_class))
-        LOG.info('Add core route %s success' % route)
+        LOG.info('Add extend route %s success' % route)
 
     # set endpoint config
     if CONF.endpoints:

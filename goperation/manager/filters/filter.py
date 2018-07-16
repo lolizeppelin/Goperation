@@ -327,8 +327,6 @@ class AuthFilter(FilterBase):
         self.allowed_clients = set(conf.allowed_trusted_ip)
         self.allowed_clients.add('127.0.0.1')
         self.allowed_clients.add(CONF.local_ip)
-        self.auth_limit = conf.auth_limit
-        self.allowed_auth_clients = set(conf.allowed_auth_clients)
         for ipaddr in self.allowed_clients:
             LOG.debug('Allowd client %s' % ipaddr)
         # 进程token缓存最大数量
@@ -416,16 +414,6 @@ class AuthFilter(FilterBase):
             return (netaddr.IPAddress(req.client_addr) in self.ipnetwork)
         return False
 
-    def _auth_address_allowed(self, req):
-        # 认证接口无限制
-        if not self.auth_limit:
-            return True
-        # 来源ip在白名单ip列表中
-        if self._address_allowed(req):
-            return True
-        self.validate_host(req)
-        return (req.client_addr in self.allowed_auth_clients)
-
     def validate_token(self, req, token):
         try:
             token_info = self.tokens[token]
@@ -440,61 +428,25 @@ class AuthFilter(FilterBase):
         """取出数据并校验"""
         if self._address_allowed(req):
             return None
-        token = req.headers.get(service_common.TOKENNAME.lower())
-        if not token:
+        token_id = req.headers.get(service_common.TOKENNAME.lower())
+        if not token_id:
             return self.no_auth()
         # 可信任token,一般为用于服务组件之间的wsgi请求
-        if self.trusted and token == self.trusted:
+        if self.trusted and token_id == self.trusted:
             LOG.debug('Trusted token passed, address %s', req.client_addr)
             return None
         # 校验host
         self.validate_host(req)
         # token在本地缓存中
-        if token in self.tokens:
-            self.will_expire_soon(token)
+        if token_id in self.tokens:
+            self.will_expire_soon(token_id)
         else:
             # 查询缓存是否在缓存服务器中
-            self._fetch_token_from_cache(token)
-        return self.validate_token(req, token)
+            self._fetch_token_from_cache(token_id)
+        return self.validate_token(req, token_id)
 
     def process_request(self, req):
-        try:
-            path_info = req.environ['PATH_INFO']
-            method = req.environ['REQUEST_METHOD']
-        except KeyError:
-            msg = 'Request Failed: internal server error, Can not find PATH or METHOD in environ'
-            body = default_serializer({'msg': msg})
-            kwargs = {'body': body, 'content_type': DEFAULT_CONTENT_TYPE}
-            return webob.exc.HTTPInternalServerError(**kwargs)
-        if method == 'POST' and path_info == '/goperation/auth':
-            LOG.debug('AuthFilter auth')
-            # 获取认证的来源地址必须在可信任地址列表中
-            if not self._auth_address_allowed(req):
-                LOG.warning('Auth request from illegal address %s' % req.client_addr)
-                return webob.Response(request=req, status=403,
-                                      content_type=DEFAULT_CONTENT_TYPE)
-            ipaddr = req.headers.get('X-Real-IP'.lower())
-            if not netaddr.valid_ipv4(ipaddr, netaddr.core.INET_PTON):
-                return webob.Response(request=req, status=412,
-                                      content_type=DEFAULT_CONTENT_TYPE,
-                                      body=jsonutils.dumps_as_bytes(dict(message='X-Real-IP value error')))
-            # 分配token
-            token = str(uuidutils.generate_uuid()).replace('-', '')
-            cache_store = api.get_cache()
-            if not cache_store.set(token, ipaddr, ex=3600, nx=True):
-                LOG.error('Cache token fail')
-                return webob.Response(request=req, status=500,
-                                      content_type=DEFAULT_CONTENT_TYPE)
-            LOG.debug('Auth success')
-            th = eventlet.spawn_after(3600, self.tokens.pop, token, None)
-            self.tokens.setdefault(token, dict(last=int(time.time()), ttl=1800, ipaddr=ipaddr,
-                                               th=th))
-            return webob.Response(request=req, status=200,
-                                  content_type=DEFAULT_CONTENT_TYPE,
-                                  body=jsonutils.dumps_as_bytes(dict(token=token,
-                                                                     name=service_common.TOKENNAME)))
-        else:
-            return self.fetch_and_validate(req)
+        return self.fetch_and_validate(req)
 
 
 class RequestLimitFilter(FilterBase):

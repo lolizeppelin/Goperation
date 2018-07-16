@@ -119,7 +119,7 @@
 
 # List of package logging levels in logger=LEVEL pairs. This option is ignored
 # if log_config_append is set. (list value)
-#default_log_levels = amqp=WARN,sqlalchemy=WARN,routes.middleware=WARN,requests.packages.urllib3.connectionpool=WARN,requests.packages.urllib3.util.retry=WARN,simpleutil=WARN,simpleservice.ormdb.engines=WARN
+#default_log_levels = amqp=WARN,sqlalchemy=WARN,routes.middleware=WARN,requests.packages.urllib3.connectionpool=WARN,requests.packages.urllib3.util.retry=WARN,simpleutil=WARN,simpleservice.wsgi.service=WARN,simpleservice.ormdb.engines=WARN
 
 
 [manager]
@@ -139,8 +139,8 @@
 # Maximum value: 65535
 #gcenter_port = 7999
 
-# Trusted token, means a unlimit user (string value)
-#trusted = goperation-trusted-token
+# Trusted token, means a unlimit user, defalut is None (string value)
+#trusted = <None>
 
 # The SQLAlchemy connection string to use to connect to the database. (string
 # value)
@@ -149,6 +149,9 @@
 # The SQLAlchemy connection string to use to connect to the slave database.
 # (string value)
 #slave_connection = <None>
+
+# Record raw sql to log(set echo of SQLAlchemy to true) (boolean value)
+#debug = false
 
 # The SQL mode to be used for MySQL sessions. This option, including the
 # default, overrides any server-set SQL mode. To use whatever SQL mode is set
@@ -209,7 +212,7 @@
 #redis_port = 6379
 
 # Redis datababse id (integer value)
-#redis_db = <None>
+#redis_db = 1
 
 # Redis password (string value)
 #redis_password = <None>

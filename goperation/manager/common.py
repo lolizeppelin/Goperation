@@ -11,6 +11,9 @@ ENV_REQUEST_ID = 'goperation.request_id'
 SERVER = 'gcenter'
 
 ALL_AGENTS = object()
+
+# login
+LOGIN = 'login'
 # agent name
 AGENT = 'agent'
 # agent tpye
