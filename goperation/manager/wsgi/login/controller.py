@@ -69,7 +69,10 @@ class LoginReuest(MiddlewareContorller):
             raise CacheStoneError('Set to cache store fail')
         LOG.debug('Auth login success')
         return resultutils.results(result='Login success',
-                                   data=[dict(username=username, id=userinfo.id, token=token_id)])
+                                   data=[dict(username=username,
+                                              id=userinfo.id,
+                                              token=token_id,
+                                              email=userinfo.email)])
 
     def loginout(self, req, username, body=None):
         body = body or {}
@@ -86,3 +89,22 @@ class LoginReuest(MiddlewareContorller):
             else:
                 raise InvalidArgument('username not match')
         return resultutils.results(result='Login out user success')
+
+    def expire(self, req, token, body=None):
+        token_id = str(body.get('token'))
+        if token_id.startswith(self.AUTH_PREFIX):
+            raise InvalidArgument('Token id prefix error')
+        cache_store = get_cache()
+        userinfo = cache_store.get(token_id)
+        if not userinfo:
+            raise InvalidArgument('Token not exist now')
+        userinfo = jsonutils.loads_as_bytes(userinfo)
+        session = get_session(readonly=True)
+        query = model_query(session, User, filter=User.username == userinfo.get('username'))
+        userinfo = query.one()
+        cache_store.ttl(token_id, 3600)
+        return resultutils.results(result='Expire token success',
+                                   data=[dict(username=userinfo.username,
+                                              id=userinfo.id,
+                                              token=token_id,
+                                              email=userinfo.email)])

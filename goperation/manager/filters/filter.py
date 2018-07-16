@@ -429,6 +429,8 @@ class AuthFilter(FilterBase):
         if self._address_allowed(req):
             return None
         token_id = req.headers.get(service_common.TOKENNAME.lower())
+        if len(token_id) > 64:
+            return self.no_auth('Token over size')
         if not token_id:
             return self.no_auth()
         # 可信任token,一般为用于服务组件之间的wsgi请求
