@@ -43,10 +43,10 @@ class LoginReuest(MiddlewareContorller):
 
     @staticmethod
     def _name_check(username):
-        if not re.match(LoginReuest.NAME_REGX, username):
-            raise InvalidArgument('usernmae not illegal')
         if len(username) < 4 or len(username) > 12:
             raise InvalidArgument('usernmae over size')
+        if not re.match(LoginReuest.NAME_REGX, username):
+            raise InvalidArgument('usernmae not illegal')
 
     def login(self, req, username, body=None):
         body = body or {}

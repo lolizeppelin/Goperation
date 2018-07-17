@@ -74,6 +74,7 @@ Game operation framework
 %{_bindir}/gop-endpoint
 %{_bindir}/gop-websocket
 %{_bindir}/gop-websocket
+%{_bindir}/gop-auth
 %dir %{_sysconfdir}/%{proj_name}/
 %dir %{_sysconfdir}/%{proj_name}/endpoints/
 %dir %{logdir}

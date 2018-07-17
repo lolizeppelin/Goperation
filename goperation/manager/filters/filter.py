@@ -8,6 +8,7 @@ import netaddr
 
 from simpleutil.config import cfg
 from simpleutil.log import log as logging
+from simpleutil.utils import jsonutils
 
 from simpleservice import common as service_common
 from simpleservice.wsgi.middleware import default_serializer
@@ -358,10 +359,12 @@ class AuthFilter(FilterBase):
     def will_expire_soon(self, token):
         th = self.tokens[token]['th']
         expire_at = self.tokens[token].get('ttl') + self.tokens[token].get('last')
-        ttl = int(time.time()) - expire_at
+        ttl = expire_at - int(time.time())
         if ttl < 15:
             th.cancel()
             self.tokens.pop(token, None)
+            cache_store = api.get_cache()
+            eventlet.spawn_n(cache_store.delete, token)
             raise self.no_auth('Token has been expired')
 
         # 没有访问,tonke有效期30-60分钟,预留30秒
@@ -397,9 +400,11 @@ class AuthFilter(FilterBase):
         if not results[0] or results[1] < 15:
             raise self.no_auth('Token has been expired or not exist')
         # io操作后有可能其他线程设置了token,再次判断
-        elif token not in self.tokens:
+        if token not in self.tokens:
+            token_info = jsonutils.loads_as_bytes(results[0])
             th = eventlet.spawn_after(results[1], self.tokens.pop, token, None)
-            self.tokens.setdefault(token, dict(ipaddr=results[0],
+            self.tokens.setdefault(token, dict(ipaddr=token_info.get('ip'),
+                                               user=token_info.get('user'),
                                                last=int(time.time()),
                                                ttl=results[1],
                                                th=th))
@@ -429,10 +434,10 @@ class AuthFilter(FilterBase):
         if self._address_allowed(req):
             return None
         token_id = req.headers.get(service_common.TOKENNAME.lower())
-        if len(token_id) > 64:
-            return self.no_auth('Token over size')
         if not token_id:
             return self.no_auth()
+        if len(token_id) > 64:
+            return self.no_auth('Token over size')
         # 可信任token,一般为用于服务组件之间的wsgi请求
         if self.trusted and token_id == self.trusted:
             LOG.debug('Trusted token passed, address %s', req.client_addr)
