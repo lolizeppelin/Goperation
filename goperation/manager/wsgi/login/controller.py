@@ -78,7 +78,7 @@ class LoginReuest(MiddlewareContorller):
         body = body or {}
         self._name_check(username)
         token_id = str(body.get('token'))
-        if token_id.startswith(self.AUTH_PREFIX):
+        if not token_id.startswith(self.AUTH_PREFIX):
             raise InvalidArgument('Token id prefix error')
         cache_store = get_cache()
         userinfo = cache_store.get(token_id)
@@ -91,8 +91,8 @@ class LoginReuest(MiddlewareContorller):
         return resultutils.results(result='Login out user success')
 
     def expire(self, req, token, body=None):
-        token_id = str(body.get('token'))
-        if token_id.startswith(self.AUTH_PREFIX):
+        token_id = token
+        if not token_id.startswith(self.AUTH_PREFIX):
             raise InvalidArgument('Token id prefix error')
         cache_store = get_cache()
         userinfo = cache_store.get(token_id)
@@ -100,9 +100,9 @@ class LoginReuest(MiddlewareContorller):
             raise InvalidArgument('Token not exist now')
         userinfo = jsonutils.loads_as_bytes(userinfo)
         session = get_session(readonly=True)
-        query = model_query(session, User, filter=User.username == userinfo.get('username'))
+        query = model_query(session, User, filter=User.username == userinfo.get('user'))
         userinfo = query.one()
-        cache_store.ttl(token_id, 3600)
+        cache_store.expire(token_id, 3600)
         return resultutils.results(result='Expire token success',
                                    data=[dict(username=userinfo.username,
                                               id=userinfo.id,

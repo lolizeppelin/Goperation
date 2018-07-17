@@ -212,7 +212,7 @@ class FileManager(object):
                 try:
                     md5 = digestutils.filemd5(path)
                     size = os.path.getsize(path)
-                except Exception as e:
+                except (OSError, IOError) as e:
                     LOG.error('Download get size,md5 fail')
                     ev.send(exc=e)
                     self.downloading.pop(fileinfo['md5'], None)
