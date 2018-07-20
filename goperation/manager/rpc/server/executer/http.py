@@ -27,7 +27,8 @@ class Executer(executer.BaseExecuter):
                       'method': {'enum': ['GET', 'POST', 'DELETE', 'PUT', 'HEAD', 'OPTIONS']},
                       'params': {'type': 'object', 'description': 'url params参数'},
                       'data': {'type': 'object', 'description': 'url body数据'},
-                      'timeout': {'type': 'integer', 'minimum': 3, 'description': '请求超时'}}
+                      'timeout': {'type': 'integer', 'minimum': 3, 'description': '请求超时'},
+                      'async': {'type': 'boolean', 'description': '是否异步请求'}}
                   }
 
     def _kwarg_check(self, kwargs):
@@ -38,10 +39,16 @@ class Executer(executer.BaseExecuter):
         params = kwargs.pop('params', None)
         data = kwargs.pop('data', None)
         timeout = kwargs.pop('timeout', 5)
-        return dict(url=url, method=method, params=params, data=data, timeout=timeout)
+        async = kwargs.pop('async', True)
+        return dict(url=url, method=method, params=params, data=data, timeout=timeout, async=async)
 
     def execute(self):
+        async = self.kwargs.pop('async')
+
         def http():
             requests.request(**self.kwargs)
 
-        threadpool.add_thread(safe_func_wrapper, http, executer.LOG)
+        if async:
+            threadpool.add_thread(safe_func_wrapper, http, executer.LOG)
+        else:
+            safe_func_wrapper(http, executer.LOG)
