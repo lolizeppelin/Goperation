@@ -251,6 +251,8 @@ class RpcServerManager(RpcManagerBase):
         session.add(asyncrequest)
         session.flush()
 
+        LOG.debug('Try cast rpc method %s' % rpc_method)
+
         try:
             rpc.cast(target, ctxt=rpc_ctxt, msg={'method': rpc_method, 'args': rpc_args})
         except AMQPDestinationNotFound:
