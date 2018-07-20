@@ -33,7 +33,6 @@ class Executer(executer.BaseExecuter):
 
     def _kwarg_check(self, kwargs):
         jsonutils.schema_validate(kwargs, self.HTTPKWARGS)
-        kwargs = self.kwargs
         url = kwargs.pop('url')
         method = kwargs.pop('method', 'GET')
         params = kwargs.pop('params', None)

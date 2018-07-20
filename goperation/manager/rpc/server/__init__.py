@@ -212,6 +212,9 @@ class RpcServerManager(RpcManagerBase):
             session.add(asyncrequest)
             session.flush()
             return
+        # except Exception:
+        #     LOG.exception('wtf')
+        #     raise
 
         if rpc_ctxt.get('agents') is None:
             wait_agents = [x[0] for x in model_query(session, Agent.agent_id,
