@@ -7,10 +7,10 @@
 # From gcenter
 #
 
-# Manager extend route module string (multi import string)
+# Extend route module string (multi import string)
 #routes =
 
-# Manager authentication route module string (multi import string)
+# Authentication route module string (multi import string)
 #auths =
 
 # Allowed ipaddress without token, 127.0.0.1 and local ip is allowed (list

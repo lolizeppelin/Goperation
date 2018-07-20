@@ -5,10 +5,10 @@ CONF = cfg.CONF
 route_opts = [
     cfg.MultiImportStrOpt('routes',
                           default=[],
-                          help='Manager extend route module string'),
+                          help='Extend route module string'),
     cfg.MultiImportStrOpt('auths',
                           default=[],
-                          help='Manager authentication route module string'),
+                          help='Authentication route module string'),
 ]
 
 def list_opts():

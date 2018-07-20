@@ -34,7 +34,7 @@ def configure(config_files=None, config_dirs=None):
     for cls in CONF[gcenter_group.name].auths:
         # route_class = '%s.Routers' % route
         AUTH_ROUTES.append(importutils.import_module(cls))
-        LOG.debug('Add login route %s success' % cls)
+        LOG.debug('Add auth route %s success' % cls)
 
     for cls in CONF[gcenter_group.name].routes:
         # route_class = '%s.Routers' % route
@@ -52,6 +52,9 @@ def configure(config_files=None, config_dirs=None):
             for cls in CONF[endpoint_group.name].routes:
                 EXTEND_ROUTES.append(importutils.import_module(cls))
                 LOG.debug('Add endpoint route %s success' % cls)
+            for cls in CONF[endpoint_group.name].auths:
+                AUTH_ROUTES.append(importutils.import_module(cls))
+                LOG.debug('Add endpoint auth route %s success' % cls)
     paste_file_path = find_paste_abs(CONF[gcenter_group.name])
     return gcenter_group.name, paste_file_path
 
