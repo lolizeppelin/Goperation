@@ -10,6 +10,8 @@ from simpleservice.ormdb.api import model_query
 from simpleservice.ormdb.api import model_count_with_key
 from simpleservice.plugin.httpclient import results
 
+from goperation.manager.api import get_cache
+from goperation.manager.utils import targetutils
 from goperation.manager import common as manager_common
 
 
@@ -105,8 +107,25 @@ def async_request(_request, agents=False, details=False):
     if _request.expire:
         req_dict['result'] += ',Data in cache,May miss some respone'
     if agents:
-        for agent_data in _request.respones:
-            req_dict['respones'].append(agent(agent_data, details=details))
+        if _request.expire:
+            _cache = get_cache()
+            key_pattern = targetutils.async_request_pattern(_request.request_id)
+            respone_keys = _cache.keys(key_pattern)
+            if respone_keys:
+                agent_respones = _cache.mget(*respone_keys)
+                if agent_respones:
+                    for agent_respone in agent_respones:
+                        if agent_respone:
+                            try:
+                                agent_respone_data = jsonutils.loads_as_bytes(agent_respone)
+                            except (TypeError, ValueError):
+                                continue
+                            if not details:
+                                agent_respone_data.pop('details', None)
+                            req_dict['respones'].append(agent_respone_data)
+        else:
+            for agent_data in _request.respones:
+                req_dict['respones'].append(agent(agent_data, details=details))
     return ret_dict
 
 

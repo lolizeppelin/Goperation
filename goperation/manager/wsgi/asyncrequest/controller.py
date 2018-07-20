@@ -14,14 +14,12 @@ from simpleutil.common.exceptions import InvalidArgument
 
 from goperation import threadpool
 from goperation.manager.utils import resultutils
-from goperation.manager.utils import targetutils
 from goperation.manager.utils import responeutils
 from goperation.manager import common as manager_common
 from goperation.manager.api import get_cache
 from goperation.manager.api import get_session
 from goperation.manager.models import AgentRespone
 from goperation.manager.models import AsyncRequest
-from goperation.manager.models import ResponeDetail
 from goperation.manager.wsgi import contorller
 
 LOG = logging.getLogger(__name__)
@@ -105,36 +103,12 @@ class AsyncWorkRequest(contorller.BaseContorller):
         session = get_session(readonly=True)
         query = model_query(session, AsyncRequest, filter=AsyncRequest.request_id == request_id)
         if agents:
-            join = joinedload(AsyncRequest.respones)
+            joins = joinedload(AsyncRequest.respones)
             if details:
-                join = join.joinedload(AgentRespone.details)
-            query = query.options(join)
+                joins = joins.joinedload(AgentRespone.details)
+            query = query.options(joins)
         request = query.one()
-        if not request.expire:
-            # get response from database
-            return resultutils.async_request(request, agents, details)
-        else:
-            ret_dict = resultutils.async_request(request,
-                                                 agents=False, details=False)
-            if agents:
-                respones = ret_dict['data'][0]['respones']
-                cache_store = get_cache()
-                # get respone from cache redis server
-                key_pattern = targetutils.async_request_pattern(request_id)
-                respone_keys = cache_store.keys(key_pattern)
-                if respone_keys:
-                    agent_respones = cache_store.mget(*respone_keys)
-                    if agent_respones:
-                        for agent_respone in agent_respones:
-                            if agent_respone:
-                                try:
-                                    agent_respone_data = jsonutils.loads_as_bytes(agent_respone)
-                                except (TypeError, ValueError):
-                                    continue
-                                if not details:
-                                    agent_respone_data.pop('details', None)
-                                respones.append(agent_respone_data)
-            return ret_dict
+        return resultutils.async_request(request, agents, details)
 
     @Idformater
     def update(self, req, request_id, body=None):
@@ -155,7 +129,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
         """agent not response, async checker send a overtime respone"""
         jsonutils.schema_validate(body, OVERTIMESCHEMA)
         agent_time = body.get('agent_time')
-        agents = body.get('agents')
+        agents = set(body.get('agents'))
         session = get_session()
         query = model_query(session, AsyncRequest).filter_by(request_id=request_id)
         asynecrequest = query.one()
@@ -171,17 +145,17 @@ class AsyncWorkRequest(contorller.BaseContorller):
                             resultcode=manager_common.RESULT_OVER_FINISHTIME,
                             result='Agent respone overtime')
                 bulk_data.append(data)
-            count = responeutils.bluk_insert(storage=get_cache() if asynecrequest.expire else session,
-                                             bulk_data=bulk_data, expire=asynecrequest.expire)
+            responeutils.bluk_insert(storage=get_cache() if asynecrequest.expire else session,
+                                     agents=agents, bulk_data=bulk_data, expire=asynecrequest.expire)
 
-            if count:
+            if agents:
                 query.update({'status': manager_common.FINISH,
                               'resultcode': manager_common.RESULT_NOT_ALL_SUCCESS,
-                              'result': '%d agent not respone' % count})
+                              'result': '%d agent not respone' % len(agents)})
             else:
                 query.update({'status': manager_common.FINISH,
                               'resultcode': manager_common.RESULT_SUCCESS,
-                              'result': 'all agent respone result' % count})
+                              'result': 'all agent respone result' % len(agents)})
             session.flush()
             session.close()
 

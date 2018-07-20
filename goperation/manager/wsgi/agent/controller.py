@@ -407,7 +407,9 @@ class AgentReuest(BaseContorller):
         asyncrequest = self.create_asyncrequest(body)
         target = targetutils.target_all(fanout=True)
         rpc_method = 'upgrade_agent'
-        rpc_ctxt = {}
+        rpc_ctxt = dict(pre_run=body.pop('pre_run', None),
+                        after_run=body.pop('after_run', None),
+                        post_run=body.pop('post_run', None))
         agents = self.agents_id_check(agent_id)
         if agent_id != 'all':
             rpc_ctxt.setdefault('agents', agents)

@@ -7,6 +7,7 @@ from sqlalchemy import func
 
 from simpleutil.config import cfg
 from simpleutil.log import log as logging
+from simpleutil.utils import importutils
 from simpleutil.utils import jsonutils
 from simpleutil.utils.timeutils import realnow
 from simpleutil.common.exceptions import InvalidArgument
@@ -105,13 +106,30 @@ class ExpiredAgentStatusTask(IntervalLoopinTask):
 
 
 class RpcServerManager(RpcManagerBase):
+    AYNCRUNCTXT = {'type': 'object',
+                   'required': ['executer', 'ekwargs'],
+                   'properties': {
+                       'executer': {'type': 'string', 'description': '执行器'},
+                       'ekwargs': {'type': 'object', 'description': '执行器运行参数'},
+                       'condition': {'type': 'string', 'description': '条件校验'},
+                       'ckwargs': {'type': 'object', 'description': '条件校验默认参数'}}
+                   }
 
     def __init__(self):
         super(RpcServerManager, self).__init__(target=targetutils.target_rpcserver(CONF.host, fanout=True))
+        self.conf = CONF[manager_common.SERVER]
         self.agents_loads = {}
+        self.executers = {}
+        self.conditions = {}
 
     def pre_start(self, external_objects):
         super(RpcServerManager, self).pre_start(external_objects)
+        for executer in self.conf.executers:
+            cls = importutils.import_class('goperation.manager.rpc.server.executer.%s.Executer')
+            self.executers[executer] = cls
+        for condition in self.conf.conditions:
+            cls = importutils.import_class('goperation.manager.rpc.server.condition.%s.Condition')
+            self.conditions[condition] = cls
 
     def post_start(self):
         self.force_status(manager_common.ACTIVE)
@@ -130,6 +148,19 @@ class RpcServerManager(RpcManagerBase):
                 return True
         return False
 
+    def _compile(self, rctxt):
+        jsonutils.schema_validate(rctxt, self.AYNCRUNCTXT)
+
+        executer = rctxt.pop('executer')
+        ekwargs = rctxt.pop('ekwargs', None)
+        condition = rctxt.pop('condition', None)
+        ckwargs = rctxt.pop('ckwargs', None)
+
+        executer_cls = self.executers[executer]
+        condition_cls = self.conditions[condition] if condition else None
+
+        return executer_cls(ekwargs, condition_cls(ckwargs) if condition else None)
+
     def rpc_asyncrequest(self, ctxt,
                          asyncrequest, rpc_target, rpc_method,
                          rpc_ctxt, rpc_args):
@@ -137,6 +168,10 @@ class RpcServerManager(RpcManagerBase):
         session = get_session()
         finishtime = ctxt.get('finishtime', None)
         asyncrequest = AsyncRequest(**asyncrequest)
+
+        pre_run = ctxt.pop('pre_run', None)
+        after_run = ctxt.pop('after_run', None)
+        post_run = ctxt.pop('post_run', None)
 
         if finishtime and int(realnow()) >= finishtime:
             asyncrequest.resultcode = manager_common.RESULT_OVER_FINISHTIME
@@ -159,6 +194,21 @@ class RpcServerManager(RpcManagerBase):
             session.flush()
             return
 
+        try:
+            if pre_run:
+                pre_run = self._compile(pre_run).pre_run
+            if after_run:
+                after_run = self._compile(after_run).after_run
+            if post_run:
+                post_run = self._compile(post_run).post_run
+        except (KeyError, jsonutils.ValidationError):
+            asyncrequest.resultcode = manager_common.SCHEDULER_EXECUTER_ERROR
+            asyncrequest.result = 'Rpc server can not find executer or ctxt error'
+            asyncrequest.status = manager_common.FINISH
+            session.add(asyncrequest)
+            session.flush()
+            return
+
         if rpc_ctxt.get('agents') is None:
             wait_agents = [x[0] for x in model_query(session, Agent.agent_id,
                                                      filter=Agent.status > manager_common.DELETED).all()]
@@ -168,8 +218,32 @@ class RpcServerManager(RpcManagerBase):
                          'expire': asyncrequest.expire,
                          'finishtime': asyncrequest.finishtime})
 
-        target = Target(**rpc_target)
-        rpc = get_client()
+        try:
+            target = Target(**rpc_target)
+            rpc = get_client()
+        except Exception:
+            LOG.error('Prepare rpc clinet error')
+            asyncrequest.resultcode = manager_common.SCHEDULER_PREPARE_ERROR
+            asyncrequest.result = 'Rpc server prepare rpc clinet error'
+            asyncrequest.status = manager_common.FINISH
+            session.add(asyncrequest)
+            session.flush()
+            return
+
+        if pre_run:
+            try:
+                pre_run(asyncrequest, wait_agents)
+            except Exception:
+                if LOG.isEnabledFor(logging.DEBUG):
+                    LOG.exception('Pre run fail')
+                else:
+                    LOG.error('Pre run fail')
+                asyncrequest.resultcode = manager_common.SCHEDULER_EXECUTER_ERROR
+                asyncrequest.result = 'Rpc server run per function error'
+                asyncrequest.status = manager_common.FINISH
+                session.add(asyncrequest)
+                session.flush()
+                return
 
         session.add(asyncrequest)
         session.flush()
@@ -183,9 +257,21 @@ class RpcServerManager(RpcManagerBase):
             session.flush()
             return
 
-        LOG.debug('Cast %s to %s' % (asyncrequest.request_id, target.to_dict()))
-        asyncrequest.result = 'Async request %s cast success' % rpc_method
-        session.flush()
+        LOG.debug('Cast %s to %s success' % (asyncrequest.request_id, target.to_dict()))
+
+        if after_run:
+            try:
+                after_run(asyncrequest, wait_agents)
+            except Exception:
+                if LOG.isEnabledFor(logging.DEBUG):
+                    LOG.exception('After run fail')
+                else:
+                    LOG.error('After run fail')
+                asyncrequest.result = 'Rpc server cast success but after per function error'
+            else:
+                asyncrequest.result = 'Async request %s cast success' % rpc_method
+            finally:
+                session.flush()
 
         request_id = asyncrequest.request_id
         finishtime = asyncrequest.finishtime
@@ -201,7 +287,7 @@ class RpcServerManager(RpcManagerBase):
             # 先等待3秒,可以做一次提前检查
             if wait > 3:
                 eventlet.sleep(3)
-            not_response_agents = set(wait_agents)
+            no_response_agents = set(wait_agents)
             interval = int(wait / 10)
             if interval < 3:
                 interval = 3
@@ -209,10 +295,10 @@ class RpcServerManager(RpcManagerBase):
                 interval = 10
             not_overtime = 2
             while True:
-                not_response_agents = responeutils.norespones(storage=storage,
-                                                              request_id=request_id,
-                                                              agents=not_response_agents)
-                if not not_response_agents:
+                no_response_agents = responeutils.norespones(storage=storage,
+                                                             request_id=request_id,
+                                                             agents=no_response_agents)
+                if not no_response_agents:
                     break
                 if int(time.time()) < finishtime:
                     eventlet.sleep(interval)
@@ -221,26 +307,28 @@ class RpcServerManager(RpcManagerBase):
                     if not not_overtime:
                         break
                 eventlet.sleep(1)
-            LOG.debug('Not response agents count %d' % len(not_response_agents))
+            LOG.debug('Not response agents count %d' % len(no_response_agents))
             bulk_data = []
             agent_time = int(time.time())
-            for agent_id in not_response_agents:
+            for agent_id in no_response_agents:
                 data = dict(request_id=request_id,
                             agent_id=agent_id,
                             agent_time=agent_time,
                             resultcode=manager_common.RESULT_OVER_FINISHTIME,
                             result='Agent respone overtime')
                 bulk_data.append(data)
-            count = responeutils.bluk_insert(storage, bulk_data, expire)
+            responeutils.bluk_insert(storage, no_response_agents, bulk_data, expire)
             asyncrequest.status = manager_common.FINISH
-            if count:
+            if no_response_agents:
                 asyncrequest.resultcode = manager_common.RESULT_NOT_ALL_SUCCESS
-                asyncrequest.result = 'agents not respone, count:%d' % count
+                asyncrequest.result = 'agents not respone, count:%d' % len(no_response_agents)
             else:
                 asyncrequest.resultcode = manager_common.RESULT_SUCCESS
                 asyncrequest.result = 'all agent respone result'
             session.flush()
             session.close()
+            if post_run:
+                post_run(asyncrequest, no_response_agents)
 
         threadpool.add_thread(safe_func_wrapper, check_respone, LOG)
 

@@ -121,8 +121,7 @@ def agentrespone(storage, request_id, data):
     return resultutils.results(result='Agent %d Post respone of %s success' % (agent_id, request_id))
 
 
-def bluk_insert(storage, bulk_data, expire=60):
-    insert = len(bulk_data)
+def bluk_insert(storage, agents, bulk_data, expire=60):
     if bulk_data:
         request_id = bulk_data[0]['request_id']
         agent_id = bulk_data[0]['agent_id']
@@ -134,13 +133,12 @@ def bluk_insert(storage, bulk_data, expire=60):
                         storage.add(resp)
                         storage.flush()
                     except DBDuplicateEntry:
-                        insert -= 1
+                        agents.remove(agent_id)
                         continue
         elif isinstance(storage, StrictRedis):
             for data in bulk_data:
                 respone_key = targetutils.async_request_key(request_id, agent_id)
                 if not storage.set(respone_key, jsonutils.dumps_as_bytes(data), ex=expire, nx=True):
-                    insert -= 1
+                    agents.remove(agent_id)
         else:
             raise NotImplementedError('bluk insert storage type error')
-    return insert

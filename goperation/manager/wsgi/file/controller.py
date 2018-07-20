@@ -152,7 +152,9 @@ class FileReuest(BaseContorller):
         target = targetutils.target_all(fanout=True)
         rpc_method = 'getfile'
         rpc_args = {'md5': md5, 'timeout': asyncrequest.deadline - 1}
-        rpc_ctxt = {}
+        rpc_ctxt = dict(pre_run=body.pop('pre_run', None),
+                        after_run=body.pop('after_run', None),
+                        post_run=body.pop('post_run', None))
         if agent_id != 'all':
             rpc_ctxt.setdefault('agents', self.agents_id_check(agent_id))
         def wapper():
