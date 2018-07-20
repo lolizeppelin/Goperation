@@ -332,7 +332,7 @@ class RpcServerManager(RpcManagerBase):
                 try:
                     post_run.run(asyncrequest, no_response_agents)
                 except RpcServerCtxtException as e:
-                    asyncrequest.result += ('ctxt post function error~%s' % e.message)
+                    asyncrequest.result += (' ctxt post function error~%s' % e.message)
                     session.flush()
             session.close()
 
