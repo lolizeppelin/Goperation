@@ -51,4 +51,4 @@ class Executer(executer.BaseExecuter):
         if async:
             threadpool.add_thread(safe_func_wrapper, http, executer.LOG)
         else:
-            safe_func_wrapper(http, executer.LOG)
+            http()
