@@ -126,10 +126,12 @@ class RpcServerManager(RpcManagerBase):
     def pre_start(self, external_objects):
         super(RpcServerManager, self).pre_start(external_objects)
         for executer in self.conf.executers:
-            cls = importutils.import_class('goperation.manager.rpc.server.executer.%s.Executer')
+            LOG.debug('Loading executer %s', executer)
+            cls = importutils.import_class('goperation.manager.rpc.server.executer.%s.Executer' % executer)
             self.executers[executer] = cls
         for condition in self.conf.conditions:
-            cls = importutils.import_class('goperation.manager.rpc.server.condition.%s.Condition')
+            LOG.debug('Loading condition %s', condition)
+            cls = importutils.import_class('goperation.manager.rpc.server.condition.%s.Condition' % condition)
             self.conditions[condition] = cls
 
     def post_start(self):

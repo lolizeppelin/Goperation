@@ -54,6 +54,12 @@
 # Maximum value: 20
 #expire_time = 10
 
+# Rpc server executer class list (list value)
+#executers = http
+
+# Rpc server conditions class list (list value)
+#conditions = agents,entitys
+
 # Wsgi Server run user (string value)
 #wsgi_user = nginx
 
