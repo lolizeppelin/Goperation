@@ -150,16 +150,17 @@ class FileReuest(BaseContorller):
         body = body or {}
         asyncrequest = self.create_asyncrequest(body)
         target = targetutils.target_all(fanout=True)
+        async_ctxt = dict(pre_run=body.pop('pre_run', None),
+                          after_run=body.pop('after_run', None),
+                          post_run=body.pop('post_run', None))
         rpc_method = 'getfile'
         rpc_args = {'md5': md5, 'timeout': asyncrequest.deadline - 1}
-        rpc_ctxt = dict(pre_run=body.pop('pre_run', None),
-                        after_run=body.pop('after_run', None),
-                        post_run=body.pop('post_run', None))
+        rpc_ctxt = {}
         if agent_id != 'all':
             rpc_ctxt.setdefault('agents', self.agents_id_check(agent_id))
         def wapper():
             self.send_asyncrequest(asyncrequest, target,
-                                   rpc_ctxt, rpc_method, rpc_args)
+                                   rpc_ctxt, rpc_method, rpc_args, async_ctxt)
         threadpool.add_thread(safe_func_wrapper, wapper, LOG)
         return resultutils.results(result='Send file to agents thread spawning',
                                    data=[asyncrequest.to_dict()])

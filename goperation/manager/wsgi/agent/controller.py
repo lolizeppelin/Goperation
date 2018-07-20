@@ -406,21 +406,21 @@ class AgentReuest(BaseContorller):
         body = body or {}
         asyncrequest = self.create_asyncrequest(body)
         target = targetutils.target_all(fanout=True)
+        async_ctxt = dict(pre_run=body.pop('pre_run', None),
+                          after_run=body.pop('after_run', None),
+                          post_run=body.pop('post_run', None))
         rpc_method = 'upgrade_agent'
-        rpc_ctxt = dict(pre_run=body.pop('pre_run', None),
-                        after_run=body.pop('after_run', None),
-                        post_run=body.pop('post_run', None))
+        rpc_ctxt = {}
         agents = self.agents_id_check(agent_id)
         if agent_id != 'all':
             rpc_ctxt.setdefault('agents', agents)
-
         global_data = get_global()
         glock = global_data.lock('agents')
 
         def wapper():
             with glock(agents):
                 self.send_asyncrequest(asyncrequest, target,
-                                       rpc_ctxt, rpc_method)
+                                       rpc_ctxt, rpc_method, None, async_ctxt)
 
         threadpool.add_thread(safe_func_wrapper, wapper, LOG)
         return resultutils.results(result='Upgrade agent async request thread spawning',

@@ -152,6 +152,7 @@ class RpcServerManager(RpcManagerBase):
         return False
 
     def _compile(self, position, rctxt):
+        LOG.debug('try compile %s ctxt function' % position)
         jsonutils.schema_validate(rctxt, self.AYNCRUNCTXT)
 
         executer = rctxt.pop('executer')

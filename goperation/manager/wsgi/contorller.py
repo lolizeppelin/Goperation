@@ -140,12 +140,14 @@ class BaseContorller(MiddlewareContorller):
 
     @staticmethod
     def send_asyncrequest(asyncrequest, rpc_target,
-                          rpc_ctxt, rpc_method, rpc_args=None):
+                          rpc_ctxt, rpc_method, rpc_args=None,
+                          async_ctxt=None):
         rpc = get_client()
         session = get_session()
         try:
             rpc.cast(targetutils.target_rpcserver(),
-                     ctxt={'finishtime': asyncrequest.finishtime-2},
+                     # ctxt={'finishtime': asyncrequest.finishtime-2},
+                     ctxt=async_ctxt or {},
                      msg={'method': 'asyncrequest',
                           'args': {'asyncrequest': asyncrequest.to_dict(),
                                    'rpc_target': rpc_target.to_dict(),
