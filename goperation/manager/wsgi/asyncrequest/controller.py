@@ -108,7 +108,8 @@ class AsyncWorkRequest(contorller.BaseContorller):
                 joins = joins.joinedload(AgentRespone.details)
             query = query.options(joins)
         request = query.one()
-        return resultutils.async_request(request, agents, details)
+        async_result = resultutils.async_request(request, agents, details)
+        return resultutils.results(result='show async request success', data=[async_result])
 
     @Idformater
     def update(self, req, request_id, body=None):

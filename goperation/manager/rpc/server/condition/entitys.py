@@ -50,7 +50,7 @@ class Condition(condition.BaseCondition):
         joins = joins.joinedload(AgentRespone.details, innerjoin=False)
         query = query.options(joins)
         asyncrequest = query.one()
-        results = resultutils.async_request(asyncrequest, agents=True, details=True)
+        results = resultutils.async_request(asyncrequest, agents=True, details=True).get('data')[0]
         respones = results.get('respones')
 
         _count = 0

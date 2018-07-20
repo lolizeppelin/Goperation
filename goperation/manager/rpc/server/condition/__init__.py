@@ -23,13 +23,12 @@ class BaseCondition(object):
         self.kwargs = self._kwarg_check(kwargs)
         self.position = position
 
-    @abc.abstractmethod
     def _kwarg_check(self, kwargs):
         jsonutils.schema_validate(kwargs, self.CONDITIONS)
         return kwargs
 
     def check(self, *args, **kwargs):
-        mothed = getattr(self, self.__getattribute__('%s_run' % self.position))
+        mothed = getattr(self, '%s_run' % self.position)
         return mothed(*args, **kwargs)
 
     @abc.abstractmethod
