@@ -34,6 +34,7 @@ from goperation.manager.utils import targetutils
 from goperation.manager.utils import responeutils
 from goperation.manager.utils import resultutils
 
+from goperation.manager.rpc.exceptions import RpcServerCtxtException
 from goperation.manager.rpc.server import utils
 
 from goperation.manager.rpc.base import RpcManagerBase
@@ -112,7 +113,7 @@ class RpcServerManager(RpcManagerBase):
                        'executer': {'type': 'string', 'description': '执行器'},
                        'ekwargs': {'type': 'object', 'description': '执行器运行参数'},
                        'condition': {'type': 'string', 'description': '条件校验'},
-                       'ckwargs': {'type': 'object', 'description': '条件校验默认参数'}}
+                       'ckwargs': {'type': 'object', 'description': '条件校验参数'}}
                    }
 
     def __init__(self):
@@ -148,7 +149,7 @@ class RpcServerManager(RpcManagerBase):
                 return True
         return False
 
-    def _compile(self, rctxt):
+    def _compile(self, position, rctxt):
         jsonutils.schema_validate(rctxt, self.AYNCRUNCTXT)
 
         executer = rctxt.pop('executer')
@@ -159,7 +160,8 @@ class RpcServerManager(RpcManagerBase):
         executer_cls = self.executers[executer]
         condition_cls = self.conditions[condition] if condition else None
 
-        return executer_cls(ekwargs, condition_cls(ckwargs) if condition else None)
+        return executer_cls(position, ekwargs,
+                            condition_cls(position, ckwargs) if condition else None)
 
     def rpc_asyncrequest(self, ctxt,
                          asyncrequest, rpc_target, rpc_method,
@@ -196,11 +198,11 @@ class RpcServerManager(RpcManagerBase):
 
         try:
             if pre_run:
-                pre_run = self._compile(pre_run).pre_run
+                pre_run = self._compile('pre', pre_run)
             if after_run:
-                after_run = self._compile(after_run).after_run
+                after_run = self._compile('after', after_run)
             if post_run:
-                post_run = self._compile(post_run).post_run
+                post_run = self._compile('post', post_run)
         except (KeyError, jsonutils.ValidationError):
             asyncrequest.resultcode = manager_common.SCHEDULER_EXECUTER_ERROR
             asyncrequest.result = 'Rpc server can not find executer or ctxt error'
@@ -232,14 +234,10 @@ class RpcServerManager(RpcManagerBase):
 
         if pre_run:
             try:
-                pre_run(asyncrequest, wait_agents)
-            except Exception:
-                if LOG.isEnabledFor(logging.DEBUG):
-                    LOG.exception('Pre run fail')
-                else:
-                    LOG.error('Pre run fail')
+                pre_run.run(asyncrequest, wait_agents)
+            except RpcServerCtxtException as e:
                 asyncrequest.resultcode = manager_common.SCHEDULER_EXECUTER_ERROR
-                asyncrequest.result = 'Rpc server run per function error'
+                asyncrequest.result = e.message
                 asyncrequest.status = manager_common.FINISH
                 session.add(asyncrequest)
                 session.flush()
@@ -261,13 +259,9 @@ class RpcServerManager(RpcManagerBase):
 
         if after_run:
             try:
-                after_run(asyncrequest, wait_agents)
-            except Exception:
-                if LOG.isEnabledFor(logging.DEBUG):
-                    LOG.exception('After run fail')
-                else:
-                    LOG.error('After run fail')
-                asyncrequest.result = 'Rpc server cast success but after per function error'
+                after_run.run(asyncrequest, wait_agents)
+            except RpcServerCtxtException as e:
+                asyncrequest.result = 'Async request %s cast success, ctxt func error~%s' % (rpc_method, e.message)
             else:
                 asyncrequest.result = 'Async request %s cast success' % rpc_method
             finally:
@@ -326,9 +320,13 @@ class RpcServerManager(RpcManagerBase):
                 asyncrequest.resultcode = manager_common.RESULT_SUCCESS
                 asyncrequest.result = 'all agent respone result'
             session.flush()
-            session.close()
             if post_run:
-                post_run(asyncrequest, no_response_agents)
+                try:
+                    post_run.run(asyncrequest, no_response_agents)
+                except RpcServerCtxtException as e:
+                    asyncrequest.result += e.message
+                    session.flush()
+            session.close()
 
         threadpool.add_thread(safe_func_wrapper, check_respone, LOG)
 

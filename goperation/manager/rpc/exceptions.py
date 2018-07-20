@@ -1,3 +1,6 @@
+class RpcServerCtxtException(Exception):
+    """Ctxt excepiton in Rpc server"""
+
 class RpcCtxtException(Exception):
 
     def __init__(self, result=None):

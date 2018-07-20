@@ -4,7 +4,10 @@ import requests
 
 from simpleutil.utils import jsonutils
 
+from goperation import threadpool
+from goperation.utils import safe_func_wrapper
 from goperation.manager.rpc.server import executer
+
 
 
 class Executer(executer.BaseExecuter):
@@ -27,7 +30,7 @@ class Executer(executer.BaseExecuter):
                       'timeout': {'type': 'integer', 'minimum': 3, 'description': '请求超时'}}
                   }
 
-    def _check(self, kwargs):
+    def _kwarg_check(self, kwargs):
         jsonutils.schema_validate(kwargs, self.HTTPKWARGS)
         kwargs = self.kwargs
         url = kwargs.pop('url')
@@ -38,4 +41,7 @@ class Executer(executer.BaseExecuter):
         return dict(url=url, method=method, params=params, data=data, timeout=timeout)
 
     def execute(self):
-        requests.request(**self.kwargs)
+        def http():
+            requests.request(**self.kwargs)
+
+        threadpool.add_thread(safe_func_wrapper, http, executer.LOG)
