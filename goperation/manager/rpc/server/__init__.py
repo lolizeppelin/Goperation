@@ -242,7 +242,7 @@ class RpcServerManager(RpcManagerBase):
                 pre_run.run(asyncrequest, wait_agents)
             except RpcServerCtxtException as e:
                 asyncrequest.resultcode = manager_common.SCHEDULER_EXECUTER_ERROR
-                asyncrequest.result = e.message
+                asyncrequest.result = 'Rpc server ctxt pre function fail: %s' % e.message
                 asyncrequest.status = manager_common.FINISH
                 session.add(asyncrequest)
                 session.flush()
@@ -266,7 +266,8 @@ class RpcServerManager(RpcManagerBase):
             try:
                 after_run.run(asyncrequest, wait_agents)
             except RpcServerCtxtException as e:
-                asyncrequest.result = 'Async request %s cast success, ctxt func error~%s' % (rpc_method, e.message)
+                asyncrequest.result = 'Async request %s cast success, ' \
+                                      'ctxt after function error~%s' % (rpc_method, e.message)
             else:
                 asyncrequest.result = 'Async request %s cast success' % rpc_method
             finally:
@@ -329,7 +330,7 @@ class RpcServerManager(RpcManagerBase):
                 try:
                     post_run.run(asyncrequest, no_response_agents)
                 except RpcServerCtxtException as e:
-                    asyncrequest.result += e.message
+                    asyncrequest.result += ('ctxt post function error~%s' % e.message)
                     session.flush()
             session.close()
 

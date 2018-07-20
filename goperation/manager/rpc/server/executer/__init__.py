@@ -36,4 +36,4 @@ class BaseExecuter(object):
                 LOG.exception('execute fail')
             else:
                 LOG.error(e.message)
-                raise exceptions.RpcServerCtxtException('execute fail, error type %s' % e.__class__.__name__)
+            raise exceptions.RpcServerCtxtException('execute fail, error type %s' % e.__class__.__name__)
