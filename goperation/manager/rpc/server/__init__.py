@@ -162,8 +162,7 @@ class RpcServerManager(RpcManagerBase):
         executer_cls = self.executers[executer]
         condition_cls = self.conditions[condition] if condition else None
 
-        return executer_cls(position, ekwargs,
-                            condition_cls(position, ckwargs) if condition else None)
+        return executer_cls(ekwargs, condition_cls(position, ckwargs) if condition else None)
 
     def rpc_asyncrequest(self, ctxt,
                          asyncrequest, rpc_target, rpc_method,
