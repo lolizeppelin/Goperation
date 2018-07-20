@@ -237,6 +237,11 @@ class FileManager(object):
                     raise e
             try:
                 if md5 != fileinfo['md5'] or size != fileinfo['size']:
+                    if os.path.exists(path):
+                        try:
+                            os.remove(path)
+                        except (OSError, IOError):
+                            LOG.error('Download fail, remove path %s fail' % path)
                     raise exceptions.FileNotMatch('File md5 or size not the same')
                 # write into database
                 uploadtime = fileinfo.get('uploadtime')
