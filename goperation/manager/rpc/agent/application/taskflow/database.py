@@ -167,7 +167,7 @@ class MysqlDump(StandardTask):
         self.database = database
         super(MysqlDump, self).__init__(middleware)
 
-    def execute(self):
+    def execute(self, table=True, proc=True):
         database = self.database
         if not isinstance(database.backup, TaskPublicFile):
             raise TypeError('MysqlDump need database.backup TaskPublicFile')
@@ -180,6 +180,11 @@ class MysqlDump(StandardTask):
             func = functools.partial(utils.safe_fork,
                                      user=self.middleware.entity_user,
                                      group=self.middleware.entity_group)
+        extargs = []
+        if not table:
+            extargs.append('-t')
+        if proc:
+            extargs.append('-R')
         mysqldump(dumpfile=database.backup.file,
                   host=database.host, port=database.port,
                   user=database.user, passwd=database.passwd,
@@ -221,6 +226,7 @@ class MysqlUpdate(StandardTask):
                   user=database.user, passwd=database.passwd,
                   schema=database.schema,
                   character_set=database.character_set,
+                  extargs=None,
                   logfile=logfile,
                   callable=func,
                   timeout=timeout)
