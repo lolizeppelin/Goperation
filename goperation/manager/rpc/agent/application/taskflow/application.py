@@ -6,6 +6,7 @@ from simpleutil.log import log as logging
 from simpleutil.utils import systemutils
 
 from simpleutil.utils import zlibutils
+from simpleutil.utils.zlibutils.excluder import Excluder
 
 from simpleflow.retry import Retry
 from simpleflow.retry import REVERT
@@ -89,8 +90,8 @@ class AppLocalBackupFile(TaskPublicFile):
                  native=True):
         if os.path.exists(destination):
             raise ValueError('backup file %s alreday exist')
-        if exclude and not callable(exclude):
-            raise TypeError('exclude is not callable')
+        if exclude and not isinstance(exclude, Excluder):
+            raise TypeError('App backup exclude is not class Excluder')
         self._exclude = exclude
         self.destination = destination
         self.topdir = topdir
@@ -235,8 +236,8 @@ class AppFileUpgradeByFile(AppFileUpgradeBase):
     def __init__(self, middleware, exclude=None, native=True,
                  rebind=None, requires=None,
                  revert_requires=None):
-        if exclude and not callable(exclude):
-            raise TypeError('exclude is not callable')
+        if exclude and not isinstance(exclude, Excluder):
+            raise TypeError('App upgrede exclude is not class Excluder')
         self._exclude = exclude
         self.native = native
         super(AppFileUpgradeByFile, self).__init__(middleware=middleware,
