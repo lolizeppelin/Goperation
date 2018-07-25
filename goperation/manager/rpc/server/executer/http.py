@@ -25,9 +25,10 @@ class Executer(executer.BaseExecuter):
                   'properties': {
                       'url': {'type': 'string', 'format': 'uri', 'description': '请求url'},
                       'method': {'enum': ['GET', 'POST', 'DELETE', 'PUT', 'HEAD', 'OPTIONS']},
-                      'content-type': {'type': 'string', 'description': 'Content-Type设置'},
+                      'headers': {'object': 'string', 'description': 'http头设置'},
                       'params': {'type': 'object', 'description': 'url params参数'},
-                      'data': {'type': 'object', 'description': 'url body数据'},
+                      'data': {'type': 'object', 'description': 'url data数据'},
+                      'json': {'type': 'object', 'description': 'url body数据'},
                       'timeout': {'type': 'integer', 'minimum': 3, 'description': '请求超时'},
                       'async': {'type': 'boolean', 'description': '是否异步请求'}}
                   }
@@ -36,13 +37,14 @@ class Executer(executer.BaseExecuter):
         jsonutils.schema_validate(kwargs, self.HTTPKWARGS)
         url = kwargs.pop('url')
         method = kwargs.pop('method', 'GET')
+        headers = kwargs.pop('headers', None)
         params = kwargs.pop('params', None)
+        json = kwargs.pop('json', None)
         data = kwargs.pop('data', None)
         timeout = kwargs.pop('timeout', 5)
         async = kwargs.pop('async', True)
-        headers = {'Content-Type': kwargs.pop('content-type', 'application/json')}
         return dict(url=url, method=method, headers=headers,
-                    params=params, data=data, timeout=timeout, async=async)
+                    params=params, data=data, json=json, timeout=timeout, async=async)
 
     def execute(self):
         async = self.kwargs.pop('async')
