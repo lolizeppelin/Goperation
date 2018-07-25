@@ -25,6 +25,7 @@ class Executer(executer.BaseExecuter):
                   'properties': {
                       'url': {'type': 'string', 'format': 'uri', 'description': '请求url'},
                       'method': {'enum': ['GET', 'POST', 'DELETE', 'PUT', 'HEAD', 'OPTIONS']},
+                      'content-type': {'type': 'string', 'description': 'Content-Type设置'},
                       'params': {'type': 'object', 'description': 'url params参数'},
                       'data': {'type': 'object', 'description': 'url body数据'},
                       'timeout': {'type': 'integer', 'minimum': 3, 'description': '请求超时'},
@@ -39,7 +40,9 @@ class Executer(executer.BaseExecuter):
         data = kwargs.pop('data', None)
         timeout = kwargs.pop('timeout', 5)
         async = kwargs.pop('async', True)
-        return dict(url=url, method=method, params=params, data=data, timeout=timeout, async=async)
+        headers = {'Content-Type': kwargs.pop('content-type', 'application/json')}
+        return dict(url=url, method=method, headers=headers,
+                    params=params, data=data, timeout=timeout, async=async)
 
     def execute(self):
         async = self.kwargs.pop('async')
