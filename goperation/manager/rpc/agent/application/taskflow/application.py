@@ -245,7 +245,7 @@ class AppFileUpgradeByFile(AppFileUpgradeBase):
                                                    revert_requires=revert_requires)
 
     def execute(self, upgradefile, timeout):
-        LOG.debug('Upgread by file task try extract file %s with %s' % (upgradefile, str(self.native)))
+        LOG.debug('Upgread by file task try extract file %s with native %s' % (upgradefile, str(self.native)))
         self._extract(upgradefile, self.middleware.apppath,
                       self.middleware.entity_user, self.middleware.entity_group,
                       self.native, timeout)
