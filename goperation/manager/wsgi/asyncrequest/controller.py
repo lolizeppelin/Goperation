@@ -1,3 +1,5 @@
+# -*- coding:utf-8 -*-
+import time
 import webob.exc
 from sqlalchemy.sql import and_
 from sqlalchemy.orm import joinedload
@@ -127,7 +129,10 @@ class AsyncWorkRequest(contorller.BaseContorller):
 
     @Idformater
     def overtime(self, req, request_id, body):
-        """agent not response, async checker send a overtime respone"""
+        """
+        agent not response, async checker send a overtime respone
+        此接口为保留接口,接口功能已经在rpc server中实现
+        """
         jsonutils.schema_validate(body, OVERTIMESCHEMA)
         agent_time = body.get('agent_time')
         agents = set(body.get('agents'))
@@ -143,6 +148,7 @@ class AsyncWorkRequest(contorller.BaseContorller):
                 data = dict(request_id=request_id,
                             agent_id=agent_id,
                             agent_time=agent_time,
+                            server_time=int(time.time()),
                             resultcode=manager_common.RESULT_OVER_FINISHTIME,
                             result='Agent respone overtime')
                 bulk_data.append(data)

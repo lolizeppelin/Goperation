@@ -316,6 +316,7 @@ class RpcServerManager(RpcManagerBase):
                 data = dict(request_id=request_id,
                             agent_id=agent_id,
                             agent_time=agent_time,
+                            server_time=agent_time,
                             resultcode=manager_common.RESULT_OVER_FINISHTIME,
                             result='Agent respone overtime')
                 bulk_data.append(data)
