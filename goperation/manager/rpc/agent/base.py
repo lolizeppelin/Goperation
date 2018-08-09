@@ -21,6 +21,9 @@ from simpleutil.utils import uuidutils
 from simpleutil.utils.systemutils import subwait
 from simpleutil.utils.attributes import validators
 
+from simpleutil.utils.systemutils import ExitBySIG
+from simpleutil.utils.systemutils import UnExceptExit
+
 from simpleservice.loopingcall import IntervalLoopinTask
 from simpleservice.plugin.base import EndpointBase
 
@@ -792,7 +795,7 @@ class RpcAgentManager(RpcManagerBase):
                 os.execv(executable, args)
             try:
                 posix.wait(pid, 5)
-            except Exception:
+            except (ExitBySIG, UnExceptExit):
                 self.status = last_status
                 return AgentRpcResult(self.agent_id, ctxt, resultcode=manager_common.RESULT_ERROR,
                                       result='upgrade call yum clean metadata fail')
@@ -808,13 +811,25 @@ class RpcAgentManager(RpcManagerBase):
             pid = safe_fork()
             if pid == 0:
                 os.closerange(3, systemutils.MAXFD)
-                os.execv(executable, args)
+                logpath = CONF.log_dir
+                logfile = os.path.join(logpath, 'upgrade.%d.log' % int(time.time()))
+                with open(logfile, 'ab') as f:
+                    os.dup2(f.fileno(), sys.stdout.fileno())
+                    os.dup2(f.fileno(), sys.stderr.fileno())
+                    # exec后关闭日志文件描述符
+                    systemutils.set_cloexec_flag(f.fileno())
+                    try:
+                        os.execv(executable, args)
+                    except (OSError, IOError) as e:
+                        sys.stderr.write('exec: ' + ' '.join(args) + '\n')
+                        sys.stderr.write(str(e) + '\n')
+                        os._exit(1)
             try:
                 posix.wait(pid, 600)
-            except Exception:
+            except (ExitBySIG, UnExceptExit) as e:
                 self.status = last_status
                 return AgentRpcResult(self.agent_id, ctxt, resultcode=manager_common.RESULT_ERROR,
-                                      result='upgrade call yum update fail')
+                                      result='upgrade call yum update fail, %s' % e.message)
             executable = '/etc/init.d/gop-%s' % self.agent_type
             args = [executable, 'restart']
             pid = safe_fork()
