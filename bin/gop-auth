@@ -9,4 +9,4 @@ salt = ''.join(random.sample(string.lowercase, 6))
 
 password = sys.argv[1]
 
-print digestutils.strmd5(salt + password)
+print salt, digestutils.strmd5(salt + password)
