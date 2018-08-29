@@ -7,59 +7,6 @@
 # From gcenter
 #
 
-# Extend route module string (multi import string)
-#routes =
-
-# Authentication route module string (multi import string)
-#auths =
-
-# Allowed ipaddress without token, 127.0.0.1 and local ip is allowed (list
-# value)
-#allowed_trusted_ip =
-
-# Allow ipaddress without token in same subnet (boolean value)
-#allowed_same_subnet = true
-
-# Allow hostname (list value)
-#allowed_hostname = *
-
-# Token cache dict size (integer value)
-# Minimum value: 10
-# Maximum value: 250
-#token_cache_size = 25
-
-# Indicate whether this resource may be shared with the domain received in the
-# requests "origin" header. (list value)
-#allowed_origin = *
-
-# Indicate that the actual request can include user credentials (boolean value)
-#allow_credentials = true
-
-# Indicate which headers are safe to expose to the API. Defaults to HTTP Simple
-# Headers. (list value)
-#expose_headers = Content-Type,Cache-Control,Content-Language,Expires,Last-Modified,Pragma
-
-# Maximum cache age of CORS preflight requests. (integer value)
-#max_age = 3600
-
-# Indicate which methods can be used during the actual request. (list value)
-#allow_methods = GET,POST,PUT,DELETE,OPTIONS,UPDATE,HEAD
-
-# Indicate which header field names may be used during the actual request.
-# (list value)
-#allow_headers = Content-Type,Cache-Control,Content-Language,Expires,Last-Modified,Pragma,Auth-Token,X-Real-IP
-
-# Rpc agent status expire time (integer value)
-# Minimum value: 2
-# Maximum value: 20
-#expire_time = 10
-
-# Rpc server executer class list (list value)
-#executers = http
-
-# Rpc server conditions class list (list value)
-#conditions = agents,entitys
-
 # Wsgi Server run user (string value)
 #wsgi_user = nginx
 
@@ -79,6 +26,9 @@
 # Minimum value: 0
 # Maximum value: 65535
 #bind_port = 7999
+
+# Listen on unix socket file (string value)
+#unix_socket_file = <None>
 
 # Name of the paste configuration file that defines the available pipelines.
 # (string value)
@@ -110,6 +60,54 @@
 # wait forever. (integer value)
 #client_socket_timeout = 60
 
+# Extend route module string (multi import string)
+#routes =
+
+# Authentication route module string (multi import string)
+#auths =
+
+# fernet key dir (string value)
+#fernet_key_repository = <None>
+
+# fernet expire max day (integer value)
+# Minimum value: 1
+# Maximum value: 7
+#fernet_expire_days = 1
+
+# Allowed ipaddress without token, 127.0.0.1 and local ip is allowed (list
+# value)
+#allowed_trusted_ip =
+
+# Allow ipaddress without token in same subnet (boolean value)
+#allowed_same_subnet = true
+
+# Allow hostname (list value)
+#allowed_hostname = *
+
+# Get clent address from head of X-Real-IP (boolean value)
+#x_real_ip = false
+
+# Indicate whether this resource may be shared with the domain received in the
+# requests "origin" header. (list value)
+#allowed_origin = *
+
+# Indicate that the actual request can include user credentials (boolean value)
+#allow_credentials = true
+
+# Indicate which headers are safe to expose to the API. Defaults to HTTP Simple
+# Headers. (list value)
+#expose_headers = Content-Type,Cache-Control,Content-Language,Expires,Last-Modified,Pragma
+
+# Maximum cache age of CORS preflight requests. (integer value)
+#max_age = 3600
+
+# Indicate which methods can be used during the actual request. (list value)
+#allow_methods = GET,POST,PUT,DELETE,OPTIONS,UPDATE,HEAD
+
+# Indicate which header field names may be used during the actual request.
+# (list value)
+#allow_headers = Content-Type,Cache-Control,Content-Language,Expires,Last-Modified,Pragma,Auth-Token,X-Real-IP
+
 # Rpc Server run user (string value)
 #rpc_user = root
 
@@ -120,3 +118,14 @@
 # Minimum value: 1
 # Maximum value: 255
 #rpc_process = 1
+
+# Rpc agent status expire time (integer value)
+# Minimum value: 2
+# Maximum value: 20
+#expire_time = 10
+
+# Rpc server executer class list (list value)
+#executers = http
+
+# Rpc server conditions class list (list value)
+#conditions = agents,entitys
