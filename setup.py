@@ -34,6 +34,8 @@ f.close()
 setup(
     install_requires=('sqlalchemy>=1.0.11',
                       'six>=1.9.0',
+                      'msgpack-python>=0.4.6',
+                      'cryptography>=1.7.2',
                       'psutil>=5.4.0',
                       'simpleutil>=1.0',
                       'simpleutil<1.1',

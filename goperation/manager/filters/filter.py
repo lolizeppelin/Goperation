@@ -1,27 +1,28 @@
 # -*- coding:utf-8 -*-
-import six
 import time
-import eventlet
-import webob.exc
-import webob.dec
-import netaddr
 
-from simpleutil.config import cfg
-from simpleutil.log import log as logging
-from simpleutil.utils import jsonutils
+import eventlet
+import netaddr
+import six
+import webob.dec
+import webob.exc
 
 from simpleservice import common as service_common
-from simpleservice.wsgi.middleware import default_serializer
-from simpleservice.wsgi.middleware import DEFAULT_CONTENT_TYPE
 from simpleservice.wsgi.filter import FilterBase
+from simpleservice.wsgi.middleware import DEFAULT_CONTENT_TYPE
+from simpleservice.wsgi.middleware import default_serializer
+from simpleutil.config import cfg
+from simpleutil.log import log as logging
 
 from goperation.utils import get_network
-from goperation.manager.config import manager_group
+from goperation.manager import exceptions
 from goperation.manager import common as manager_common
-from goperation.manager import api
+from goperation.manager.tokens import TokenProvider
+from goperation.manager.config import manager_group
 from goperation.manager.filters.config import authfilter_opts
 from goperation.manager.filters.config import cors_opts
 from goperation.manager.filters.exceptions import InvalidOriginError
+
 
 LOG = logging.getLogger(__name__)
 
@@ -321,7 +322,13 @@ class AuthFilter(FilterBase):
         self.trusted = conf.trusted
 
         conf = CONF[manager_common.SERVER]
-        # self.allowed_hostname = conf.allowed_hostname
+        # 使用X-Real-IP头判断来源IP, 一般在使用Nginx做前端代理的情况下用
+        if conf.x_real_ip:
+            IPHEAD = manager_common.XREALIP.lower()
+            self._client_addr = lambda req: req.headers.get(IPHEAD)
+        else:
+            self._client_addr = lambda req: req.client_addr
+
         self.allowed_hostname = {}
         self.allowed_same_subnet = conf.allowed_same_subnet
         self.allowed_clients = set(conf.allowed_trusted_ip)
@@ -329,11 +336,9 @@ class AuthFilter(FilterBase):
         self.allowed_clients.add(CONF.local_ip)
         for ipaddr in self.allowed_clients:
             LOG.debug('Allowd client %s' % ipaddr)
-        # 进程token缓存最大数量
-        self.token_cache_size = conf.token_cache_size
 
-        # 进程中token缓存
-        self.tokens = {}
+        self.token_provider = TokenProvider
+
 
     @staticmethod
     def no_auth(msg='Please auth login first'):
@@ -356,77 +361,32 @@ class AuthFilter(FilterBase):
         kwargs = {'body': body, 'content_type': DEFAULT_CONTENT_TYPE}
         return webob.exc.HTTPClientError(**kwargs)
 
-    def will_expire_soon(self, token):
-        th = self.tokens[token]['th']
-        expire_at = self.tokens[token].get('ttl') + self.tokens[token].get('last')
-        ttl = expire_at - int(time.time())
-        if ttl < 15:
-            th.cancel()
-            self.tokens.pop(token, None)
-            cache_store = api.get_cache()
-            eventlet.spawn_n(cache_store.delete, token)
-            raise self.no_auth('Token has been expired')
 
-        # 没有访问,tonke有效期30-60分钟,预留30秒
-        if ttl < 1830:
-            cache_store = api.get_cache()
-            cache_store.expire(token, 3600)
-            # io操作后有可能其他线程设置了token,再次判断
-            if th is self.tokens[token]['th']:
-                th.cancel()
-                self.tokens[token]['ttl'] = 1800
-                self.tokens[token]['last'] = int(time.time())
-                self.tokens[token]['th'] = eventlet.spawn_after(3600, self.tokens.pop, token, None)
+    def _address_allowed(self, req):
+        # 来源ip在允许的ip列表中
+        ipaddr = self._client_addr(req)
+        if ipaddr in self.allowed_clients:
+            return True
+        # 来源ip子网相同
+        if self.allowed_same_subnet:
+            return (netaddr.IPAddress(ipaddr) in self.ipnetwork)
+        return False
 
-    def validate_host(self, req):
+    def _validate_host(self, req):
         pass
         # if req.host != self.allowed_hostname:
         #     LOG.error('remote hostname %s not match' % req.host)
         #     raise self.no_found('Hostname can not be found')
 
-    def _fetch_token_from_cache(self, token):
-        # token缓存过大, 不能缓存token,直接抛异常
-        if len(self.tokens) > self.token_cache_size:
-            LOG.warning('Token cache is full')
-            raise self.no_auth('Too much token in cache, auth fail')
-        # 从cache存储中获取token以及ttl
-        cache_store = api.get_cache()
-        pipe = cache_store.pipeline()
-        pipe.multi()
-        pipe.get(token)
-        pipe.ttl(token)
-        results = pipe.execute()
-        # 过期时间小于15s, 认为已经过期
-        if not results[0] or results[1] < 15:
-            raise self.no_auth('Token has been expired or not exist')
-        # io操作后有可能其他线程设置了token,再次判断
-        if token not in self.tokens:
-            token_info = jsonutils.loads_as_bytes(results[0])
-            th = eventlet.spawn_after(results[1], self.tokens.pop, token, None)
-            self.tokens.setdefault(token, dict(ipaddr=token_info.get('ip'),
-                                               user=token_info.get('user'),
-                                               last=int(time.time()),
-                                               ttl=results[1],
-                                               th=th))
-            self.will_expire_soon(token)
+    # -------------  public token function  ------------------
 
-    def _address_allowed(self, req):
-        # 来源ip在允许的ip列表中
-        if req.client_addr in self.allowed_clients:
-            return True
-        # 来源ip子网相同
-        if self.allowed_same_subnet:
-            return (netaddr.IPAddress(req.client_addr) in self.ipnetwork)
-        return False
-
-    def validate_token(self, req, token):
-        try:
-            token_info = self.tokens[token]
-        except KeyError:
-            return self.no_auth()
+    def _validate_token(self, req, token):
         # 校验token所用IP是否匹配
-        if token_info.get('ipaddr') != req.client_addr:
-            raise self.client_error('Client ipaddr not match')
+        if token.get('is_admin', False):
+            if token.get('ipaddr') != self._client_addr(req):
+                raise self.client_error('Client ipaddr not match')
+            req.environ[service_common.ADMINHEAD] = True
+        req.headers[service_common.TOKENNAME.lower()] = token
         return None
 
     def fetch_and_validate(self, req):
@@ -436,23 +396,24 @@ class AuthFilter(FilterBase):
         token_id = req.headers.get(service_common.TOKENNAME.lower())
         if not token_id:
             return self.no_auth()
-        if len(token_id) > 64:
+        if len(token_id) > 256:
             return self.no_auth('Token over size')
         # 可信任token,一般为用于服务组件之间的wsgi请求
         if self.trusted and token_id == self.trusted:
-            LOG.debug('Trusted token passed, address %s', req.client_addr)
+            LOG.debug('Trusted token passed, address %s' % self._client_addr(req))
             return None
         # 校验host
-        self.validate_host(req)
-        # token在本地缓存中
-        if token_id in self.tokens:
-            self.will_expire_soon(token_id)
-        else:
-            # 查询缓存是否在缓存服务器中
-            self._fetch_token_from_cache(token_id)
-        return self.validate_token(req, token_id)
+        self._validate_host(req)
+        # 通过token id 获取token
+        try:
+            token = self.token_provider.fetch(req, token_id)
+        except exceptions.TokenError as e:
+            return self.no_auth(e.message)
+
+        return self._validate_token(req, token)
 
     def process_request(self, req):
+        req.environ[service_common.ADMINHEAD] = False
         return self.fetch_and_validate(req)
 
 

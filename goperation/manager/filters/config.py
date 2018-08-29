@@ -14,12 +14,11 @@ authfilter_opts = [
     cfg.ListOpt('allowed_hostname',
                 default=["*"],
                 help='Allow hostname'),
-    cfg.IntOpt('token_cache_size',
-               default=25,
-               min=10,
-               max=250,
-               help='Token cache dict size'),
+    cfg.BoolOpt('x_real_ip',
+                default=False,
+                help='Get clent address from head of X-Real-IP'),
 ]
+
 
 cors_opts = [
     cfg.ListOpt('allowed_origin',

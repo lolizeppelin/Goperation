@@ -34,6 +34,8 @@ Requires:       python-simpleservice-rpc >= 1.0
 Requires:       python-simpleservice-rpc < 1.1
 Requires:       python-psutil >= 5.4.0
 Requires:       python-websockify >= 0.8.0
+Requires:       python-msgpack >= 0.4.6
+Requires:       python2-cryptography >= 1.7.2
 
 
 %description

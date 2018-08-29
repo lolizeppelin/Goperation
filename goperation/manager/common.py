@@ -7,6 +7,9 @@ MAX_HOST_NAME_SIZE = 128
 
 ENV_REQUEST_ID = 'goperation.request_id'
 
+FERNETHEAD = 'gopfernet'
+XREALIP = 'X-Real-IP'
+
 # server name
 SERVER = 'gcenter'
 

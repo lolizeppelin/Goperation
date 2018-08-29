@@ -30,6 +30,16 @@ goperation_opts = [
                ),
 ]
 
+
+fernet_opts = [
+    cfg.StrOpt('fernet_key_repository',
+               help='fernet key dir'),
+    cfg.IntOpt('fernet_expire_days',
+               default=1, min=1, max=7,
+               help='fernet expire max day'),
+]
+
+
 manager_group = cfg.OptGroup(name=common.NAME,
                              title='Manager base options')
 
@@ -51,6 +61,10 @@ CONF.register_opts(rpc_client_opts, rabbit_group)
 # reset default value of rabbit_virtual_host
 goperation_config.set_rabbitmq_vhost_default()
 rabbit_conf = CONF[rabbit_group.name]
+
+
+def list_opts():
+    return fernet_opts
 
 
 def list_manager_opts():

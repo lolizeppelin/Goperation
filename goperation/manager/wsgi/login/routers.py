@@ -15,8 +15,8 @@ class Routers(router.RoutersBase):
     def append_routers(self, mapper, routers=None):
         controller_intance = controller_return_response(controller.LoginReuest(), controller.FAULT_MAP)
         self._add_resource(mapper, controller_intance, path='/login/{username}', post_action='login')
-        self._add_resource(mapper, controller_intance, path='/login/{username}', delete_action='loginout')
-        self._add_resource(mapper, controller_intance, path='/login/{token}', get_action='expire')
+        self._add_resource(mapper, controller_intance, path='/login/{username}/{token}', delete_action='loginout')
+        self._add_resource(mapper, controller_intance, path='/login/{username}/{token}', post_action='expire')
 
         # mapper.collection(collection_name=self.collection_name,
         #                   resource_name=self.resource_name,

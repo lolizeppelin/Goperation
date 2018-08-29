@@ -2,6 +2,7 @@
 import re
 import webob.exc
 
+import eventlet
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.orm.exc import MultipleResultsFound
 
@@ -9,18 +10,21 @@ from simpleutil.common.exceptions import InvalidArgument
 from simpleutil.log import log as logging
 from simpleutil.config import cfg
 from simpleutil.utils import jsonutils
-from simpleutil.utils import uuidutils
 from simpleutil.utils import singleton
 from simpleutil.utils import digestutils
 
 from simpleservice.ormdb.api import model_query
 from simpleservice.wsgi.middleware import MiddlewareContorller
 
+from goperation.manager import common as manager_common
 from goperation.manager.config import manager_group
+from goperation.manager.tokens import TokenProvider
 from goperation.manager.api import get_cache
 from goperation.manager.api import get_session
+from goperation.manager.utils import fernet
 from goperation.manager.utils import resultutils
 from goperation.manager.exceptions import CacheStoneError
+from goperation.manager.exceptions import ConfigError
 
 from goperation.manager.models import User
 
@@ -38,6 +42,7 @@ FAULT_MAP = {
 
 @singleton.singleton
 class LoginReuest(MiddlewareContorller):
+
     NAME_REGX = re.compile('^[a-z][a-z0-9]+?$')
     AUTH_PREFIX = CONF[manager_group.name].redis_key_prefix + '-auth'
 
@@ -59,14 +64,8 @@ class LoginReuest(MiddlewareContorller):
         userinfo = query.one()
         if userinfo.password != digestutils.strmd5(userinfo.salt.encode('utf-8') + password):
             raise InvalidArgument('Password error')
-        # 分配token
-        token_id = '-'.join([self.AUTH_PREFIX,
-                             str(uuidutils.generate_uuid()).replace('-', '')])
-        token_data = dict(ip=req.client_addr, user=userinfo.username)
-        cache_store = get_cache()
-        if not cache_store.set(token_id, jsonutils.dumps_as_bytes(token_data), ex=3600, nx=True):
-            LOG.error('Cache token fail')
-            raise CacheStoneError('Set to cache store fail')
+        token = dict(ip=req.client_addr, user=userinfo.username, is_admin=True)
+        token_id = TokenProvider.provide(req, token, 3600)
         LOG.debug('Auth login success')
         return resultutils.results(result='Login success',
                                    data=[dict(username=username,
@@ -74,37 +73,28 @@ class LoginReuest(MiddlewareContorller):
                                               token=token_id,
                                               email=userinfo.email)])
 
-    def loginout(self, req, username, body=None):
+    def loginout(self, req, username, token, body=None):
         body = body or {}
         self._name_check(username)
-        token_id = str(body.get('token'))
-        if not token_id.startswith(self.AUTH_PREFIX):
-            raise InvalidArgument('Token id prefix error')
-        cache_store = get_cache()
-        userinfo = cache_store.get(token_id)
-        if userinfo:
-            userinfo = jsonutils.loads_as_bytes(userinfo)
-            if userinfo.get('user') == username:
-                cache_store.delete(token_id)
-            else:
+
+        def checker(_token):
+            if not _token.get('user') == username:
                 raise InvalidArgument('username not match')
+
+        TokenProvider.delete(req, token, checker)
+
         return resultutils.results(result='Login out user success')
 
-    def expire(self, req, token, body=None):
-        token_id = token
-        if not token_id.startswith(self.AUTH_PREFIX):
-            raise InvalidArgument('Token id prefix error')
-        cache_store = get_cache()
-        userinfo = cache_store.get(token_id)
-        if not userinfo:
-            raise InvalidArgument('Token not exist now')
-        userinfo = jsonutils.loads_as_bytes(userinfo)
-        session = get_session(readonly=True)
-        query = model_query(session, User, filter=User.username == userinfo.get('user'))
-        userinfo = query.one()
-        cache_store.expire(token_id, 3600)
+    def expire(self, req, username, token, body=None):
+
+        def checker(_token):
+            if not _token.get('user') == username:
+                raise InvalidArgument('username not match')
+            session = get_session(readonly=True)
+            query = model_query(session, User, filter=User.username == _token.get('user'))
+            query.one()
+
+        token_id, token = TokenProvider.expire(req, token, checker)
+
         return resultutils.results(result='Expire token success',
-                                   data=[dict(username=userinfo.username,
-                                              id=userinfo.id,
-                                              token=token_id,
-                                              email=userinfo.email)])
+                                   data=[dict(token=token_id)])

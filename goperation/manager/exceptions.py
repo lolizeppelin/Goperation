@@ -35,3 +35,21 @@ class DeleteCountNotSame(Exception):
 
 class AgentMetadataMiss(Exception):
     """Agent meta data miss"""
+
+
+class ConfigError(Exception):
+    """config error"""
+
+
+class TokenError(Exception):
+    """"""
+
+class FernetError(TokenError):
+    """Fernet Error"""
+
+
+class FernetKeysNotFound(FernetError):
+    """"""
+
+class FernetDecryptFail(FernetError):
+    """"""
