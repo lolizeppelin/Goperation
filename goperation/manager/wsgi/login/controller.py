@@ -45,7 +45,6 @@ FAULT_MAP = {
 class LoginReuest(MiddlewareContorller):
 
     NAME_REGX = re.compile('^[a-z][a-z0-9]+?$')
-    AUTH_PREFIX = CONF[manager_group.name].redis_key_prefix + '-auth'
 
     @staticmethod
     def _name_check(username):
@@ -67,7 +66,7 @@ class LoginReuest(MiddlewareContorller):
             raise InvalidArgument('Password error')
         token = dict(ip=req.client_addr, user=userinfo.username)
         token.update({service_common.ADMINAPI: True})
-        token_id = TokenProvider.provide(req, token, 3600)
+        token_id = TokenProvider.create(req, token, 3600)
         LOG.debug('Auth login success')
         return resultutils.results(result='Login success',
                                    data=[dict(username=username,

@@ -30,6 +30,7 @@ CONF.register_opts(fernet_opts, CONF.find_group(manager_common.SERVER))
 @singleton.singleton
 class TokenProvider(object):
 
+    AUTH_PREFIX = CONF[manager_common.NAME].redis_key_prefix + '-auth'
 
     def __index__(self):
         conf = CONF[manager_common.SERVER]

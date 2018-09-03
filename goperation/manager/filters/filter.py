@@ -382,8 +382,8 @@ class AuthFilter(FilterBase):
     def _validate_token(self, req, token):
         # 校验token所用IP是否匹配
         if token.get(service_common.ADMINAPI, False):
-            if token.get('ipaddr') != self._client_addr(req):
-                raise self.client_error('Client ipaddr not match')
+            # if token.get('ipaddr') != self._client_addr(req):
+            #     raise self.client_error('Client ipaddr not match')
             req.environ[service_common.ADMINAPI] = True
         return None
 
