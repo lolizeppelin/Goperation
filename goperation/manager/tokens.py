@@ -9,6 +9,7 @@ from simpleutil.config import cfg
 from simpleutil.log import log as logging
 from simpleutil.common.exceptions import InvalidArgument
 
+from simpleservice import common as service_common
 
 from goperation.manager import api
 from goperation.manager.config import fernet_opts
@@ -28,6 +29,7 @@ CONF.register_opts(fernet_opts, CONF.find_group(manager_common.SERVER))
 
 @singleton.singleton
 class TokenProvider(object):
+
 
     def __index__(self):
         conf = CONF[manager_common.SERVER]
@@ -60,15 +62,27 @@ class TokenProvider(object):
         # 查询缓存
         return self._fetch_token_from_cache(token_id)
 
+    @staticmethod
+    def is_fernet(req):
+        return bool(req.headers.get(manager_common.FERNETHEAD, False))
+
+    @staticmethod
+    def token(req):
+        return req.environ[manager_common.TOKENNAME]
+
     # ----------------- api ----------------------
     def fetch(self, req, token_id):
-        if req.headers.get(manager_common.FERNETHEAD, False):
-            return self._fetch_fernet_token(req, token_id)
+        if manager_common.TOKENNAME in req.environ:
+            raise exceptions.TokenError('Do not fetch token more then once')
+        if self.is_fernet(req):
+            token = self._fetch_fernet_token(req, token_id)
         else:
-            return self._fetch_uuid_token(req, token_id)
+            token = self._fetch_uuid_token(req, token_id)
+        req.environ[manager_common.TOKENNAME] = token
+        return token
 
     def create(self, req, token, expire):
-        if req.headers.get(manager_common.FERNETHEAD, False):
+        if self.is_fernet(req):
             token.update({'expire': expire + int(time.time())})
             if not fernet.FernetTokenFormatter.Fernet:
                 raise exceptions.ConfigError('FernetTokenFormatter is None')
@@ -80,10 +94,11 @@ class TokenProvider(object):
             if not cache_store.set(token_id, jsonutils.dumps_as_bytes(token), ex=expire, nx=True):
                 LOG.error('Cache token fail')
                 raise exceptions.CacheStoneError('Set to cache store fail')
+        req.environ[manager_common.TOKENNAME] = token
         return token_id
 
     def delete(self, req, token_id, checker=None):
-        if req.headers.get(manager_common.FERNETHEAD, False):
+        if self.is_fernet(req):
             token = self.fernet_formatter.unpack(token_id)
             checker & checker(token)
         else:
@@ -98,7 +113,7 @@ class TokenProvider(object):
         return token
 
     def expire(self, req, token_id, expire, chcker=None):
-        if req.headers.get(manager_common.FERNETHEAD, False):
+        if self.is_fernet(req):
             token = self.fernet_formatter.unpack(token_id)
             chcker & chcker(token)
             expire = token.get('expire') + expire

@@ -1,7 +1,7 @@
 [composite:gcenter]
 use = egg:Paste#urlmap
-/v1.0: public
-/auth: auth
+/v1.0: privates
+/n1.0: publics
 
 [filter:authtoken]
 paste.filter_factory = goperation.manager.filters.filter:AuthFilter.factory
@@ -9,14 +9,15 @@ paste.filter_factory = goperation.manager.filters.filter:AuthFilter.factory
 [filter:cors]
 paste.filter_factory = goperation.manager.filters.filter:CorsFilter.factory
 
-[app:centerapi]
-paste.app_factory = goperation.api.route:app_factory
+[app:private]
+paste.app_factory = goperation.api.route:private_factory
 
-[app:authapi]
-paste.app_factory = goperation.api.route:auth_factory
+[app:public]
+paste.app_factory = goperation.api.route:public_factory
 
-[pipeline:public]
-pipeline = cors authtoken centerapi
+[pipeline:privates]
+pipeline = cors authtoken private
 
-[pipeline:auth]
-pipeline = cors authapi
+[pipeline:publics]
+pipeline = cors public
+

@@ -15,6 +15,7 @@ CONF = cfg.CONF
 endpoint_load_opts = [
     cfg.ListOpt('endpoints',
                 item_type=types.String(),
+                default=[],
                 help='The endpoint group name or namespace'),
 ]
 

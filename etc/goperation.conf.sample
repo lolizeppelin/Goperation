@@ -5,7 +5,7 @@
 #
 
 # The endpoint group name or namespace (list value)
-#endpoints = <None>
+#endpoints =
 
 # Goperation local ip address (IP address value)
 #local_ip = <None>
@@ -26,7 +26,7 @@
 # Hostname to be used by the server, agents and services running on this
 # machine. All the agents and services running on this machine must use the
 # same host value. (hostname value)
-#host = surfac
+#host = Gcy-dell
 
 # Enables or disables logging values of all registered options when starting a
 # service (at DEBUG level). (boolean value)

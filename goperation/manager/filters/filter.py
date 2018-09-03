@@ -1,18 +1,16 @@
 # -*- coding:utf-8 -*-
-import time
-
-import eventlet
 import netaddr
 import six
 import webob.dec
 import webob.exc
 
+from simpleutil.config import cfg
+from simpleutil.log import log as logging
+
 from simpleservice import common as service_common
 from simpleservice.wsgi.filter import FilterBase
 from simpleservice.wsgi.middleware import DEFAULT_CONTENT_TYPE
 from simpleservice.wsgi.middleware import default_serializer
-from simpleutil.config import cfg
-from simpleutil.log import log as logging
 
 from goperation.utils import get_network
 from goperation.manager import exceptions
@@ -27,6 +25,12 @@ from goperation.manager.filters.exceptions import InvalidOriginError
 LOG = logging.getLogger(__name__)
 
 CONF = cfg.CONF
+
+
+group = CONF.find_group(manager_common.SERVER)
+
+CONF.register_opts(cors_opts, group)
+CONF.register_opts(authfilter_opts, group)
 
 
 class CorsFilter(FilterBase):
@@ -45,7 +49,6 @@ class CorsFilter(FilterBase):
 
     def __init__(self, application):
         super(CorsFilter, self).__init__(application)
-        CONF.register_opts(cors_opts, CONF.find_group(manager_common.SERVER))
         self.allowed_origins = {}
         self._init_conf()
 
@@ -312,7 +315,6 @@ class AuthFilter(FilterBase):
 
     def __init__(self, application):
         super(AuthFilter, self).__init__(application)
-        CONF.register_opts(authfilter_opts, CONF.find_group(manager_common.SERVER))
         interface, self.ipnetwork = get_network(CONF.local_ip)
         if not self.ipnetwork:
             raise RuntimeError('can not find ipaddr %s on any interface' % CONF.local_ip)
@@ -336,9 +338,6 @@ class AuthFilter(FilterBase):
         self.allowed_clients.add(CONF.local_ip)
         for ipaddr in self.allowed_clients:
             LOG.debug('Allowd client %s' % ipaddr)
-
-        self.token_provider = TokenProvider
-
 
     @staticmethod
     def no_auth(msg='Please auth login first'):
@@ -382,11 +381,10 @@ class AuthFilter(FilterBase):
 
     def _validate_token(self, req, token):
         # 校验token所用IP是否匹配
-        if token.get('is_admin', False):
+        if token.get(service_common.ADMINAPI, False):
             if token.get('ipaddr') != self._client_addr(req):
                 raise self.client_error('Client ipaddr not match')
-            req.environ[service_common.ADMINHEAD] = True
-        req.headers[service_common.TOKENNAME.lower()] = token
+            req.environ[service_common.ADMINAPI] = True
         return None
 
     def fetch_and_validate(self, req):
@@ -406,14 +404,14 @@ class AuthFilter(FilterBase):
         self._validate_host(req)
         # 通过token id 获取token
         try:
-            token = self.token_provider.fetch(req, token_id)
+            token = TokenProvider.fetch(req, token_id)
         except exceptions.TokenError as e:
             return self.no_auth(e.message)
 
         return self._validate_token(req, token)
 
     def process_request(self, req):
-        req.environ[service_common.ADMINHEAD] = False
+        req.environ[service_common.ADMINAPI] = False
         return self.fetch_and_validate(req)
 
 

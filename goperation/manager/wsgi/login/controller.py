@@ -13,6 +13,7 @@ from simpleutil.utils import jsonutils
 from simpleutil.utils import singleton
 from simpleutil.utils import digestutils
 
+from simpleservice import common as service_common
 from simpleservice.ormdb.api import model_query
 from simpleservice.wsgi.middleware import MiddlewareContorller
 
@@ -64,7 +65,8 @@ class LoginReuest(MiddlewareContorller):
         userinfo = query.one()
         if userinfo.password != digestutils.strmd5(userinfo.salt.encode('utf-8') + password):
             raise InvalidArgument('Password error')
-        token = dict(ip=req.client_addr, user=userinfo.username, is_admin=True)
+        token = dict(ip=req.client_addr, user=userinfo.username)
+        token.update({service_common.GOPADMIN: True})
         token_id = TokenProvider.provide(req, token, 3600)
         LOG.debug('Auth login success')
         return resultutils.results(result='Login success',

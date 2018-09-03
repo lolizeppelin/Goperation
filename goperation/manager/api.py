@@ -1,5 +1,4 @@
 import socket
-from requests import adapters
 
 from simpleutil.config import cfg
 from simpleutil.utils import timeutils
@@ -11,7 +10,7 @@ from simpleservice.ormdb.api import MysqlDriver
 from simpleservice.plugin.rpcclient import RPCClientBase
 
 from goperation import lock
-from goperation.redis import GRedisPool
+from goperation.redis.client import GRedisPool
 from goperation.api.client import ManagerClient
 from goperation.manager.config import manager_group
 from goperation.manager.config import rabbit_conf
@@ -37,24 +36,24 @@ class ManagerRpcClient(RPCClientBase):
         self.rpcdriver.init_timeout_record(session=get_session(readonly=False))
 
 
-class GopHTTPAdapter(adapters.HTTPAdapter):
-
-    def init_poolmanager(self, connections, maxsize, block=adapters.DEFAULT_POOLBLOCK, **pool_kwargs):
-
-        socket_options = [(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1),
-                          (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)]
-
-        if hasattr(socket, 'TCP_KEEPIDLE'):
-            keepalive_opts = [(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 30),
-                              (socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 3),
-                              (socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 3)]
-            socket_options.extend(keepalive_opts)
-        # _Session = Session()
-        # _Session.mount('http://', GopHTTPAdapter(pool_connections=conf.http_pconn_count,
-        #                                          pool_maxsize=conf.http_conn_max))
-        pool_kwargs.setdefault('socket_options', socket_options)
-        super(GopHTTPAdapter, self).init_poolmanager(connections, maxsize,
-                                                     block=adapters.DEFAULT_POOLBLOCK, **pool_kwargs)
+# class GopHTTPAdapter(adapters.HTTPAdapter):
+#
+#     def init_poolmanager(self, connections, maxsize, block=adapters.DEFAULT_POOLBLOCK, **pool_kwargs):
+#
+#         socket_options = [(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1),
+#                           (socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)]
+#
+#         if hasattr(socket, 'TCP_KEEPIDLE'):
+#             keepalive_opts = [(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 30),
+#                               (socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 3),
+#                               (socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 3)]
+#             socket_options.extend(keepalive_opts)
+#         _Session = Session()
+#         _Session.mount('http://', GopHTTPAdapter(pool_connections=conf.http_pconn_count,
+#                                                  pool_maxsize=conf.http_conn_max))
+#         pool_kwargs.setdefault('socket_options', socket_options)
+#         super(GopHTTPAdapter, self).init_poolmanager(connections, maxsize,
+#                                                      block=adapters.DEFAULT_POOLBLOCK, **pool_kwargs)
 
 
 def rpcfinishtime(starttime=None):

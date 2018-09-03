@@ -20,9 +20,27 @@ def configure(config_files=None, config_dirs=None):
     from simpleutil.utils import importutils
     from simpleservice.wsgi.config import wsgi_server_options
     from simpleservice.wsgi.config import find_paste_abs
+
     from goperation import EXTEND_ROUTES
-    from goperation import AUTH_ROUTES
+    from goperation import OPEN_ROUTES
+    from goperation import CORE_ROUTES
+
     from goperation.manager.wsgi.config import route_opts
+
+    from goperation.manager.wsgi.agent import routers as agent_routes
+    from goperation.manager.wsgi.file import routers as file_routes
+    from goperation.manager.wsgi.port import routers as port_routes
+    from goperation.manager.wsgi.endpoint import routers as endpoint_routes
+    from goperation.manager.wsgi.entity import routers as entity_routes
+    from goperation.manager.wsgi.cache import routers as cache_routes
+    from goperation.manager.wsgi.asyncrequest import routers as asyncrequest_routes
+    from goperation.manager.wsgi.agent.scheduler import routers as scheduler_routes
+    from goperation.manager.wsgi.agent.application import routers as application_routes
+
+    # insert core routes
+    CORE_ROUTES.extend([port_routes, entity_routes, endpoint_routes, agent_routes,
+                        scheduler_routes, application_routes, asyncrequest_routes,
+                        cache_routes, file_routes])
 
     # set wsgi config
     CONF.register_opts(wsgi_server_options, group=gcenter_group)
@@ -31,15 +49,15 @@ def configure(config_files=None, config_dirs=None):
     # add gcenter extend route
     CONF.register_opts(route_opts, gcenter_group)
 
-    for cls in CONF[gcenter_group.name].auths:
-        # route_class = '%s.Routers' % route
-        AUTH_ROUTES.append(importutils.import_module(cls))
-        LOG.debug('Add auth route %s success' % cls)
-
     for cls in CONF[gcenter_group.name].routes:
         # route_class = '%s.Routers' % route
         EXTEND_ROUTES.append(importutils.import_module(cls))
         LOG.debug('Add extend route %s success' % cls)
+
+    for cls in CONF[gcenter_group.name].publics:
+        # route_class = '%s.Routers' % route
+        OPEN_ROUTES.append(importutils.import_module(cls))
+        LOG.debug('Add public route %s success' % cls)
 
     # set endpoint config
     if CONF.endpoints:
@@ -52,9 +70,10 @@ def configure(config_files=None, config_dirs=None):
             for cls in CONF[endpoint_group.name].routes:
                 EXTEND_ROUTES.append(importutils.import_module(cls))
                 LOG.debug('Add endpoint route %s success' % cls)
-            for cls in CONF[endpoint_group.name].auths:
-                AUTH_ROUTES.append(importutils.import_module(cls))
-                LOG.debug('Add endpoint auth route %s success' % cls)
+            for cls in CONF[endpoint_group.name].publics:
+                OPEN_ROUTES.append(importutils.import_module(cls))
+                LOG.debug('Add endpoint public route %s success' % cls)
+
     paste_file_path = find_paste_abs(CONF[gcenter_group.name])
     return gcenter_group.name, paste_file_path
 

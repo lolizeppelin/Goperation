@@ -9,6 +9,7 @@ ENV_REQUEST_ID = 'goperation.request_id'
 
 FERNETHEAD = 'gopfernet'
 XREALIP = 'X-Real-IP'
+TOKENNAME = 'gop.token'
 
 # server name
 SERVER = 'gcenter'
