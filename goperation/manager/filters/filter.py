@@ -390,6 +390,7 @@ class AuthFilter(FilterBase):
     def fetch_and_validate(self, req):
         """取出数据并校验"""
         if self._address_allowed(req):
+            req.environ[service_common.ADMINAPI] = True
             return None
         token_id = req.headers.get(service_common.TOKENNAME.lower())
         if not token_id:
@@ -398,6 +399,7 @@ class AuthFilter(FilterBase):
             return self.no_auth('Token over size')
         # 可信任token,一般为用于服务组件之间的wsgi请求
         if self.trusted and token_id == self.trusted:
+            req.environ[service_common.ADMINAPI] = True
             LOG.debug('Trusted token passed, address %s' % self._client_addr(req))
             return None
         # 校验host
