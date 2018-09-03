@@ -66,7 +66,7 @@ class LoginReuest(MiddlewareContorller):
         if userinfo.password != digestutils.strmd5(userinfo.salt.encode('utf-8') + password):
             raise InvalidArgument('Password error')
         token = dict(ip=req.client_addr, user=userinfo.username)
-        token.update({service_common.GOPADMIN: True})
+        token.update({service_common.ADMINAPI: True})
         token_id = TokenProvider.provide(req, token, 3600)
         LOG.debug('Auth login success')
         return resultutils.results(result='Login success',
