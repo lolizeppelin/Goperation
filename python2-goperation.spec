@@ -21,7 +21,7 @@ Source0:        %{proj_name}-%{version}.tar.gz
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildArch:      noarch
 
-BuildRequires:  python-setuptools >= 11.0
+BuildRequires:  python-setuptools >= 11.3
 BuildRequires:  python-simpleutil
 
 Requires:       ntp >= 4.0
