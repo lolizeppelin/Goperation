@@ -122,7 +122,7 @@ class AppEndpointBase(RpcAgentEndpointBase):
         return token
 
     @contextlib.contextmanager
-    def _prepare_entity_path(self, entity, apppath=True, logpath=True, mode=0755):
+    def _prepare_entity_path(self, entity, apppath=True, logpath=True, mode=0o755):
         _user = self.entity_user(entity)
         _group = self.entity_group(entity)
         entity_home = self.entity_home(entity)
