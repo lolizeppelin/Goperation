@@ -85,9 +85,7 @@ class TokenProvider(object):
     def create(self, req, token, expire):
         if self.is_fernet(req):
             token.update({'expire': expire + int(time.time())})
-            if not fernet.FernetTokenFormatter.Fernet:
-                raise exceptions.ConfigError('FernetTokenFormatter is None')
-            token_id = fernet.FernetTokenFormatter.Fernet.pack(token)
+            token_id = self.fernet_formatter.pack(token)
         else:
             cache_store = api.get_cache()
             token_id = '-'.join([self.AUTH_PREFIX,
