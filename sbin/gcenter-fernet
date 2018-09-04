@@ -4,6 +4,8 @@ import logging as defalut_logging
 from simpleutil.log import log as logging
 from simpleutil.config import cfg
 
+from goperation.manager import common as manager_common
+from goperation.manager.config import fernet_opts
 
 command_opts = [
     cfg.BoolOpt('init',
@@ -16,25 +18,24 @@ CONF.register_cli_opts(command_opts)
 
 def main():
 
-    from goperation.manager import common as manager_common
     group = cfg.OptGroup(name=manager_common.NAME, title='group of goperation %s' % manager_common.NAME)
+    sgroup = cfg.OptGroup(name=manager_common.SERVER, title='group of goperation %s' % manager_common.SERVER)
     CONF(args=None,
          project=group.name,
          default_config_files=['/etc/goperation/goperation.conf',
                                '/etc/goperation/gcenter.conf'])
-    logging.register_options(CONF)
     logging.setup(CONF, group.name)
     defalut_logging.captureWarnings(True)
 
     CONF.register_group(group)
+    CONF.register_group(sgroup)
 
-    from goperation.manager.config import fernet_opts
     from simpleservice.wsgi.config import wsgi_server_options
 
-    CONF.register_opts(fernet_opts, group)
-    CONF.register_opts(wsgi_server_options, group)
+    CONF.register_opts(fernet_opts, sgroup)
+    CONF.register_opts(wsgi_server_options, sgroup)
 
-    conf = CONF[manager_common.NAME]
+    conf = CONF[manager_common.SERVER]
 
     from goperation.manager.utils import fernet
 
