@@ -32,7 +32,7 @@ class TokenProvider(object):
 
     AUTH_PREFIX = CONF[manager_common.NAME].redis_key_prefix + '-auth'
 
-    def __index__(self):
+    def __init__(self):
         conf = CONF[manager_common.SERVER]
         try:
             self.fernet_formatter = fernet.FernetTokenFormatter(conf.fernet_key_repository,

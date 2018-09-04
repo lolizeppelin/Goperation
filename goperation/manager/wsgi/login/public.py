@@ -9,7 +9,8 @@ MEMBER_ACTIONS = []
 
 
 class Routers(router.RoutersBase):
-    # resource_name = manager_common.LOGIN
+
+    resource_name = 'goplogin'
     # collection_name = resource_name + 's'
 
     def append_routers(self, mapper, routers=None):
