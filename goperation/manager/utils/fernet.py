@@ -178,11 +178,10 @@ class FernetTokenFormatter(object):
         self.key_repository = path
         self.max_active_keys = days + 2
 
-        self._fernet = None
-        self._reload()
-
+        self._fernet = self._crypto()
         if not self._fernet:
             raise exceptions.FernetKeysNotFound()
+        eventlet.spawn_after(3600 + random.randint(-10, 10), self._reload)
 
         # FernetTokenFormatter.Fernet = self
 
