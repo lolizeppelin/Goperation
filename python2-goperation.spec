@@ -109,6 +109,7 @@ goperation wsgi server and rpc server
 %{_sbindir}/gcenter-rpc
 %{_sbindir}/gcenter-wsgi
 %{_sbindir}/gcenter-db-init
+%{_sbindir}/gcenter-fernet
 
 
 %package agent

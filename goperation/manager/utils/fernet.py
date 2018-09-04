@@ -1,4 +1,5 @@
 import os
+import stat
 import struct
 import base64
 import random
@@ -24,6 +25,51 @@ TIMESTAMP_END = 9
 LOG = logging.getLogger(__name__)
 
 
+
+
+def validate_key_repository(key_repository, user, group,
+                            requires_write=True):
+    """Validate permissions on the key repository directory."""
+    # NOTE(lbragstad): We shouldn't need to check if the directory was passed
+    # in as None because we don't set allow_no_values to True.
+
+    # ensure current user has sufficient access to the key repository
+    if not os.path.isdir(key_repository):
+        return False
+
+    if systemutils.POSIX:
+        pid = os.fork()
+
+        if pid > 0:
+            systemutils.drop_privileges(user, group)
+            is_valid = (os.access(key_repository, os.R_OK) and
+                        os.access(key_repository, os.X_OK))
+
+            if requires_write:
+                is_valid = (is_valid and os.access(key_repository, os.W_OK))
+
+            if not is_valid:
+                LOG.error('Either [fernet_tokens] key_repository does not exist or '
+                          'Keystone does not have sufficient permission to access it: '
+                          '%s' % key_repository)
+                os._exit(1)
+            else:
+                # ensure the key repository isn't world-readable
+                stat_info = os.stat(key_repository)
+                if(stat_info.st_mode & stat.S_IROTH or
+                   stat_info.st_mode & stat.S_IXOTH):
+                    LOG.warning('[fernet_tokens] key_repository is world readable: %s' % key_repository)
+                    os._exit(1)
+            os._exit(0)
+        else:
+            _pid, status = os.waitpid(pid, 0)
+            code = os.WEXITSTATUS(status)
+            if code:
+                LOG.error('Subprocess exit code %d' % code)
+                return False
+    return True
+
+
 def create_key_directory(key_repository, user, group):
     """If the configured key directory does not exist, attempt to create it."""
     # if not os.access(key_repository, os.F_OK):
@@ -37,6 +83,10 @@ def create_key_directory(key_repository, user, group):
                       'create it')
         systemutils.chown(key_repository, user, group)
         systemutils.chmod(key_repository, 0700)
+
+    if not validate_key_repository(key_repository, user, group):
+        raise OSError('validate key repository fail')
+
 
 
 def initialize_key_repository(key_repository, max_active_keys,
@@ -83,6 +133,10 @@ def rotate_keys(key_repository, max_active_keys, user=None, group=None):
     """Create a new primary key and revoke excess active keys.
     """
     # read the list of key files
+    if max_active_keys < 1:
+        LOG.error('max_active_keys must be at least 1 to maintain a primary key.')
+        raise RuntimeError('max active keys less then 1')
+
     key_files = dict()
     for filename in os.listdir(key_repository):
         path = os.path.join(key_repository, filename)
@@ -113,13 +167,6 @@ def rotate_keys(key_repository, max_active_keys, user=None, group=None):
 
     # add a new key to the rotation, which will be the *next* primary
     create_new_key(key_repository, user, group)
-
-    max_active_keys = max_active_keys
-    # check for bad configuration
-    if max_active_keys < 1:
-        LOG.warning('max_active_keys must be at least 1 to maintain a primary key.')
-        max_active_keys = 1
-
     # purge excess keys
     # Note that key_files doesn't contain the new active key that was created,
     # only the old active keys.
