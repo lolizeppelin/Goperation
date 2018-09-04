@@ -38,6 +38,7 @@ class TokenProvider(object):
             self.fernet_formatter = fernet.FernetTokenFormatter(conf.fernet_key_repository,
                                                                 conf.fernet_expire_days)
         except exceptions.FernetKeysNotFound:
+            LOG.warning('Not supported for fernet token')
             self.fernet_formatter = None
 
     # ------------------  fernet token ----------------------
