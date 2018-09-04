@@ -34,8 +34,11 @@ class TokenProvider(object):
 
     def __index__(self):
         conf = CONF[manager_common.SERVER]
-        self.fernet_formatter = fernet.FernetTokenFormatter(conf.fernet_key_repository,
-                                                            conf.fernet_expire_days)
+        try:
+            self.fernet_formatter = fernet.FernetTokenFormatter(conf.fernet_key_repository,
+                                                                conf.fernet_expire_days)
+        except exceptions.FernetKeysNotFound:
+            self.fernet_formatter = None
 
     # ------------------  fernet token ----------------------
     def _fetch_fernet_token(self, req, token_id):
@@ -67,6 +70,13 @@ class TokenProvider(object):
     def is_fernet(req):
         return bool(req.headers.get(manager_common.FERNETHEAD, False))
 
+    def _is_fernet(self, req):
+        is_fernet = self.is_fernet(req)
+        if is_fernet and not self.fernet_formatter:
+            raise NotImplementedError('fernet key not init')
+        return is_fernet
+
+
     @staticmethod
     def token(req):
         return req.environ[manager_common.TOKENNAME]
@@ -75,7 +85,7 @@ class TokenProvider(object):
     def fetch(self, req, token_id):
         if manager_common.TOKENNAME in req.environ:
             raise exceptions.TokenError('Do not fetch token more then once')
-        if self.is_fernet(req):
+        if self._is_fernet(req):
             token = self._fetch_fernet_token(req, token_id)
         else:
             token = self._fetch_uuid_token(req, token_id)
@@ -83,7 +93,7 @@ class TokenProvider(object):
         return token
 
     def create(self, req, token, expire):
-        if self.is_fernet(req):
+        if self._is_fernet(req):
             token.update({'expire': expire + int(time.time())})
             token_id = self.fernet_formatter.pack(token)
         else:
@@ -97,7 +107,7 @@ class TokenProvider(object):
         return token_id
 
     def delete(self, req, token_id, checker=None):
-        if self.is_fernet(req):
+        if self._is_fernet(req):
             token = self.fernet_formatter.unpack(token_id)
             checker & checker(token)
         else:
@@ -112,7 +122,7 @@ class TokenProvider(object):
         return token
 
     def expire(self, req, token_id, expire, chcker=None):
-        if self.is_fernet(req):
+        if self._is_fernet(req):
             token = self.fernet_formatter.unpack(token_id)
             chcker & chcker(token)
             expire = token.get('expire') + expire
