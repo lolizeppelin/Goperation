@@ -1,5 +1,4 @@
 # -*- coding:utf-8 -*-
-# -*- coding:utf-8 -*-
 from sqlalchemy.orm import joinedload
 
 from simpleservice.ormdb.api import model_query
