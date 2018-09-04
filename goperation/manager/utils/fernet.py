@@ -175,6 +175,10 @@ class FernetTokenFormatter(object):
 
 
     def __init__(self, path, days):
+
+        if not path:
+            raise exceptions.FernetKeysNotFound()
+
         self.key_repository = path
         self.max_active_keys = days + 2
 
