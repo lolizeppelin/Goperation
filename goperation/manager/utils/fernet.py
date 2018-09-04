@@ -40,7 +40,7 @@ def validate_key_repository(key_repository, user, group,
     if systemutils.POSIX:
         pid = os.fork()
 
-        if pid > 0:
+        if pid == 0:
             systemutils.drop_privileges(user, group)
             is_valid = (os.access(key_repository, os.R_OK) and
                         os.access(key_repository, os.X_OK))
@@ -82,7 +82,7 @@ def create_key_directory(key_repository, user, group):
                       'already exists or you don\'t have sufficient permissions to '
                       'create it')
         systemutils.chown(key_repository, user, group)
-        systemutils.chmod(key_repository, 0700)
+        systemutils.chmod(key_repository, 0o700)
 
     if not validate_key_repository(key_repository, user, group):
         raise OSError('validate key repository fail')
