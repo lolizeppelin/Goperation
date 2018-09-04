@@ -110,7 +110,7 @@ class TokenProvider(object):
     def delete(self, req, token_id, checker=None):
         if self._is_fernet(req):
             token = self.fernet_formatter.unpack(token_id)
-            checker & checker(token)
+            if checker: checker(token)
         else:
             if not token_id.startswith(self.AUTH_PREFIX):
                 raise InvalidArgument('Token id prefix error')
@@ -118,14 +118,14 @@ class TokenProvider(object):
             token = cache_store.get(token_id)
             if token:
                 token = jsonutils.loads_as_bytes(token)
-                checker & checker(token)
+                if checker: checker(token)
                 cache_store.delete(token_id)
         return token
 
-    def expire(self, req, token_id, expire, chcker=None):
+    def expire(self, req, token_id, expire, checker=None):
         if self._is_fernet(req):
             token = self.fernet_formatter.unpack(token_id)
-            chcker & chcker(token)
+            if checker: checker(token)
             expire = token.get('expire') + expire
             token.update({'expire': expire})
             token_id = self.fernet_formatter.pack(token)
@@ -137,7 +137,7 @@ class TokenProvider(object):
             if not token:
                 raise exceptions.TokenError('Token not exist now')
             token = jsonutils.loads_as_bytes(token)
-            chcker & chcker(token)
+            if checker: checker(token)
             cache_store.expire(token_id, expire)
         return token_id, token
 
