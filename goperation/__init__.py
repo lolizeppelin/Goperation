@@ -1,3 +1,4 @@
+# -*- coding:utf-8 -*-
 __version__ = '1.0.0'
 VERSION = tuple(map(int, __version__.split('.')))
 
@@ -17,9 +18,9 @@ from simpleutil.utils.threadgroup import ThreadGroup
 threadpool = ThreadGroup(thread_pool_size=100)
 
 #  Routes or wsgi
-CORE_ROUTES = []
-EXTEND_ROUTES = []
-OPEN_ROUTES = []
+CORE_ROUTES = []            # 核心路由
+EXTEND_ROUTES = []          # 扩展路由
+OPEN_ROUTES = []            # 公开路由
 
 # public locks
 lock = lockutils.Semaphores()
