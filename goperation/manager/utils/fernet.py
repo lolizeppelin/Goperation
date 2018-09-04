@@ -173,7 +173,6 @@ class FernetTokenFormatter(object):
 
     CONF = None
 
-    Fernet = None
 
     def __init__(self, path, days):
         self.key_repository = path
@@ -185,7 +184,7 @@ class FernetTokenFormatter(object):
         if not self._fernet:
             raise exceptions.FernetKeysNotFound()
 
-        FernetTokenFormatter.Fernet = self
+        # FernetTokenFormatter.Fernet = self
 
     @staticmethod
     def restore_padding(token):
@@ -210,7 +209,6 @@ class FernetTokenFormatter(object):
         except exceptions.FernetKeysNotFound:
             eventlet.spawn_after(60, self._reload)
         except Exception as e:
-
             if LOG.isEnabledFor(logging.DEBUG):
                 LOG.exception('Reload fernet key error')
             else:
