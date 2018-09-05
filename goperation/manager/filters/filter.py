@@ -6,6 +6,7 @@ import webob.exc
 
 from simpleutil.config import cfg
 from simpleutil.log import log as logging
+from simpleutil.common.exceptions import InvalidArgument
 
 from simpleservice import common as service_common
 from simpleservice.wsgi.filter import FilterBase
@@ -407,6 +408,8 @@ class AuthFilter(FilterBase):
         # 通过token id 获取token
         try:
             token = TokenProvider.fetch(req, token_id)
+        except InvalidArgument as e:
+            return self.client_error(e.message)
         except exceptions.TokenError as e:
             return self.no_auth(e.message)
 
