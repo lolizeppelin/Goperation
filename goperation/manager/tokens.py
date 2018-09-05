@@ -69,7 +69,10 @@ class TokenProvider(object):
 
     @staticmethod
     def is_fernet(req):
-        return bool(req.headers.get(manager_common.FERNETHEAD, False))
+        v = req.headers.get(manager_common.FERNETHEAD, False)
+        if v and v.lower() in ('true', 'yes'):
+            return True
+        return False
 
     def _is_fernet(self, req):
         is_fernet = self.is_fernet(req)
