@@ -361,7 +361,6 @@ class AuthFilter(FilterBase):
         kwargs = {'body': body, 'content_type': DEFAULT_CONTENT_TYPE}
         return webob.exc.HTTPClientError(**kwargs)
 
-
     def _address_allowed(self, req):
         # 来源ip在允许的ip列表中
         ipaddr = self._client_addr(req)
@@ -410,7 +409,7 @@ class AuthFilter(FilterBase):
             token = TokenProvider.fetch(req, token_id)
         except InvalidArgument as e:
             return self.client_error(e.message)
-        except exceptions.TokenError as e:
+        except exceptions.TokenExpiredError as e:
             return self.no_auth(e.message)
 
         return self._validate_token(req, token)

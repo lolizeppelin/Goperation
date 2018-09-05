@@ -44,6 +44,8 @@ class TokenProvider(object):
     # ------------------  fernet token ----------------------
     def _fetch_fernet_token(self, req, token_id):
         token = self.fernet_formatter.unpack(token_id)
+        if int(time.time()) > token.get('expire'):
+            raise exceptions.TokenExpiredError('Token has been expired')
         return token
 
     # ------------------  uuid token ----------------------
@@ -57,7 +59,7 @@ class TokenProvider(object):
         token, ttl = pipe.execute()
         # 过期时间小于15s, 认为已经过期
         if not token or ttl < 15:
-            raise exceptions.TokenError('Token has been expired drop from cache')
+            raise exceptions.TokenExpiredError('Token has been expired drop from cache')
         token = jsonutils.loads_as_bytes(token)
         return token
 
@@ -138,7 +140,7 @@ class TokenProvider(object):
             cache_store = api.get_cache()
             token = cache_store.get(token_id)
             if not token:
-                raise exceptions.TokenError('Token not exist now')
+                raise exceptions.TokenExpiredError('Token not exist now')
             token = jsonutils.loads_as_bytes(token)
             if checker: checker(token)
             cache_store.expire(token_id, expire)

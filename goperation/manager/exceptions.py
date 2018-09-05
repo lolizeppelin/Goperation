@@ -47,6 +47,9 @@ class TokenError(Exception):
 class FernetError(TokenError):
     """Fernet Error"""
 
+class TokenExpiredError(TokenError):
+    """token is expired"""
+
 
 class FernetKeysNotFound(FernetError):
     """"""
