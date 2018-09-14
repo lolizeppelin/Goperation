@@ -87,6 +87,10 @@ class TokenProvider(object):
     def token(req):
         return req.environ[manager_common.TOKENNAME]
 
+    @staticmethod
+    def getid(req):
+        return req.headers.get(service_common.TOKENNAME.lower())
+
     # ----------------- api ----------------------
     def fetch(self, req, token_id):
         if manager_common.TOKENNAME in req.environ:
