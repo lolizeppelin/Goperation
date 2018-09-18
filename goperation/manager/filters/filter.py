@@ -220,6 +220,7 @@ class CorsFilter(FilterBase):
         for requested_header in request_headers:
             upper_header = requested_header.upper()
             if upper_header not in permitted_headers:
+                LOG.warning("Request header '%s' not in allow header list" % requested_header)
                 LOG.debug('Request header \'%s\' not in permitted list: %s'
                           % (requested_header, permitted_headers))
                 return response
