@@ -1,8 +1,6 @@
 import six
 import copy
-import abc
 import requests
-import inspect
 
 import eventlet
 
@@ -11,6 +9,8 @@ from simpleutil.utils import jsonutils
 from simpleservice.rpc.target import Target
 
 import goperation
+from goperation.notify import NotifyInterface
+from goperation.notify import GeneralNotify
 from goperation.utils import safe_func_wrapper
 from goperation.manager.api import get_http
 from goperation.manager.api import get_client
@@ -64,43 +64,13 @@ NOTIFYSCHEMA = {
 }
 
 
-@six.add_metaclass(abc.ABCMeta)
-class NotifyInterface(object):
-    def __init__(self, notify, delay=None):
-        self.delay = delay
-        self.notify = notify
-
-    @abc.abstractmethod
-    def _do(self, keyword, replace=None):
-        """impl do"""
-
-    @abc.abstractmethod
-    def default(self, *args, **kwargs):
-        """"""
-
-    def __getattr__(self, attrib):
-        return self.default
-
-
-class EmptyNotify(NotifyInterface):
+class EmptyNotify(NotifyInterface, GeneralNotify):
 
     def default(self):
         """do nothing"""
 
     def _do(self, *args, **kwargs):
         """do nothing"""
-
-
-@six.add_metaclass(abc.ABCMeta)
-class GeneralNotify(object):
-
-    def success(self):
-        key = inspect.stack()[0][3]
-        self._do(key)
-
-    def fail(self):
-        keyword = inspect.stack()[0][3]
-        self._do(keyword)
 
 
 class GopRpcNotify(NotifyInterface, GeneralNotify):
@@ -143,7 +113,8 @@ class GopHttpNotify(NotifyInterface, GeneralNotify):
         goperation.threadpool.add_thread(safe_func_wrapper, wapper, LOG)
 
 
-class HttpNotify(NotifyInterface):
+class HttpNotify(NotifyInterface, GeneralNotify):
+
     def default(self):
         raise NotImplementedError
 

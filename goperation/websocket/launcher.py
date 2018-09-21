@@ -15,6 +15,7 @@ from simpleutil.utils import uuidutils
 
 import goperation
 from goperation.utils import safe_fork
+from goperation.notify import GeneralNotify
 
 
 CONF = cfg.CONF
@@ -29,6 +30,8 @@ class LaunchWebsocket(object):
 
     def upload(self, user, group, ipaddr, port,
                rootpath, fileinfo, logfile, exitfunc, notify, timeout):
+        if notify and not isinstance(notify, GeneralNotify):
+            raise TypeError('notify not subclass of GeneralNotify')
         if timeout:
             timeout = int(timeout)
         if timeout > 7200:
@@ -65,7 +68,7 @@ class LaunchWebsocket(object):
             # 准备文件目录
             path = os.path.split(filename)[0]
             if not os.path.exists(path):
-                os.makedirs(path, mode=0775)
+                os.makedirs(path, mode=0o775)
                 os.chown(path, user, group)
             else:
                 if not os.path.isdir(path):
@@ -124,7 +127,7 @@ class LaunchWebsocket(object):
                 exitfunc()
                 if not os.path.exists(_tempfile):
                     LOG.error('Upload file fail, %s not exist' % _tempfile)
-                    notify.fail()
+                    notify & notify.fail()
                     return
                 if os.path.getsize(_tempfile) != fileinfo.get('size'):
                     LOG.error('Size not match')
@@ -132,13 +135,13 @@ class LaunchWebsocket(object):
                         os.remove(_tempfile)
                     except (OSError, IOError):
                         LOG.error('remove websocket temp file %s fail' % _tempfile)
-                    notify.fail()
+                    notify & notify.fail()
                     return
                 if overwrite:
                     os.remove(overwrite)
                 LOG.info('Upload file end, success')
                 os.rename(_tempfile, filename)
-                notify.success()
+                notify & notify.success()
 
             eventlet.spawn_n(_wait)
 
