@@ -22,7 +22,7 @@ class RpcManagerBase(ManagerBase):
         self.host = CONF.host
         self.work_path = CONF.work_path
         if not os.path.exists(self.work_path):
-            os.makedirs(self.work_path, 0755)
+            os.makedirs(self.work_path, 0o755)
         self.local_ip = CONF.local_ip
         self.external_ips = CONF.external_ips
         self.work_lock = PriorityLock()

@@ -24,7 +24,7 @@ def init_taskflow_session():
                     connection = 'sqlite:///%s' % os.path.join(conf.taskflowcache,
                                                                'taskflow.db')
                     if not os.path.exists(conf.taskflowcache):
-                        os.makedirs(conf.taskflowcache, 0755)
+                        os.makedirs(conf.taskflowcache, 0o755)
                     if systemutils.LINUX and conf.ramfscache:
                         # TODO mount ramfs on taskflowcache
                         pass
