@@ -216,6 +216,7 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
 
 
 class FileReadWebSocketServer(GopWebSocketServerBase):
+    
     def __init__(self):
         super(FileReadWebSocketServer, self).__init__(RequestHandlerClass=FileSendRequestHandler)
         self.logger = logging.getLogger()
