@@ -1,0 +1,3 @@
+class WebSocketError(Exception):
+    """"""
+

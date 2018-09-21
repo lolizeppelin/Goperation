@@ -13,6 +13,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+from simpleutil.config import cfg
 import os
 import time
 import select
@@ -22,8 +23,6 @@ import cgi
 import logging
 
 import eventlet
-import six.moves.urllib.parse as urlparse
-from six.moves import http_cookies as Cookie
 from websockify import websocket
 
 try:
@@ -36,20 +35,22 @@ try:
 except ImportError:
     from StringIO import StringIO
 
-from simpleutil.config import cfg
 from simpleutil.utils import systemutils
 from simpleutil.utils import jsonutils
 from simpleutil.utils.tailutils import TailWithF
 from simpleutil.utils.threadgroup import ThreadGroup
 
 
+from goperation.websocket import exceptions
 from goperation.websocket.base import GopWebSocketServerBase
+from goperation.websocket.base import fetch_token
 
 CONF = cfg.CONF
 
 reader_opts = [
     cfg.IntOpt('lines',
                short='n',
+               default=10,
                min=1,
                help='output the last n lines, instead of the last 10'),
     ]
@@ -84,16 +85,12 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
         if path == '/':
             raise ValueError('Home value error')
         # 校验token
-        token = object()
-        hcookie = self.headers.getheader('cookie')
-        if hcookie:
-            cookie = Cookie.SimpleCookie()
-            cookie.load(hcookie)
-            if 'token' in cookie:
-                token = cookie['token'].value
-        if token != CONF.token:
-            logging.error('token error')
-            # self.send_error(404, "Token not match")
+        try:
+            if fetch_token(self.path, self.headers) != CONF.token:
+                logging.error('Token not match')
+                self.send_error(401, "Token not match")
+        except exceptions.WebSocketError as e:
+            self.send_error(405, e.message)
 
         if not self.handle_websocket():
             # 普通的http get方式

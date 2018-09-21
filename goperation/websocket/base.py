@@ -1,3 +1,4 @@
+import sys
 import logging
 from websockify import websocket
 
@@ -5,6 +6,9 @@ try:
     from http.server import SimpleHTTPRequestHandler
 except:
     from SimpleHTTPServer import SimpleHTTPRequestHandler
+
+from six.moves import http_cookies as Cookie
+import six.moves.urllib.parse as urlparse
 
 try:
     from cStringIO import StringIO
@@ -14,6 +18,7 @@ except ImportError:
 from simpleutil.config import cfg
 
 from goperation.utils import suicide
+from goperation.websocket import exceptions
 
 CONF = cfg.CONF
 
@@ -38,3 +43,28 @@ class GopWebSocketServerBase(websocket.WebSocketServer):
             return super(GopWebSocketServerBase, self).do_handshake(sock, address)
         except Exception:
             raise self.Terminate()
+
+
+def fetch_token(path, headers):
+
+    parse = urlparse.urlparse(path)
+    if parse.scheme not in ('http', 'https'):
+        # From a bug in urlparse in Python < 2.7.4 we cannot support
+        # special schemes (cf: http://bugs.python.org/issue9374)
+        if sys.version_info < (2, 7, 4):
+            raise exceptions.WebSocketError("We do not support scheme '%s' under "
+                                            "Python < 2.7.4, please use http or https" % parse.scheme)
+
+    query = parse.query
+    token = urlparse.parse_qs(query).get("token", [""]).pop()
+    if not token:
+        hcookie = headers.getheader('cookie')
+        if hcookie:
+            cookie = Cookie.SimpleCookie()
+            cookie.load(hcookie)
+            if 'token' in cookie:
+                token = cookie['token'].value
+
+    return token
+
+
