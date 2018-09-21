@@ -85,6 +85,7 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
                 self.send_error(401, "Token not match")
         except exceptions.WebSocketError as e:
             self.send_error(405, e.message)
+            return None
 
         if not self.handle_websocket():
             # 普通的http get方式
