@@ -38,9 +38,8 @@ class GopWebSocketServerBase(websocket.WebSocketServer):
 
 
 def fetch_token(path, headers):
-
-    parse = urlparse.urlparse(path)
-    if parse.scheme not in ('http', 'https'):
+    parse = urlparse.urlparse(path, scheme='ws')
+    if parse.scheme not in ('http', 'https', 'ws'):
         # From a bug in urlparse in Python < 2.7.4 we cannot support
         # special schemes (cf: http://bugs.python.org/issue9374)
         if sys.version_info < (2, 7, 4):
