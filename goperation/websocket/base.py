@@ -1,21 +1,12 @@
+from simpleutil.config import cfg
+
 import sys
 import logging
-from websockify import websocket
 
-try:
-    from http.server import SimpleHTTPRequestHandler
-except:
-    from SimpleHTTPServer import SimpleHTTPRequestHandler
+from websockify import websocket
 
 from six.moves import http_cookies as Cookie
 import six.moves.urllib.parse as urlparse
-
-try:
-    from cStringIO import StringIO
-except ImportError:
-    from StringIO import StringIO
-
-from simpleutil.config import cfg
 
 from goperation.utils import suicide
 from goperation.websocket import exceptions
@@ -24,6 +15,7 @@ CONF = cfg.CONF
 
 
 class GopWebSocketServerBase(websocket.WebSocketServer):
+
     def __init__(self, RequestHandlerClass):
         if CONF.logfile:
             for hd in logging.root.handlers:
@@ -66,5 +58,3 @@ def fetch_token(path, headers):
                 token = cookie['token'].value
 
     return token
-
-

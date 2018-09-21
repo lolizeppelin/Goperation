@@ -12,18 +12,6 @@ import hashlib
 
 from websockify import websocket
 
-
-try:
-    from http.server import SimpleHTTPRequestHandler
-except:
-    from SimpleHTTPServer import SimpleHTTPRequestHandler
-
-try:
-    from cStringIO import StringIO
-except ImportError:
-    from StringIO import StringIO
-
-
 from goperation.websocket import exceptions
 from goperation.websocket.base import GopWebSocketServerBase
 from goperation.websocket.base import fetch_token

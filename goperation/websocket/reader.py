@@ -26,11 +26,6 @@ import eventlet
 from websockify import websocket
 
 try:
-    from http.server import SimpleHTTPRequestHandler
-except:
-    from SimpleHTTPServer import SimpleHTTPRequestHandler
-
-try:
     from cStringIO import StringIO
 except ImportError:
     from StringIO import StringIO
@@ -57,7 +52,6 @@ reader_opts = [
 
 
 class FileSendRequestHandler(websocket.WebSocketRequestHandler):
-
 
     def __init__(self, req, addr, server):
         self.lastsend = 0
@@ -97,13 +91,18 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
             if self.only_upgrade:
                 self.send_error(405, "Method Not Allowed")
             else:
-                logging.info('handle websocket finish')
                 # 如果path是文件夹,允许列出文件夹
                 if os.path.isdir(path):
-                    if not self.path.endswith('/'):
+                    logging.info('handle websocket finish target is path')
+
+                    _path = self.path.split('?',1)[0]
+                    parameters = self.path[len(_path):]
+                    _path = _path.split('#',1)[0]
+                    if not _path.endswith('/'):
                         # redirect browser - doing basically what apache does
+                        _path = _path + "/" +parameters
                         self.send_response(301)
-                        self.send_header("Location", self.path + "/")
+                        self.send_header("Location", _path)
                         self.end_headers()
                         return None
                     try:
