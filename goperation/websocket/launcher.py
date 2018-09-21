@@ -12,8 +12,10 @@ from simpleutil.config import cfg
 from simpleutil.log import log as logging
 from simpleutil.utils import systemutils
 from simpleutil.utils import uuidutils
+from simpleutil.utils import jsonutils
 
 import goperation
+from goperation.common import FILEINFOSCHEMA
 from goperation.utils import safe_fork
 from goperation.notify import GeneralNotify
 
@@ -32,6 +34,7 @@ class LaunchWebsocket(object):
                rootpath, fileinfo, logfile, exitfunc, notify, timeout):
         if notify and not isinstance(notify, GeneralNotify):
             raise TypeError('notify not subclass of GeneralNotify')
+        jsonutils.schema_validate(fileinfo, FILEINFOSCHEMA)
         if timeout:
             timeout = int(timeout)
         if timeout > 7200:
