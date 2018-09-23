@@ -56,6 +56,7 @@ class FileRecvRequestHandler(websocket.WebSocketRequestHandler):
             if fetch_token(self.path, self.headers) != CONF.token:
                 self.logger.error('Token not match')
                 self.send_error(401, "Token not match")
+                return None
         except exceptions.WebSocketError as e:
             self.send_error(405, e.message)
             return None
