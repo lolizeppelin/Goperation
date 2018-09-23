@@ -98,7 +98,7 @@ class LaunchRecverWebsocket(object):
             args.extend(['--outfile', self.tmp])
             args.extend(['--md5', fileinfo.get('md5')])
             args.extend(['--size', str(fileinfo.get('size'))])
-            args.extend(['--log_file', logfile])
+            args.extend(['--log-file', logfile])
 
             changeuser = functools.partial(systemutils.drop_privileges, user, group)
 

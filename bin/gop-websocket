@@ -4,8 +4,8 @@ from simpleutil.log import log as logging
 import logging as default_logging
 
 from goperation.websocket.config import websocket_opts
-from goperation.websocket.recver import recver_opts
-from goperation.websocket.recver import FileRecvWebSocketServer
+from goperation.websocket.reader import reader_opts
+from goperation.websocket.reader import FileReadWebSocketServer
 
 CONF = cfg.CONF
 
@@ -16,10 +16,10 @@ def main():
         default_logging.root.removeHandler(hd)
 
     CONF.register_cli_opts(websocket_opts)
-    CONF.register_cli_opts(recver_opts)
+    CONF.register_cli_opts(reader_opts)
     CONF()
     logging.setup(CONF, 'goperation')
-    websocket_server = FileRecvWebSocketServer(logging.getLogger('goperation.websocket.reader'))
+    websocket_server = FileReadWebSocketServer(logging.getLogger('goperation.websocket.reader'))
     websocket_server.start_server()
 
 

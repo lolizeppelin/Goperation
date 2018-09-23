@@ -23,6 +23,4 @@ websocket_opts = [
     cfg.IntOpt('heartbeat',
                default=3,
                help='webesocket socket connect and heartbeat timeout'),
-    cfg.StrOpt('logfile',
-               help='webesocket will loggin into file else to stdout'),
 ]
