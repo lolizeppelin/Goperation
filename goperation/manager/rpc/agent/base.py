@@ -926,11 +926,12 @@ class RpcAgentManager(RpcManagerBase):
                 except Exception as e:
                     LOG.error('Websocket reader wait catch error %s' % str(e))
                 LOG.info('Websocket reader with pid %d has been exit' % pid)
+                self.left_ports.add(port)
                 self.websockets.pop(pid, None)
                 _timer.cancel()
 
             eventlet.spawn_n(_wait)
-        finally:
+        except Exception:
             self.left_ports.add(port)
         return dict(port=port, token=token, ipaddr=ipaddr)
 
