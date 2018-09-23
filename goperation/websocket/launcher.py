@@ -14,6 +14,9 @@ from simpleutil.utils import systemutils
 from simpleutil.utils import uuidutils
 from simpleutil.utils import jsonutils
 
+from simpleutil.utils.systemutils import ExitBySIG
+from simpleutil.utils.systemutils import UnExceptExit
+
 import goperation
 from goperation.common import FILEINFOSCHEMA
 from goperation.utils import safe_fork
@@ -29,7 +32,6 @@ class LaunchWebsocket(object):
     def __init__(self, executer):
         self.executer = executer
 
-
         self.tmp = None
 
         self.size = 0
@@ -37,7 +39,6 @@ class LaunchWebsocket(object):
 
         self.timer = None
         self.pid = None
-
 
     def upload(self, user, group, ipaddr, port, rootpath, fileinfo, logfile, timeout):
         jsonutils.schema_validate(fileinfo, FILEINFOSCHEMA)
@@ -82,6 +83,7 @@ class LaunchWebsocket(object):
                 self.output = filename
             else:
                 self.output = overwrite
+            self.size = fileinfo.get('size')
             # 准备文件目录
             path = os.path.split(filename)[0]
             if not os.path.exists(path):
@@ -135,31 +137,33 @@ class LaunchWebsocket(object):
 
     def syncwait(self, exitfunc=None, notify=None):
         try:
-            if systemutils.POSIX:
-                from simpleutil.utils.systemutils import posix
-                posix.wait(self.pid)
-            else:
-                systemutils.subwait(self.pid)
-        except Exception as e:
-            LOG.error('Websocket recver wait catch error %s' % str(e))
+            try:
+                if systemutils.POSIX:
+                    from simpleutil.utils.systemutils import posix
+                    posix.wait(self.pid)
+                else:
+                    systemutils.subwait(self.pid)
+            except (ExitBySIG, UnExceptExit) as e:
+                LOG.error('Websocket process wait catch error %s' % e.message)
+            finally:
+                LOG.info('Websocket process with pid %d has been exit' % self.pid)
+                self.timer.cancel()
+            if not os.path.exists(self.tmp):
+                LOG.error('Upload file fail, %s not exist, has been delete' % self.tmp)
+                notify & eventlet.spawn_n(notify.fail)
+                raise exceptions.PostWebSocketError('File not exit after upload')
+            if os.path.getsize(self.tmp) != self.size:
+                notify & eventlet.spawn_n(notify.fail)
+                LOG.error('Size not match')
+                os.remove(self.tmp)
+                raise exceptions.PostWebSocketError('File size not match after upload')
+            LOG.info('Upload file end, success')
+            if os.path.exists(self.output):
+                os.remove(self.output)
+            os.rename(self.tmp, self.output)
+            notify & eventlet.spawn_n(notify.success)
         finally:
-            LOG.info('Websocket recver with pid %d has been exit' % self.pid)
-            self.timer.cancel()
-            exitfunc()
-        if not os.path.exists(self.tmp):
-            LOG.error('Upload file fail, %s not exist' % self.tmp)
-            notify & eventlet.spawn_n(notify.fail)
-            raise exceptions.PostWebSocketError('File not exit after upload')
-        if os.path.getsize(self.tmp) != self.size:
-            notify & eventlet.spawn_n(notify.fail)
-            LOG.error('Size not match')
-            os.remove(self.tmp)
-            raise exceptions.PostWebSocketError('File size not match after upload')
-        LOG.info('Upload file end, success')
-        if os.path.exists(self.output):
-            os.remove(self.output)
-        os.rename(self.tmp, self.output)
-        notify & eventlet.spawn_n(notify.success)
+            exitfunc & exitfunc()
 
 
     def asyncwait(self, exitfunc=None, notify=None):

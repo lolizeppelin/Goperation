@@ -1,8 +1,8 @@
 #!/usr/bin/python
-import logging as defalut_logging
-
-from simpleutil.log import log as logging
 from simpleutil.config import cfg
+from simpleutil.log import log as logging
+
+import logging as default_logging
 
 from goperation.manager import common as manager_common
 from goperation.manager.config import fernet_opts
@@ -25,7 +25,7 @@ def main():
          default_config_files=['/etc/goperation/goperation.conf',
                                '/etc/goperation/gcenter.conf'])
     logging.setup(CONF, group.name)
-    defalut_logging.captureWarnings(True)
+    default_logging.captureWarnings(True)
 
     CONF.register_group(group)
     CONF.register_group(sgroup)

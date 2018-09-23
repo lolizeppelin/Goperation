@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 
-import logging as defalut_logging
+import logging as default_logging
 from simpleutil.config import cfg
 from simpleutil.log import log as logging
 
@@ -27,7 +27,7 @@ def configure(version=None, config_files=None):
          default_config_files=config_files)
     CONF.register_group(fmclient_group)
     logging.setup(CONF, fmclient_group.name)
-    defalut_logging.captureWarnings(True)
+    default_logging.captureWarnings(True)
     CONF.register_opts(filemanager_opts, group=fmclient_group)
 
 
