@@ -54,6 +54,8 @@ Game operation framework
 %{python_sitelib}/%{proj_name}/filemanager/*
 %dir %{python_sitelib}/%{proj_name}/websocket/
 %{python_sitelib}/%{proj_name}/websocket/*
+%dir %{python_sitelib}/%{proj_name}/notify/
+%{python_sitelib}/%{proj_name}/notify/*
 %dir %{python_sitelib}/%{proj_name}/redis/
 %{python_sitelib}/%{proj_name}/redis/*
 %dir %{python_sitelib}/%{proj_name}/taskflow/
@@ -74,7 +76,6 @@ Game operation framework
 %{_bindir}/gop-agent
 %{_bindir}/gop-asyncrequest
 %{_bindir}/gop-endpoint
-%{_bindir}/gop-websocket
 %{_bindir}/gop-websocket
 %{_bindir}/gop-auth
 %dir %{_sysconfdir}/%{proj_name}/
