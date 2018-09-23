@@ -53,7 +53,7 @@ class FileManager(object):
     def __init__(self, conf, threadpool, infoget):
 
         if not os.path.exists(conf.filecache):
-            os.makedirs(conf.filecache, 0755)
+            os.makedirs(conf.filecache, 0o755)
         self.path = os.path.join(conf.filecache, 'files')
         self.threadpool = threadpool
         self.infoget = infoget
@@ -79,7 +79,7 @@ class FileManager(object):
                 raise exceptions.DownLoading('Can not scan when downlonding')
             # files in local disk
             if not os.path.exists(self.path):
-                os.makedirs(self.path, 0755)
+                os.makedirs(self.path, 0o755)
             for filename in os.listdir(self.path):
                 full_path = os.path.join(self.path, filename)
                 if os.path.isfile(full_path):
