@@ -1,6 +1,6 @@
 import os
 import ConfigParser
-import logging as defalut_logging
+import logging as default_logging
 
 from simpleutil.log import log as logging
 from simpleutil.config import cfg
@@ -8,7 +8,7 @@ from simpleutil.config import types
 from simpleutil.utils import systemutils
 
 
-from simpleservice import config as base_config
+from simpleservice import config as service_config
 
 CONF = cfg.CONF
 
@@ -51,7 +51,6 @@ def set_rabbitmq_vhost_default():
 
 
 def configure(name, config_files, config_dirs=None):
-    set_all_default()
     group = cfg.OptGroup(name=name, title='group of goperation %s' % name)
     args = None
     if config_dirs is not None:
@@ -62,17 +61,22 @@ def configure(name, config_files, config_dirs=None):
             args.extend(['--config-dir', _dir])
     if isinstance(config_files, basestring):
         config_files = [config_files, ]
+    # call cli opts before CONF init
+    service_config.cliopts()
     CONF(args=args,
          project=group.name,
          default_config_files=config_files)
     CONF.register_group(group)
     # set base config
-    base_config.configure()
+    service_config.configure()
+    service_config.set_default_for_default_log_levels([])
+    # set default of goperation
+    set_all_default()
     # reg base opts
     CONF.register_opts(service_base_opts)
     # set log config
     logging.setup(CONF, group.name)
-    defalut_logging.captureWarnings(True)
+    default_logging.captureWarnings(True)
     if systemutils.LINUX:
         if not CONF.repo:
             raise RuntimeError('rpm repo is not set')
