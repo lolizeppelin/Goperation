@@ -17,8 +17,7 @@ from simpleutil.utils import jsonutils
 import goperation
 from goperation.common import FILEINFOSCHEMA
 from goperation.utils import safe_fork
-from goperation.notify import GeneralNotify
-
+from goperation.websocket import exceptions
 
 CONF = cfg.CONF
 
@@ -30,10 +29,17 @@ class LaunchWebsocket(object):
     def __init__(self, executer):
         self.executer = executer
 
-    def upload(self, user, group, ipaddr, port,
-               rootpath, fileinfo, logfile, exitfunc, notify, timeout):
-        if notify and not isinstance(notify, GeneralNotify):
-            raise TypeError('notify not subclass of GeneralNotify')
+
+        self.tmp = None
+
+        self.size = 0
+        self.output = None
+
+        self.timer = None
+        self.pid = None
+
+
+    def upload(self, user, group, ipaddr, port, rootpath, fileinfo, logfile, timeout):
         jsonutils.schema_validate(fileinfo, FILEINFOSCHEMA)
         if timeout:
             timeout = int(timeout)
@@ -48,6 +54,8 @@ class LaunchWebsocket(object):
             ext = fileinfo.get('ext') or os.path.splitext(fileinfo.get('filename'))[0][1:]
             if ext.startswith('.'):
                 ext = ext[1:]
+            if not ext:
+                raise exceptions.PreWebSocketError('ext is empty')
             filename = fileinfo.get('filename')
             overwrite = fileinfo.get('overwrite')
 
@@ -55,19 +63,25 @@ class LaunchWebsocket(object):
                 # 确认需要覆盖对象
                 overwrite = os.path.join(rootpath, overwrite)
                 if not os.path.exists(overwrite):
-                    raise ValueError('Overwrite not exit')
-                if os.path.isdir(overwrite):
-                    raise ValueError('overwrite target is dir')
-                if not os.access(overwrite, os.W_OK):
-                    raise ValueError('overwrite target not writeable')
-
+                    updir = os.path.split(overwrite)[0]
+                    if not os.path.exists(updir) or not os.path.isdir(updir):
+                        raise exceptions.PreWebSocketError('overwrite folder error')
+                else:
+                    if os.path.isdir(overwrite):
+                        raise exceptions.PreWebSocketError('overwrite target is dir')
+                    if not os.access(overwrite, os.W_OK):
+                        raise exceptions.PreWebSocketError('overwrite target not writeable')
             # 判断文件是否存在
             filename = os.path.join(rootpath, filename)
             if os.path.exists(filename):
                 if os.path.isdir(filename):
-                    raise ValueError('Can not cover dir from file')
+                    raise exceptions.PreWebSocketError('Can not cover dir from file')
                 if overwrite != filename:
-                    raise ValueError('file exist with same name')
+                    raise exceptions.PreWebSocketError('file exist with same name')
+            if not overwrite:
+                self.output = filename
+            else:
+                self.output = overwrite
             # 准备文件目录
             path = os.path.split(filename)[0]
             if not os.path.exists(path):
@@ -75,13 +89,13 @@ class LaunchWebsocket(object):
                 os.chown(path, user, group)
             else:
                 if not os.path.isdir(path):
-                    raise ValueError('prefix path is not dir')
+                    raise exceptions.PreWebSocketError('prefix path is not dir')
 
             if not ext or ext == 'tmp':
-                raise ValueError('Can not find file ext or ext is tmp')
+                raise exceptions.PreWebSocketError('Can not find file ext or ext is tmp')
             # 临时文件名
-            _tempfile = os.path.join(rootpath, '%s.tmp' % str(uuidutils.generate_uuid()).replace('-', ''))
-            args.extend(['--outfile', _tempfile])
+            self.tmp = os.path.join(rootpath, '%s.tmp' % str(uuidutils.generate_uuid()).replace('-', ''))
+            args.extend(['--outfile', self.tmp])
             args.extend(['--md5', fileinfo.get('md5')])
             args.extend(['--size', str(fileinfo.get('size'))])
 
@@ -113,39 +127,40 @@ class LaunchWebsocket(object):
                     LOG.warning('Websocket recver overtime, kill it')
                     p.kill()
 
+            self.pid = pid
             hub = hubs.get_hub()
-            _timer = hub.schedule_call_global(timeout or 3600, _kill)
+            self.timer = hub.schedule_call_global(timeout or 3600, _kill)
 
-            def _wait():
-                try:
-                    if systemutils.POSIX:
-                        from simpleutil.utils.systemutils import posix
-                        posix.wait(pid)
-                    else:
-                        systemutils.subwait(sub)
-                except Exception as e:
-                    LOG.error('Websocket recver wait catch error %s' % str(e))
-                LOG.info('Websocket recver with pid %d has been exit' % pid)
-                _timer.cancel()
-                exitfunc()
-                if not os.path.exists(_tempfile):
-                    LOG.error('Upload file fail, %s not exist' % _tempfile)
-                    notify & notify.fail()
-                    return
-                if os.path.getsize(_tempfile) != fileinfo.get('size'):
-                    LOG.error('Size not match')
-                    try:
-                        os.remove(_tempfile)
-                    except (OSError, IOError):
-                        LOG.error('remove websocket temp file %s fail' % _tempfile)
-                    notify & notify.fail()
-                    return
-                if overwrite:
-                    os.remove(overwrite)
-                LOG.info('Upload file end, success')
-                os.rename(_tempfile, filename)
-                notify & notify.success()
+            return dict(port=port, token=token, ipaddr=ipaddr)
 
-            eventlet.spawn_n(_wait)
+    def syncwait(self, exitfunc=None, notify=None):
+        try:
+            if systemutils.POSIX:
+                from simpleutil.utils.systemutils import posix
+                posix.wait(self.pid)
+            else:
+                systemutils.subwait(self.pid)
+        except Exception as e:
+            LOG.error('Websocket recver wait catch error %s' % str(e))
+        finally:
+            LOG.info('Websocket recver with pid %d has been exit' % self.pid)
+            self.timer.cancel()
+            exitfunc()
+        if not os.path.exists(self.tmp):
+            LOG.error('Upload file fail, %s not exist' % self.tmp)
+            notify & eventlet.spawn_n(notify.fail)
+            raise exceptions.PostWebSocketError('File not exit after upload')
+        if os.path.getsize(self.tmp) != self.size:
+            notify & eventlet.spawn_n(notify.fail)
+            LOG.error('Size not match')
+            os.remove(self.tmp)
+            raise exceptions.PostWebSocketError('File size not match after upload')
+        LOG.info('Upload file end, success')
+        if os.path.exists(self.output):
+            os.remove(self.output)
+        os.rename(self.tmp, self.output)
+        notify & eventlet.spawn_n(notify.success)
 
-            return pid, dict(port=port, token=token, ipaddr=ipaddr)
+
+    def asyncwait(self, exitfunc=None, notify=None):
+        eventlet.spawn_n(self.syncwait, exitfunc, notify)
