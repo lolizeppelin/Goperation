@@ -20,7 +20,7 @@ import select
 import sys
 import errno
 import cgi
-import logging
+# import logging
 
 import eventlet
 from websockify import websocket
@@ -81,7 +81,7 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
         # 校验token
         try:
             if fetch_token(self.path, self.headers) != CONF.token:
-                logging.error('Token not match')
+                self.logger.error('Token not match')
                 self.send_error(401, "Token not match")
         except exceptions.WebSocketError as e:
             self.send_error(405, e.message)
@@ -94,7 +94,7 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
             else:
                 # 如果path是文件夹,允许列出文件夹
                 if os.path.isdir(path):
-                    logging.info('handle websocket finish target is path')
+                    self.logger.info('handle websocket finish target is path')
 
                     _path = self.path.split('?',1)[0]
                     parameters = self.path[len(_path):]
@@ -136,7 +136,7 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
     def new_websocket_client(self):
         # websocket握手成功后设置自动关闭链接
         self.close_connection = 1
-        logging.info('Suicide cancel at %d' % int(time.time()))
+        self.logger.info('Suicide cancel at %d' % int(time.time()))
         # 取消自动退出
         self.server.suicide.cancel()
 
@@ -154,7 +154,7 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
 
         # 实现
         tailf = TailWithF(path=path, output=output,
-                          logger=logging.error, rows=CONF.lines)
+                          logger=self.logger.error, rows=CONF.lines)
         pool = ThreadGroup()
         tailf.start(pool)
         self.lastrecv = int(time.time())
@@ -166,14 +166,14 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
                     # 接收心跳返回
                     bufs, closed = self.recv_frames()
                     if closed:
-                        logging.info('Send ping find close')
+                        self.logger.info('Send ping find close')
                         return
                     if bufs:
-                        logging.info('Send ping but recv buffer')
+                        self.logger.info('Send ping but recv buffer')
                         return
                     self.lastsend = int(time.time())
                 if tailf.stoped:
-                    logging.warning('Tail intance is closed')
+                    self.logger.warning('Tail intance is closed')
                     return
                 try:
                     ins, outs, excepts = select.select(rlist, wlist, [], 1.0)
@@ -207,9 +207,9 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
                     # Receive client data, decode it, and queue for target
                     bufs, closed = self.recv_frames()
                     if closed:
-                        logging.info('Client send close')
+                        self.logger.info('Client send close')
                         return
-                    logging.info('Client send to server')
+                    self.logger.info('Client send to server')
                     return
         finally:
             tailf.stop()
@@ -217,6 +217,5 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
 
 class FileReadWebSocketServer(GopWebSocketServerBase):
     
-    def __init__(self):
-        super(FileReadWebSocketServer, self).__init__(RequestHandlerClass=FileSendRequestHandler)
-        self.logger = logging.getLogger()
+    def __init__(self, logger):
+        super(FileReadWebSocketServer, self).__init__(RequestHandlerClass=FileSendRequestHandler, logger=logger)

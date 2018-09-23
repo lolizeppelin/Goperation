@@ -6,7 +6,7 @@ import time
 import select
 import sys
 import errno
-import logging
+# import logging
 import eventlet
 import hashlib
 
@@ -54,7 +54,7 @@ class FileRecvRequestHandler(websocket.WebSocketRequestHandler):
 
         try:
             if fetch_token(self.path, self.headers) != CONF.token:
-                logging.error('Token not match')
+                self.logger.error('Token not match')
                 self.send_error(401, "Token not match")
         except exceptions.WebSocketError as e:
             self.send_error(405, e.message)
@@ -68,7 +68,7 @@ class FileRecvRequestHandler(websocket.WebSocketRequestHandler):
         md5 = hashlib.md5()
         self.close_connection = 1
         # cancel suicide
-        logging.info('suicide cancel, start recv buffer')
+        self.logger.info('suicide cancel, start recv buffer')
         self.server.suicide.cancel()
         rlist = [self.request]
         wlist = []
@@ -80,7 +80,7 @@ class FileRecvRequestHandler(websocket.WebSocketRequestHandler):
                 if size >= CONF.size:
                     break
                 if int(time.time()) - self.lastrecv > CONF.heartbeat:
-                    logging.error('Over heartbeat time')
+                    self.logger.error('Over heartbeat time')
                     break
                 try:
                     ins, outs, excepts = select.select(rlist, wlist, [], 1.0)
@@ -109,7 +109,7 @@ class FileRecvRequestHandler(websocket.WebSocketRequestHandler):
                                 f.write(buf)
                                 size += len(buf)
                     if closed:
-                        logging.info('Client send close')
+                        self.logger.info('Client send close')
                         break
         if size == CONF.size:
             md5 = md5.hexdigest()
@@ -117,13 +117,14 @@ class FileRecvRequestHandler(websocket.WebSocketRequestHandler):
                 success = True
 
         if not success:
-            logging.error('upload file fail, delete it')
+            self.logger.error('upload file fail, delete it')
             if os.path.exists(outfile):
                 os.remove(outfile)
-            logging.error('need size %d, recv %d' % (CONF.size, size))
-            logging.error('need md5 %s, recv %s' % (CONF.md5, md5))
+            self.logger.error('need size %d, recv %d' % (CONF.size, size))
+            self.logger.error('need md5 %s, recv %s' % (CONF.md5, md5))
 
 
 class FileRecvWebSocketServer(GopWebSocketServerBase):
-    def __init__(self):
-        super(FileRecvWebSocketServer, self).__init__(RequestHandlerClass=FileRecvRequestHandler)
+
+    def __init__(self, logger):
+        super(FileRecvWebSocketServer, self).__init__(RequestHandlerClass=FileRecvRequestHandler, logger=logger)

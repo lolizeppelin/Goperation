@@ -876,7 +876,7 @@ class RpcAgentManager(RpcManagerBase):
         args.extend(['--port', str(port)])
         args.extend(['--lines', str(lines)])
         if LOG.isEnabledFor(logging.DEBUG):
-            args.extend(['--logfile', os.path.join(loghome, 'ws.%d.log' % int(time.time()))])
+            args.extend(['--log_file', os.path.join(loghome, 'ws.%d.log' % int(time.time()))])
         if self.external_ips:
             ipaddr = self.external_ips[0]
         else:

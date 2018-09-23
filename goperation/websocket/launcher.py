@@ -8,7 +8,6 @@ import eventlet
 import psutil
 from eventlet import hubs
 
-from simpleutil.config import cfg
 from simpleutil.log import log as logging
 from simpleutil.utils import systemutils
 from simpleutil.utils import uuidutils
@@ -22,12 +21,11 @@ from goperation.common import FILEINFOSCHEMA
 from goperation.utils import safe_fork
 from goperation.websocket import exceptions
 
-CONF = cfg.CONF
 
 LOG = logging.getLogger(__name__)
 
 
-class LaunchWebsocket(object):
+class LaunchRecverWebsocket(object):
 
     def __init__(self, executer):
         self.executer = executer
@@ -100,10 +98,11 @@ class LaunchWebsocket(object):
             args.extend(['--outfile', self.tmp])
             args.extend(['--md5', fileinfo.get('md5')])
             args.extend(['--size', str(fileinfo.get('size'))])
+            args.extend(['--log_file', logfile])
 
             changeuser = functools.partial(systemutils.drop_privileges, user, group)
 
-            with open(logfile, 'wb') as f:
+            with open(os.devnull, 'wb') as f:
                 LOG.debug('Websocket command %s %s' % (executable, ' '.join(args)))
                 if systemutils.POSIX:
                     sub = subprocess.Popen(executable=executable, args=args,
@@ -164,7 +163,6 @@ class LaunchWebsocket(object):
             notify & eventlet.spawn_n(notify.success)
         finally:
             exitfunc & exitfunc()
-
 
     def asyncwait(self, exitfunc=None, notify=None):
         eventlet.spawn_n(self.syncwait, exitfunc, notify)

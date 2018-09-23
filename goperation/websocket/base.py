@@ -16,11 +16,11 @@ CONF = cfg.CONF
 
 class GopWebSocketServerBase(websocket.WebSocketServer):
 
-    def __init__(self, RequestHandlerClass):
-        if CONF.logfile:
-            for hd in logging.root.handlers:
-                logging.root.removeHandler(hd)
-            logging.basicConfig(filename=CONF.logfile)
+    LOGGER = None
+
+    def __init__(self, RequestHandlerClass, logger):
+        if not GopWebSocketServerBase.LOGGER:
+            GopWebSocketServerBase.LOGGER = logger
         # suicide after 120s
         self.suicide = suicide(delay=120)
         super(GopWebSocketServerBase, self).__init__(RequestHandlerClass=RequestHandlerClass,
@@ -29,6 +29,10 @@ class GopWebSocketServerBase(websocket.WebSocketServer):
                                                      timeout=15, cert='none_none_none',
                                                      strict_mode=CONF.strict,
                                                      tcp_keepalive=False)
+
+    @staticmethod
+    def get_logger():
+        return GopWebSocketServerBase.LOGGER
 
     def do_handshake(self, sock, address):
         try:
