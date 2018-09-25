@@ -86,7 +86,8 @@ class LaunchRecverWebsocket(object):
             path = os.path.split(filename)[0]
             if not os.path.exists(path):
                 os.makedirs(path, mode=0o775)
-                os.chown(path, user, group)
+                if user or group:
+                    os.chown(path, user, group)
             else:
                 if not os.path.isdir(path):
                     raise exceptions.PreWebSocketError('prefix path is not dir')
@@ -104,7 +105,7 @@ class LaunchRecverWebsocket(object):
 
             with open(os.devnull, 'wb') as f:
                 LOG.debug('Websocket command %s %s' % (executable, ' '.join(args)))
-                if systemutils.POSIX:
+                if systemutils.WINDOWS:
                     sub = subprocess.Popen(executable=executable, args=args,
                                            stdout=f.fileno(), stderr=f.fileno(),
                                            close_fds=True, preexec_fn=changeuser)
