@@ -116,7 +116,10 @@ class LaunchRecverWebsocket(object):
                         os.dup2(f.fileno(), sys.stdout.fileno())
                         os.dup2(f.fileno(), sys.stderr.fileno())
                         os.closerange(3, systemutils.MAXFD)
-                        os.execv(executable, args)
+                        try:
+                            os.execv(executable, args)
+                        except OSError:
+                            os._exit(1)
                 LOG.info('Websocket recver start with pid %d' % pid)
 
             def _kill():

@@ -792,7 +792,10 @@ class RpcAgentManager(RpcManagerBase):
             args = [executable, '-y', '--disablerepo=*', '--enablerepo=goputil', 'clean', 'metadata']
             if pid == 0:
                 os.closerange(3, systemutils.MAXFD)
-                os.execv(executable, args)
+                try:
+                    os.execv(executable, args)
+                except OSError:
+                    os._exit(1)
             try:
                 posix.wait(pid, 5)
             except (ExitBySIG, UnExceptExit):
@@ -838,7 +841,10 @@ class RpcAgentManager(RpcManagerBase):
                 ppid = os.fork()
                 if ppid == 0:
                     eventlet.sleep(5)
-                    os.execv(executable, args)
+                    try:
+                        os.execv(executable, args)
+                    except OSError:
+                        os._exit(1)
                 os._exit(0)
             posix.wait(pid)
             LOG.warning('Agent restart command executeing, restart in 5 seconds')
