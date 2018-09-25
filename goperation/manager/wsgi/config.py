@@ -5,10 +5,10 @@ CONF = cfg.CONF
 route_opts = [
     cfg.MultiImportStrOpt('routes',
                           default=[],
-                          help='Extend route module string'),
+                          help='Private route module string'),
     cfg.MultiImportStrOpt('publics',
                           default=[],
-                          help='Public open route module string'),
+                          help='Public route module string'),
 ]
 
 def list_opts():
