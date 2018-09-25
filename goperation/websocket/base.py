@@ -19,7 +19,7 @@ class GopWebSocketServerBase(websocket.WebSocketServer):
     LOGGER = None
 
     def __init__(self, RequestHandlerClass, logger):
-        if not GopWebSocketServerBase.LOGGER:
+        if GopWebSocketServerBase.LOGGER is None:
             GopWebSocketServerBase.LOGGER = logger
         # suicide after 120s
         self.suicide = suicide(delay=120)
