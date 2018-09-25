@@ -1,4 +1,4 @@
-PATHPATTERN = '^[a-z0-9]+?(?!.*?/[\.]{1,}/)([a-z0-9\.\-_/])+?[a-z0-9]+?$'
+PATHPATTERN = '^[A-Za-z0-9]+?(?!.*?/[\.]{1,}/)([A-Za-z0-9\.\-_/])+?[A-Za-z0-9]+?$'
 
 FILEINFOSCHEMA = {
     'type': 'object',
