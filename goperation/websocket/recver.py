@@ -112,8 +112,12 @@ class FileRecvRequestHandler(websocket.WebSocketRequestHandler):
                     if closed:
                         self.logger.info('Client send close')
                         break
-        if size == CONF.size:
+        if size:
             md5 = md5.hexdigest()
+        else:
+            md5 = ''
+
+        if size == CONF.size:
             if CONF.md5 == md5:
                 success = True
 
