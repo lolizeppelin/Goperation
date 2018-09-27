@@ -149,6 +149,7 @@ class LaunchRecverWebsocket(object):
                     systemutils.subwait(self.pid)
             except (ExitBySIG, UnExceptExit) as e:
                 LOG.error('Websocket process wait catch error %s' % e.message)
+                os.remove(self.tmp)
             finally:
                 LOG.info('Websocket process with pid %d has been exit' % self.pid)
                 self.timer.cancel()
@@ -167,6 +168,7 @@ class LaunchRecverWebsocket(object):
             os.rename(self.tmp, self.output)
             notify & eventlet.spawn_n(notify.success)
         finally:
+            LOG.info('Call exit func')
             exitfunc & exitfunc()
 
     def asyncwait(self, exitfunc=None, notify=None):
