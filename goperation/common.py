@@ -6,7 +6,7 @@ FILEINFOSCHEMA = {
     'properties': {
         "size": {'type': 'integer', 'minimum': 30},
         'md5': {'type': 'string', 'format': 'md5'},
-        "ext": {'type': 'string', 'minimum': 3, 'maximum': 5},
+        "ext": {'type': 'string', 'minLength': 3, 'maxLength': 5},
         "filename": {'type': 'string', "pattern": PATHPATTERN},
         "overwrite": {'oneOf':
                           [{'type': 'null'},

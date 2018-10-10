@@ -383,35 +383,39 @@ class AuthFilter(FilterBase):
     def _validate_token(self, req, token):
         # 校验token所用IP是否匹配
         if token.get(service_common.ADMINAPI, False):
-            # if token.get('ipaddr') != self._client_addr(req):
-            #     raise self.client_error('Client ipaddr not match')
             req.environ[service_common.ADMINAPI] = True
         return None
 
     def fetch_and_validate(self, req):
-        """取出数据并校验"""
+        """
+        取出数据并校验
+        address allowed和trusted拥有很高通过权限
+        允许无token以及错误token通过
+        有肯定导致依赖token的接口出错
+        """
+        PASS = False
         if self._address_allowed(req):
-            req.environ[service_common.ADMINAPI] = True
-            return None
+            PASS = req.environ[service_common.ADMINAPI] = True
         token_id = req.headers.get(service_common.TOKENNAME.lower())
         if not token_id:
-            return self.no_auth()
+            return None if PASS else self.no_auth()
         if len(token_id) > 256:
-            return self.no_auth('Token over size')
+            return None if PASS else  self.no_auth('Token over size')
         # 可信任token,一般为用于服务组件之间的wsgi请求
         if self.trusted and token_id == self.trusted:
             req.environ[service_common.ADMINAPI] = True
             LOG.debug('Trusted token passed, address %s' % self._client_addr(req))
-            return None
+            PASS = True
         # 校验host
-        self._validate_host(req)
+        if not PASS:
+            self._validate_host(req)
         # 通过token id 获取token
         try:
             token = TokenProvider.fetch(req, token_id)
         except InvalidArgument as e:
-            return self.client_error(e.message)
+            return None if PASS else self.client_error(e.message)
         except exceptions.TokenExpiredError as e:
-            return self.no_auth(e.message)
+            return None if PASS else self.no_auth(e.message)
 
         return self._validate_token(req, token)
 
