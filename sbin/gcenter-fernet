@@ -1,4 +1,5 @@
 #!/usr/bin/python
+import os
 from simpleutil.config import cfg
 from simpleutil.log import log as logging
 
@@ -20,9 +21,12 @@ CONF = cfg.CONF
 CONF.register_cli_opts(command_opts)
 
 def main():
+    if os.getuid() != 0:
+        raise ValueError('User not root, run by root please')
 
     group = cfg.OptGroup(name=manager_common.NAME, title='group of goperation %s' % manager_common.NAME)
     sgroup = cfg.OptGroup(name=manager_common.SERVER, title='group of goperation %s' % manager_common.SERVER)
+    logging.register_options(CONF)
     CONF(args=None,
          project=group.name,
          default_config_files=['/etc/goperation/goperation.conf',
@@ -52,8 +56,7 @@ def main():
     group = None if CONF.byroot else conf.wsgi_group
 
     if CONF.init:
-        fernet.create_key_directory(conf.fernet_key_repository,
-                                    'root', 'root')
+        fernet.create_key_directory(conf.fernet_key_repository)
         fernet.initialize_key_repository(conf.fernet_key_repository, max_active_keys,
                                          user, group)
     else:
