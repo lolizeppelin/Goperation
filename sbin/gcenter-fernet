@@ -11,6 +11,9 @@ command_opts = [
     cfg.BoolOpt('init',
                default=False,
                help='Init fernet key repository'),
+    cfg.BoolOpt('byroot',
+               default=True,
+               help='Init fernet key by root'),
 ]
 
 CONF = cfg.CONF
@@ -45,14 +48,17 @@ def main():
 
     max_active_keys = conf.fernet_expire_days + 2
 
+    user = None if CONF.byroot else conf.wsgi_user
+    group = None if CONF.byroot else conf.wsgi_group
+
     if CONF.init:
         fernet.create_key_directory(conf.fernet_key_repository,
-                                    conf.wsgi_user, conf.wsgi_group)
+                                    'root', 'root')
         fernet.initialize_key_repository(conf.fernet_key_repository, max_active_keys,
-                                         conf.wsgi_user, conf.wsgi_group)
+                                         user, group)
     else:
         fernet.rotate_keys(conf.fernet_key_repository, max_active_keys,
-                           conf.wsgi_user, conf.wsgi_group)
+                           user, group)
 
 
 
