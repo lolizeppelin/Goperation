@@ -210,9 +210,8 @@ def load_keys(key_repository, max_active_keys):
         # the number of keys matches max_active_keys, this log entry is too
         # repetitive to be useful.
         LOG.info('Loaded %(count)d encryption keys (max_active_keys=%(max)d) '
-                 'from: %(dir)s') % {'count': len(keys),
-                                     'max': max_active_keys,
-                                     'dir': key_repository}
+                 'from: %(dir)s' %
+                 {'count': len(keys), 'max': max_active_keys, 'dir': key_repository})
 
     # return the encryption_keys, sorted by key number, descending
     return [keys[x] for x in sorted(keys.keys(), reverse=True)]
