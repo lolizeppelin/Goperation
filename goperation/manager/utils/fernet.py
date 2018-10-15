@@ -59,7 +59,7 @@ def validate_key_repository(key_repository, user, group,
                 if(stat_info.st_mode & stat.S_IROTH or
                    stat_info.st_mode & stat.S_IXOTH):
                     LOG.warning('[fernet_tokens] key_repository is world readable: %s' % key_repository)
-                    os._exit(1)
+                    # os._exit(1)
             os._exit(0)
         else:
             _pid, status = os.waitpid(pid, 0)
