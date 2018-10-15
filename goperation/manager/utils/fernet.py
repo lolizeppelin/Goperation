@@ -76,13 +76,13 @@ def create_key_directory(key_repository, user, group):
     if not os.path.exists(key_repository):
         LOG.info('key_repository does not appear to exist; attempting to create it')
         try:
-            os.makedirs(key_repository, 0o700)
+            os.makedirs(key_repository, 0o755)
         except OSError:
             LOG.error('Failed to create [fernet_tokens] key_repository: either it '
                       'already exists or you don\'t have sufficient permissions to '
                       'create it')
         systemutils.chown(key_repository, user, group)
-        systemutils.chmod(key_repository, 0o700)
+        systemutils.chmod(key_repository, 0o755)
 
     if not validate_key_repository(key_repository, user, group):
         raise OSError('validate key repository fail')
