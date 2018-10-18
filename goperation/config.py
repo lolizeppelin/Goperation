@@ -76,9 +76,6 @@ def configure(name, config_files, config_dirs=None):
     service_config.configure()
     # reg base opts
     CONF.register_opts(service_base_opts)
-    # clean stderr logging
-    for hd in default_logging.root.handlers:
-        default_logging.root.removeHandler(hd)
     # set log config
     logging.setup(CONF, group.name)
     default_logging.captureWarnings(True)
