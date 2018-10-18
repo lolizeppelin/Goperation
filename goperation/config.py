@@ -61,6 +61,11 @@ def configure(name, config_files, config_dirs=None):
             args.extend(['--config-dir', _dir])
     if isinstance(config_files, basestring):
         config_files = [config_files, ]
+
+     # set default of goperation
+    set_all_default()
+    service_config.set_default_for_default_log_levels([])
+
     # call cli opts before CONF init
     service_config.cliopts()
     CONF(args=args,
@@ -69,9 +74,6 @@ def configure(name, config_files, config_dirs=None):
     CONF.register_group(group)
     # set base config
     service_config.configure()
-    service_config.set_default_for_default_log_levels([])
-    # set default of goperation
-    set_all_default()
     # reg base opts
     CONF.register_opts(service_base_opts)
     # clean stderr logging
