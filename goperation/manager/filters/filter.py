@@ -342,7 +342,7 @@ class AuthFilter(FilterBase):
             LOG.debug('Allowd client %s' % ipaddr)
 
     @staticmethod
-    def no_auth(msg='Please auth login first'):
+    def no_auth(msg='auth token error or not login'):
         msg = 'Request Failed: HTTPUnauthorized, %s' % msg
         body = default_serializer({'msg': msg})
         kwargs = {'body': body, 'content_type': DEFAULT_CONTENT_TYPE}

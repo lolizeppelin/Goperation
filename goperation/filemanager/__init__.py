@@ -209,6 +209,7 @@ class FileManager(object):
             path = os.path.join(self.path, filename)
 
             if os.path.exists(path):
+                LOG.info('Output file %s alreday exist' % path)
                 try:
                     md5 = digestutils.filemd5(path)
                     size = os.path.getsize(path)
