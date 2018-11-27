@@ -55,7 +55,8 @@
 #ntp_timeout = 1
 
 # set the default logging level (string value)
-#loglevel = WARNING
+# Allowed values: CRITICAL, ERROR, WARN, WARNING, INFO, DEBUG
+#loglevel = WARN
 
 # The name of a logging configuration file. This file is appended to any
 # existing logging configuration files. For details about logging configuration
@@ -97,7 +98,7 @@
 
 # Log output to standard error. This option is ignored if log_config_append is
 # set. (boolean value)
-#use_stderr = true
+#use_stderr = false
 
 # Format string to use for log messages with context. (string value)
 #logging_context_format_string = %(asctime)s.%(msecs)03d %(process)d %(levelname)s %(name)s [%(request_id)s %(user_identity)s] %(instance)s%(message)s
@@ -119,7 +120,7 @@
 
 # List of package logging levels in logger=LEVEL pairs. This option is ignored
 # if log_config_append is set. (list value)
-#default_log_levels = amqp=WARN,sqlalchemy=WARN,routes.middleware=WARN,requests.packages.urllib3.connectionpool=WARN,requests.packages.urllib3.util.retry=WARN,simpleutil=WARN,simpleservice.wsgi.service=WARN,simpleservice.ormdb.engines=WARN
+#default_log_levels = amqp=WARN,sqlalchemy=WARN,routes.middleware=WARN,requests.packages.urllib3.connectionpool=WARN,requests.packages.urllib3.util.retry=WARN,urllib3.connectionpool=WARN,urllib3.util.retry=WARN,eventlet.wsgi=WARN,websocket=WARN
 
 
 [manager]

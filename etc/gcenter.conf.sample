@@ -60,10 +60,10 @@
 # wait forever. (integer value)
 #client_socket_timeout = 60
 
-# Extend route module string (multi import string)
+# Private route module string (multi import string)
 #routes =
 
-# Public open route module string (multi import string)
+# Public route module string (multi import string)
 #publics =
 
 # fernet key dir (string value)
@@ -106,7 +106,7 @@
 
 # Indicate which header field names may be used during the actual request.
 # (list value)
-#allow_headers = Content-Type,Cache-Control,Content-Language,Expires,Last-Modified,Pragma,Auth-Token,X-Real-IP
+#allow_headers = Content-Type,Cache-Control,Content-Language,Expires,Last-Modified,Pragma,Auth-Token,X-Real-IP,gopfernet
 
 # Rpc Server run user (string value)
 #rpc_user = root
