@@ -65,12 +65,12 @@ def bulk_results(session,
         except InvalidArgument as e:
             raise ValueError(e.message)
         column_name_list.add(column_name)
-    # count row number
-    all_rows_num = model_count_with_key(session,
-                                        counter,
-                                        filter=filter)
     # check page number
     if page_num:
+        # count row number
+        all_rows_num = model_count_with_key(session,
+                                            counter,
+                                            filter=filter)
         if page_num*manager_common.ROW_PER_PAGE >= all_rows_num:
             raise InvalidArgument('Page number over size or no data exist')
         query.seek(page_num*manager_common.ROW_PER_PAGE)
@@ -85,7 +85,7 @@ def bulk_results(session,
     result = 'Get results success'
     if len(row_list) == 0:
         result = 'No result found'
-    ret_dict = results(total=all_rows_num,
+    ret_dict = results(total=0,
                        pagenum=page_num,
                        data=row_list, result=result)
     return ret_dict
