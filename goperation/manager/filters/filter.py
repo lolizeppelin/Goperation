@@ -391,7 +391,7 @@ class AuthFilter(FilterBase):
         取出数据并校验
         address allowed和trusted拥有很高通过权限
         允许无token以及错误token通过
-        有肯定导致依赖token的接口出错
+        有可能导致依赖token的接口出错
         """
         PASS = False
         if self._address_allowed(req):
