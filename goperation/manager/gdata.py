@@ -366,6 +366,8 @@ class GlobalData(object):
 
         agents = set(agents)
         if agents - set(zsources.keys()):
+            not_founds = [str(a) for a in (agents - set(zsources.keys()))]
+            LOG.error('Agents of [%s]  can not be found' % ','.join(not_founds))
             raise InvalidArgument('Agents Can not find be found in %s' % self.ALL_AGENTS_KEY)
 
         now = int(time.time())
