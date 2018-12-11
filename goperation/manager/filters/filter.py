@@ -326,13 +326,6 @@ class AuthFilter(FilterBase):
         self.trusted = conf.trusted
 
         conf = CONF[manager_common.SERVER]
-        # 使用X-Real-IP头判断来源IP, 一般在使用Nginx做前端代理的情况下用
-        if conf.x_real_ip:
-            IPHEAD = manager_common.XREALIP.lower()
-            self._client_addr = lambda req: req.headers.get(IPHEAD)
-        else:
-            self._client_addr = lambda req: req.client_addr
-
         self.allowed_hostname = {}
         self.allowed_same_subnet = conf.allowed_same_subnet
         self.allowed_clients = set(conf.allowed_trusted_ip)
@@ -340,6 +333,10 @@ class AuthFilter(FilterBase):
         self.allowed_clients.add(CONF.local_ip)
         for ipaddr in self.allowed_clients:
             LOG.debug('Allowd client %s' % ipaddr)
+
+    @staticmethod
+    def _client_addr(req):
+        return req.environ[service_common.GOPCLIENTIP]
 
     @staticmethod
     def no_auth(msg='auth token error or not login'):
@@ -420,7 +417,6 @@ class AuthFilter(FilterBase):
         return self._validate_token(req, token)
 
     def process_request(self, req):
-        req.environ[service_common.ADMINAPI] = False
         return self.fetch_and_validate(req)
 
 

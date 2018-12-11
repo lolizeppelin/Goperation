@@ -60,6 +60,9 @@
 # wait forever. (integer value)
 #client_socket_timeout = 60
 
+# Get clent address from head of X-Real-IP (boolean value)
+#x_real_ip = false
+
 # Private route module string (multi import string)
 #routes =
 
@@ -83,9 +86,6 @@
 
 # Allow hostname (list value)
 #allowed_hostname = *
-
-# Get clent address from head of X-Real-IP (boolean value)
-#x_real_ip = false
 
 # Indicate whether this resource may be shared with the domain received in the
 # requests "origin" header. (list value)

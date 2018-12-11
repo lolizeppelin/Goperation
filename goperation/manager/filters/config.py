@@ -14,9 +14,6 @@ authfilter_opts = [
     cfg.ListOpt('allowed_hostname',
                 default=["*"],
                 help='Allow hostname'),
-    cfg.BoolOpt('x_real_ip',
-                default=False,
-                help='Get clent address from head of X-Real-IP'),
 ]
 
 
