@@ -335,7 +335,7 @@ class AuthFilter(FilterBase):
             LOG.debug('Allowd client %s' % ipaddr)
 
     @staticmethod
-    def _client_addr(req):
+    def client_addr(req):
         return req.environ[service_common.GOPCLIENTIP]
 
     @staticmethod
@@ -361,7 +361,7 @@ class AuthFilter(FilterBase):
 
     def _address_allowed(self, req):
         # 来源ip在允许的ip列表中
-        ipaddr = self._client_addr(req)
+        ipaddr = self.client_addr(req)
         if ipaddr in self.allowed_clients:
             return True
         # 来源ip子网相同
@@ -401,7 +401,7 @@ class AuthFilter(FilterBase):
         # 可信任token,一般为用于服务组件之间的wsgi请求
         if self.trusted and token_id == self.trusted:
             req.environ[service_common.ADMINAPI] = True
-            LOG.debug('Trusted token passed, address %s' % self._client_addr(req))
+            LOG.debug('Trusted token passed, address %s' % self.client_addr(req))
             PASS = True
         # 校验host
         if not PASS:
