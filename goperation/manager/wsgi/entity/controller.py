@@ -330,9 +330,12 @@ class EntityReuest(BaseContorller):
     @staticmethod
     def shows(endpoint, entitys=None, agents=None,
               ports=True, metadata=True):
+        entitys_map = {}
         endpoint = validateutils.validate_endpoint(endpoint)
         session = get_session(readonly=True)
         filters = [AgentEntity.endpoint == endpoint]
+        if not entitys and not agents:
+            return entitys_map
         if entitys:
             entitys = argutils.map_to_int(entitys)
             filters.append(AgentEntity.entity.in_(entitys))
@@ -347,7 +350,6 @@ class EntityReuest(BaseContorller):
         if ports:
             query = query.options(joinedload(AgentEntity.ports, innerjoin=False))
         agents = set()
-        entitys_map = {}
         for _entity in query:
             agents.add(_entity.agent_id)
             entitys_map[_entity.entity] = dict(agent_id=_entity.agent_id)
