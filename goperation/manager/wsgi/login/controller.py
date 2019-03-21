@@ -43,8 +43,8 @@ FAULT_MAP = {
 NAME_REGX = re.compile('^[a-z][a-z0-9]+?$')
 
 def _name_check(username):
-    if len(username) < 4 or len(username) > 12:
-        raise InvalidArgument('usernmae over size')
+    if len(username) < 4 or len(username) > 24:
+        raise InvalidArgument('usernmae size error, less then 4 or over 24')
     if not re.match(NAME_REGX, username):
         raise InvalidArgument('usernmae not illegal')
 
