@@ -14,7 +14,7 @@ class Routers(router.RoutersBase):
     # collection_name = resource_name + 's'
 
     def append_routers(self, mapper, routers=None):
-        controller_intance = controller_return_response(controller.LoginReuest(), controller.FAULT_MAP)
+        controller_intance = controller_return_response(controller.LoginApiRequest(), controller.FAULT_MAP)
         self._add_resource(mapper, controller_intance, path='/goperation/login/{username}',
                            post_action='login')
 

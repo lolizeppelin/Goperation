@@ -40,43 +40,21 @@ FAULT_MAP = {
     CacheStoneError: webob.exc.HTTPInternalServerError,
 }
 
+NAME_REGX = re.compile('^[a-z][a-z0-9]+?$')
+
+def _name_check(username):
+    if len(username) < 4 or len(username) > 12:
+        raise InvalidArgument('usernmae over size')
+    if not re.match(NAME_REGX, username):
+        raise InvalidArgument('usernmae not illegal')
+
 
 @singleton.singleton
 class LoginReuest(MiddlewareContorller):
 
-    NAME_REGX = re.compile('^[a-z][a-z0-9]+?$')
-
-    @staticmethod
-    def _name_check(username):
-        if len(username) < 4 or len(username) > 12:
-            raise InvalidArgument('usernmae over size')
-        if not re.match(LoginReuest.NAME_REGX, username):
-            raise InvalidArgument('usernmae not illegal')
-
-    def login(self, req, username, body=None):
-        body = body or {}
-        password = body.get('password')
-        if not password:
-            raise InvalidArgument('Need password')
-        self._name_check(username)
-        session = get_session(readonly=True)
-        query = model_query(session, User, filter=User.username == username)
-        userinfo = query.one()
-        if userinfo.password != digestutils.strmd5(userinfo.salt.encode('utf-8') + password):
-            raise InvalidArgument('Password error')
-        token = dict(ip=req.client_addr, user=userinfo.username)
-        token.update({service_common.ADMINAPI: True})
-        token_id = TokenProvider.create(req, token, 3600)
-        LOG.debug('Auth login success')
-        return resultutils.results(result='Login success',
-                                   data=[dict(username=username,
-                                              id=userinfo.id,
-                                              token=token_id,
-                                              email=userinfo.email)])
-
     def loginout(self, req, username, token, body=None):
         body = body or {}
-        self._name_check(username)
+        _name_check(username)
 
         def checker(_token):
             if not _token.get('user') == username:
@@ -99,3 +77,30 @@ class LoginReuest(MiddlewareContorller):
 
         return resultutils.results(result='Expire token success',
                                    data=[dict(token=token_id)])
+
+
+@singleton.singleton
+class LoginApiRequest(MiddlewareContorller):
+
+    ADMINAPI = False
+
+    def login(self, req, username, body=None):
+        body = body or {}
+        password = body.get('password')
+        if not password:
+            raise InvalidArgument('Need password')
+        _name_check(username)
+        session = get_session(readonly=True)
+        query = model_query(session, User, filter=User.username == username)
+        userinfo = query.one()
+        if userinfo.password != digestutils.strmd5(userinfo.salt.encode('utf-8') + password):
+            raise InvalidArgument('Password error')
+        token = dict(ip=req.client_addr, user=userinfo.username)
+        token.update({service_common.ADMINAPI: True})
+        token_id = TokenProvider.create(req, token, 3600)
+        LOG.debug('Auth login success')
+        return resultutils.results(result='Login success',
+                                   data=[dict(username=username,
+                                              id=userinfo.id,
+                                              token=token_id,
+                                              email=userinfo.email)])
