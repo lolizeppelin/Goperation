@@ -1,10 +1,13 @@
 import time
 import webob.exc
 
+import contextlib
+
 from sqlalchemy.sql import and_
 from sqlalchemy.orm import joinedload
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.orm.exc import MultipleResultsFound
+from simpleservice.ormdb.exceptions import DBDuplicateEntry
 
 from simpleutil.utils import argutils
 from simpleutil.utils import singleton
@@ -30,6 +33,7 @@ from goperation.manager.api import get_client
 from goperation.manager.api import rpcfinishtime
 from goperation.manager.models import Agent
 from goperation.manager.models import AgentEntity
+from goperation.manager.models import AgentEndpoint
 from goperation.manager.models import AllocatedPort
 
 from goperation.manager.wsgi.contorller import BaseContorller
@@ -364,3 +368,58 @@ class EntityReuest(BaseContorller):
                 entitys_map[_entity].setdefault('metadata', agents_map[agent_id])
 
         return entitys_map
+
+
+    @contextlib.contextmanager
+    @staticmethod
+    def migrate_with_out_data(endpoint, entity, new, body=None, drop_ports=True):
+        session = get_session()
+        glock = get_global().lock('entitys')
+
+        with glock(endpoint, [entity, ]) as agents:
+            with session.begin():
+                _query = model_query(session, AgentEndpoint, filter=and_(AgentEndpoint.agent_id == new,
+                                                                         AgentEndpoint.endpoint == endpoint))
+                _endpoint = _query.one_or_none()
+                if not _endpoint:
+                    raise InvalidArgument('New agent not exist or has not endpoint %s' % endpoint)
+                query = model_query(session, AgentEntity,
+                                    filter=and_(AgentEntity.endpoint == endpoint,
+                                                AgentEntity.entity == entity))
+                agent_id = agents.pop()
+                metadata = BaseContorller.agent_metadata(agent_id)
+                if not metadata:
+                    raise InvalidArgument('Agent not online or not exist')
+                _agent_entity = query.one()
+                if _agent_entity.agent_id != agent_id:
+                    raise CacheStoneError('Agent id not the same')
+                if agent_id == new:
+                    raise InvalidArgument('Migrate agent is the same')
+                ports_query = model_query(session, AllocatedPort,
+                                    filter=and_(AllocatedPort.entity == entity,
+                                                AllocatedPort.agent_id == agent_id))
+                if drop_ports:
+                    ports_query.delete()
+                    session.flush()
+                else:
+                    for port in ports_query:
+                        port.agent_id = new
+                        port.endpoint_id = _endpoint.endpoint_id
+                    try:
+                        session.flush()
+                    except DBDuplicateEntry:
+                        raise InvalidArgument('Port duplicate')
+
+                _agent_entity.agent_id = new
+                _agent_entity.endpoint_id = _endpoint.endpoint_id
+                session.flush()
+
+                target = targetutils.target_agent_by_string(metadata.get('agent_type'),
+                                                            metadata.get('host'))
+                target.namespace = endpoint
+                delete_result = EntityReuest.notify_delete(target, agent_id, entity, body)
+                if not delete_result:
+                    raise RpcResultError('delete entitys result is None')
+                if delete_result.get('resultcode') != manager_common.RESULT_SUCCESS:
+                    raise RpcResultError('delete entity fail %s' % delete_result.get('result'))
+            yield
