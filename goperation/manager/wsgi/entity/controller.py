@@ -369,9 +369,8 @@ class EntityReuest(BaseContorller):
 
         return entitys_map
 
-
-    @contextlib.contextmanager
     @staticmethod
+    @contextlib.contextmanager
     def migrate_with_out_data(endpoint, entity, new, body=None, drop_ports=True):
         session = get_session()
         glock = get_global().lock('entitys')
@@ -408,6 +407,7 @@ class EntityReuest(BaseContorller):
                     try:
                         session.flush()
                     except DBDuplicateEntry:
+                        LOG.error('Migrate port fail, port duplicate')
                         raise InvalidArgument('Port duplicate')
 
                 _agent_entity.agent_id = new
@@ -417,9 +417,11 @@ class EntityReuest(BaseContorller):
                 target = targetutils.target_agent_by_string(metadata.get('agent_type'),
                                                             metadata.get('host'))
                 target.namespace = endpoint
+                LOG.debug('Migrate process call notify delete to source server')
                 delete_result = EntityReuest.notify_delete(target, agent_id, entity, body)
                 if not delete_result:
                     raise RpcResultError('delete entitys result is None')
                 if delete_result.get('resultcode') != manager_common.RESULT_SUCCESS:
                     raise RpcResultError('delete entity fail %s' % delete_result.get('result'))
+                LOG.debug('Migrate process call notify delete success')
             yield
