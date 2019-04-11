@@ -273,7 +273,7 @@ class Cleaner(IntervalLoopinTask):
 
 class RpcAgentEndpointBase(EndpointBase):
 
-    UMASK = 022
+    UMASK = 0o22
     semaphores = lockutils.Semaphores()
 
     def __init__(self, manager, name):
@@ -382,6 +382,13 @@ class RpcAgentEndpointBase(EndpointBase):
     def post_start(self):
         self.entitys_map = self.manager.allocked_ports[self.namespace]
 
+    def _placeholder(self, endpoint, entity):
+        if endpoint not in self.manager.allocked_ports:
+            raise ValueError('Endpoint %s not exist' % endpoint)
+        if entity in self.manager.allocked_ports[endpoint]:
+            raise Exception('Entity %s alreday exist' % str(entity))
+        self.manager.allocked_ports[endpoint][entity] = set()
+
     @property
     def entitys(self):
         return self.entitys_map.keys()
@@ -449,7 +456,7 @@ class RpcAgentManager(RpcManagerBase):
             down, up = map(int, p_range.split('-'))
             if down < 1024:
                 raise ValueError('Port 1-1024 is not allowed')
-            for port in xrange(down, up):
+            for port in range(down, up):
                 self.left_ports.add(port)
 
         # init metadata
@@ -606,12 +613,12 @@ class RpcAgentManager(RpcManagerBase):
                     self.left_ports.remove(port)
                 else:
                     port = self.left_ports.pop()
-            except KeyError:
+            except KeyError as e:
                 LOG.error('Agent allocked port fail')
                 for p in allocked_port:
                     self.left_ports.add(p)
                     self.allocked_ports[endpoint][entity].remove(p)
-                raise
+                raise e
             self.allocked_ports[endpoint][entity].add(port)
             allocked_port.add(port)
         return allocked_port
@@ -626,12 +633,12 @@ class RpcAgentManager(RpcManagerBase):
         allocked_port = self._frozen_ports(endpoint, entity, ports)
         try:
             yield allocked_port
-        except Exception:
+        except Exception as e:
             LOG.info('sub wrok fail, free port from %s:%d' % (endpoint, entity))
             self.free_ports(allocked_port)
             if is_new:
                 self.allocked_ports[endpoint].pop(entity, None)
-            raise
+            raise e
 
     def free_ports(self, ports):
         _ports = set()
