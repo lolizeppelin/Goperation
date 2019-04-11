@@ -377,8 +377,9 @@ class EntityReuest(BaseContorller):
 
         with glock(endpoint, [entity, ]) as agents:
             with session.begin():
-                _query = model_query(session, AgentEndpoint, filter=and_(AgentEndpoint.agent_id == new,
-                                                                         AgentEndpoint.endpoint == endpoint))
+                _query = model_query(session, AgentEndpoint,
+                                     filter=and_(AgentEndpoint.agent_id == new,
+                                                 AgentEndpoint.endpoint == endpoint))
                 _endpoint = _query.one_or_none()
                 if not _endpoint:
                     raise InvalidArgument('New agent not exist or has not endpoint %s' % endpoint)
@@ -403,7 +404,7 @@ class EntityReuest(BaseContorller):
                 else:
                     for port in ports_query:
                         port.agent_id = new
-                        port.endpoint_id = _endpoint.endpoint_id
+                        port.endpoint_id = _endpoint.id
                     try:
                         session.flush()
                     except DBDuplicateEntry:
@@ -411,7 +412,7 @@ class EntityReuest(BaseContorller):
                         raise InvalidArgument('Port duplicate')
 
                 _agent_entity.agent_id = new
-                _agent_entity.endpoint_id = _endpoint.endpoint_id
+                _agent_entity.endpoint_id = _endpoint.id
                 session.flush()
 
                 target = targetutils.target_agent_by_string(metadata.get('agent_type'),
@@ -423,5 +424,5 @@ class EntityReuest(BaseContorller):
                     raise RpcResultError('delete entitys result is None')
                 if delete_result.get('resultcode') != manager_common.RESULT_SUCCESS:
                     raise RpcResultError('delete entity fail %s' % delete_result.get('result'))
-                LOG.debug('Migrate process call notify delete success')
+                LOG.info('Migrate process call notify delete success')
             yield

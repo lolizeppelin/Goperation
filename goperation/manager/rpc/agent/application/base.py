@@ -4,6 +4,7 @@ import shutil
 import eventlet
 
 from simpleutil.config import cfg
+from simpleutil.log import log as logging
 from simpleutil.utils import systemutils
 from simpleutil.utils import attributes
 
@@ -16,6 +17,7 @@ from goperation.manager.utils.resultutils import DirResult
 
 
 CONF = cfg.CONF
+LOG = logging.getLogger(__name__)
 
 
 class AppEndpointBase(RpcAgentEndpointBase):
@@ -57,13 +59,17 @@ class AppEndpointBase(RpcAgentEndpointBase):
 
     def rpc_entity_token(self, ctxt, entity, token, exprie=60):
         if not attributes.is_uuid_like(token):
-            return
+            LOG.error('Token error, token not uuid like')
+            return None
         if entity not in self.entitys:
+            LOG.error('Entity not found, add token fail')
             return None
         if entity in self.entitys_tokens:
-            return
+            LOG.error('Entity last token not expried')
+            return None
 
         def _token_overtime():
+            LOG.debug('Entity token overtime')
             info = self.entitys_tokens.pop(entity, None)
             if info:
                 info.clear()
@@ -123,6 +129,7 @@ class AppEndpointBase(RpcAgentEndpointBase):
 
     @contextlib.contextmanager
     def _prepare_entity_path(self, entity, apppath=True, logpath=True, mode=0o755):
+        LOG.debug('Try prepare entity path')
         _user = self.entity_user(entity)
         _group = self.entity_group(entity)
         entity_home = self.entity_home(entity)
