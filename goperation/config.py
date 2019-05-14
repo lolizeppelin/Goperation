@@ -62,7 +62,7 @@ def configure(name, config_files, config_dirs=None):
     if isinstance(config_files, basestring):
         config_files = [config_files, ]
 
-     # set default of goperation
+    # set default of goperation
     set_all_default()
     service_config.set_default_for_default_log_levels([])
 
