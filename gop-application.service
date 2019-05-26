@@ -1,0 +1,12 @@
+[Unit]
+Description=The gcenter rpc agent
+After=network.target remote-fs.target nss-lookup.target
+
+[Service]
+Type=forking
+PIDFile=/var/run/goperation/gop-application.pid
+ExecStartPre=/usr/bin/rm -f /var/run/goperation/gop-application.pid
+ExecStart=/usr/sbin/gop-application --config-dir /etc/goperation/endpoints --state-path /var/run/goperation
+
+[Install]
+WantedBy=multi-user.target

@@ -5,7 +5,7 @@
 # chkconfig:   - 85 15
 # description:  goperation http server
 # processname:  gcenter-wsgi
-# pidfile:     /var/goperation/wsgi.pid
+# pidfile:     /var/run/goperation/gcenter-wsgi.pid
 
 # Source function library.
 . /etc/rc.d/init.d/functions

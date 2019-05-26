@@ -8,5 +8,6 @@ def main():
     server = '/etc/goperation/gcenter.conf'
     rpc.run(os.path.basename(__file__), [default, server])
 
+
 if __name__ == '__main__':
     main()

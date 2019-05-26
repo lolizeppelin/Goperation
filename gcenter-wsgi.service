@@ -1,0 +1,12 @@
+[Unit]
+Description=The gcenter wsig http server
+After=network.target remote-fs.target nss-lookup.target
+
+[Service]
+Type=forking
+PIDFile=/var/run/goperation/gcenter-wsgi.pid
+ExecStartPre=/usr/bin/rm -f /var/run/goperation/gcenter-wsgi.pid
+ExecStart=/usr/sbin/gcenter-wsgi --config-dir /etc/goperation/endpoints --state-path /var/run/goperation
+
+[Install]
+WantedBy=multi-user.target

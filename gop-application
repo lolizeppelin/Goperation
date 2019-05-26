@@ -5,7 +5,7 @@
 # chkconfig:   - 85 15
 # description:  goperation application agent
 # processname:  gop-application
-# pidfile:     /var/goperation/application.pid
+# pidfile:     /var/run/goperation/gop-application.pid
 
 # Source function library.
 . /etc/rc.d/init.d/functions
