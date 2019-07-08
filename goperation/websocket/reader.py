@@ -99,7 +99,7 @@ class FileSendRequestHandler(websocket.WebSocketRequestHandler):
 
                     _path = self.path.split('?',1)[0]
                     parameters = self.path[len(_path):]
-                    _path = _path.split('#',1)[0]
+                    _path = _path.split('#', 1)[0]
                     if not _path.endswith('/'):
                         # redirect browser - doing basically what apache does
                         _path = _path + "/" + parameters
