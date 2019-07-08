@@ -57,7 +57,8 @@ class FileManager(object):
         self.path = os.path.join(conf.filecache, 'files')
         self.threadpool = threadpool
         self.infoget = infoget
-        self.localfiles = {}
+        self.localpath = {}
+        self.localmd5 = {}
         self.downloading = {}
         self.lock = Semaphore()
         # init sqlite session
@@ -70,14 +71,16 @@ class FileManager(object):
         self.session = session_maker()
 
     def scanning(self, strict=False):
-        if not self.session:
-            raise exceptions.FileManagerError('FileManager database session is None')
         not_match_files = []
         localfiles = {}
         with self.lock:
             if self.downloading:
                 raise exceptions.DownLoading('Can not scan when downlonding')
-            # files in local disk
+            # clean all saved
+            self.localpath.clear()
+            self.localmd5.clear()
+
+            # find files in local disk
             if not os.path.exists(self.path):
                 os.makedirs(self.path, 0o755)
             for filename in os.listdir(self.path):
@@ -97,14 +100,15 @@ class FileManager(object):
                         if strict:
                             raise RuntimeError('File with md5 %s is duplication' % filename)
                     localfiles[md5] = dict(size=size, ext=ext[1:])
+
             # files record in database
-            self.localfiles.clear()
             query = model_query(self.session, models.FileDetail)
             files = query.all()
             with self.session.begin():
                 for _file_detail in files:
                     filename = _file_detail.md5 + os.extsep + _file_detail.ext
                     file_path = os.path.join(self.path, filename)
+                    # diff local file with recode
                     try:
                         local_file = localfiles.pop(_file_detail.md5)
                         local_size = local_file['size']
@@ -119,14 +123,15 @@ class FileManager(object):
                         self.session.delete(_file_detail)
                         self.session.flush()
                         continue
-                    self.localfiles[file_path] = LocalFile(file_path,
-                                                           _file_detail.md5, _file_detail.size)
+                    localfile = LocalFile(file_path, _file_detail.md5, _file_detail.size)
+                    self.localpath[file_path] = localfile
+                    self.localmd5[_file_detail.md5] = localfile
 
             with self.session.begin():
                 while localfiles:
-                    md5, local_file = localfiles.popitem()
-                    local_size = local_file['size']
-                    local_ext = local_file['ext']
+                    md5, _fileinfo = localfiles.popitem()
+                    local_size = _fileinfo['size']
+                    local_ext = _fileinfo['ext']
                     filename = md5 + os.extsep + local_ext
                     file_path = os.path.join(self.path, filename)
                     md5 = digestutils.filemd5(file_path)
@@ -135,7 +140,9 @@ class FileManager(object):
                     # add file record into database
                     self.session.add(_file_detail)
                     self.session.flush()
-                    self.localfiles[file_path] = LocalFile(file_path, md5, local_size)
+                    localfile = LocalFile(file_path, md5, local_size)
+                    self.localpath[file_path] = localfile
+                    self.localmd5[_file_detail.md5] = localfile
             # delete check fail files
             for _file in not_match_files:
                 os.remove(_file)
@@ -144,8 +151,8 @@ class FileManager(object):
     def clean_expired(self, day=10):
         timeline = day * 86400
         now = int(time.time())
-        for md5 in self.localfiles.keys():
-            localfile = self.localfiles[md5]
+        for md5 in self.localmd5:
+            localfile = self.localmd5[md5]
             if (now - systemutils.acctime(localfile.path)) > timeline:
                 self.delete(md5)
             eventlet.sleep(0)
@@ -157,50 +164,71 @@ class FileManager(object):
                     ev.wait()
                 except Exception as e:
                     LOG.error('Stop file manager fail with %s' % str(e))
-                    pass
             self.session.close()
             self.session = None
 
+    def _find(self, target):
+        try:
+            localfile = self.localmd5[target]
+        except KeyError:
+            try:
+                localfile = self.localpath[target]
+            except KeyError:
+                raise exceptions.NoFileFound('File Manager can not find file of %s' % target)
+        return localfile
+
     def find(self, target):
-        if target in self.localfiles:
-            localfile = self.localfiles[target]
+        localfile = self._find(target)
+        if os.path.exists(localfile.path):
             systemutils.touch(localfile.path)
-            return localfile
-        for localfile in six.itervalues(self.localfiles):
-            if target == localfile.md5:
-                systemutils.touch(localfile.path)
-                return localfile
-        raise exceptions.NoFileFound('File Manager can not find file of %s' % target)
+        else:
+            raise exceptions.FileIsMiss('File Manager find file is miss')
+        return localfile
 
     def get(self, target, download=True, timeout=None):
-        if not self.session:
-            raise exceptions.FileManagerError('File managere closed')
         try:
-            return self.find(target)
+            localfile = self.find(target)
+            md5 = localfile.md5
         except exceptions.NoFileFound:
             if download:
                 LOG.info('Try download file for %s' % target)
+                md5 = target
             else:
                 raise
+        except exceptions.FileIsMiss:
+            if not download:
+                self.delete(target)
+                raise
+            localfile = self._find(target)
+            md5 = localfile.md5
+
         with self.lock:
             if not self.session:
-                raise RuntimeError('FileManager closed')
-            if target not in self.downloading:
-                th = self._download(target, timeout)
+                raise exceptions.FileManagerError('FileManager Stoped')
+            if md5 not in self.downloading:
+                th = self._download(md5, timeout)
             else:
-                th = self.downloading[target]
+                th = self.downloading[md5]
         th.wait()
-        return self.find(target)
+        return self.find(md5)
 
-    def _download(self, target, timeout):
-        if not attributes.is_md5_like(target):
-            raise ValueError('%s is not md5, can not download' % target)
-        fileinfo = self.infoget(target)
+    def _download(self, md5, timeout):
+        if not attributes.is_md5_like(md5):
+            raise ValueError('%s is not md5, can not download' % md5)
+        try:
+            return self.downloading[md5]
+        except KeyError:
+            ev = event.Event()
+            self.downloading[md5] = ev
+
+        fileinfo = self.infoget(md5)
         LOG.debug('Try download file of %s', str(fileinfo))
         jsonutils.schema_validate(fileinfo, FileManager.SCHEMA)
 
-        ev = event.Event()
-        self.downloading[fileinfo['md5']] = ev
+        if md5 != fileinfo['md5']:
+            self.downloading.pop(md5, None)
+            ev.send(exc=exceptions.FileManagerError('Md5 not the same!'))
+            raise exceptions.FileManagerError('Md5 not the same!')
 
         def __download():
 
@@ -211,7 +239,7 @@ class FileManager(object):
             if os.path.exists(path):
                 LOG.info('Output file %s alreday exist' % path)
                 try:
-                    md5 = digestutils.filemd5(path)
+                    _md5 = digestutils.filemd5(path)
                     size = os.path.getsize(path)
                 except (OSError, IOError) as e:
                     LOG.error('Download get size,md5 fail')
@@ -224,7 +252,7 @@ class FileManager(object):
                                                  fileinfo.get('adapter_args', []))
                 LOG.info('Download %s with %s' % (address, _downloader.__class__.__name__))
                 try:
-                    md5 = _downloader.download(address, path, timeout)
+                    _md5 = _downloader.download(address, path, timeout)
                     size = os.path.getsize(path)
                     LOG.info('Download file %s success, wirte to local database' % fileinfo['md5'])
                 except Exception as e:
@@ -233,11 +261,11 @@ class FileManager(object):
                             os.remove(path)
                         except (OSError, IOError):
                             LOG.error('Download fail, remove path %s fail' % path)
-                    ev.send(exc=e)
                     self.downloading.pop(fileinfo['md5'], None)
+                    ev.send(exc=e)
                     raise e
             try:
-                if md5 != fileinfo['md5'] or size != fileinfo['size']:
+                if _md5 != fileinfo['md5'] or size != fileinfo['size']:
                     if os.path.exists(path):
                         try:
                             os.remove(path)
@@ -248,27 +276,38 @@ class FileManager(object):
                 uploadtime = fileinfo.get('uploadtime')
                 if uploadtime:
                     uploadtime = datetime.datetime.strptime(uploadtime, '%Y-%m-%d %H:%M:%S')
-                file_detil = models.FileDetail(md5=md5, size=size,
-                                               ext=fileinfo['ext'],
-                                               desc=fileinfo.get('desc', 'unkonwn file'),
-                                               address=fileinfo['address'],
-                                               uploadtime=uploadtime)
-                self.session.add(file_detil)
-                self.session.flush()
-                self.localfiles[path] = LocalFile(path, md5, size)
+                try:
+                    localfile = self.localmd5[md5]
+                except KeyError:
+                    file_detil = models.FileDetail(md5=md5, size=size,
+                                                   ext=fileinfo['ext'],
+                                                   desc=fileinfo.get('desc', 'unkonwn file'),
+                                                   address=fileinfo['address'],
+                                                   uploadtime=uploadtime)
+                    self.session.add(file_detil)
+                    self.session.flush()
+                    localfile = LocalFile(path, md5, size)
+                    self.localpath[path] = localfile
+                    self.localmd5[md5] = localfile
+                if localfile.size != size:
+                    try:
+                        os.remove(path)
+                    except (OSError, IOError):
+                        LOG.error('Download file size not match')
+                    raise exceptions.FileManagerError('Size not match')
+                self.downloading.pop(md5, None)
                 ev.send(result=None)
             except Exception as e:
+                self.downloading.pop(md5, None)
                 ev.send(exc=e)
                 raise
-            finally:
-                self.downloading.pop(md5, None)
 
-        self.threadpool.add_thread(__download)
+        self.threadpool.add_thread_n(__download)
         return ev
 
     def delete(self, target):
         try:
-            localfile = self.find(target)
+            localfile = self._find(target)
         except exceptions.NoFileFound:
             return
         query = model_query(self.session, models.FileDetail,
@@ -284,7 +323,8 @@ class FileManager(object):
             except (OSError, IOError):
                 LOG.error('Remove file %s fail' % localfile.path)
             finally:
-                self.localfiles.pop(localfile.path, None)
+                self.localpath.pop(localfile.path, None)
+                self.localmd5.pop(localfile.md5, None)
 
 
 def downloader_factory(adapter_cls, cls_args):

@@ -6,6 +6,10 @@ class NoFileFound(FileManagerError):
     """"""
 
 
+class FileIsMiss(FileManagerError):
+    """"""
+
+
 class FileNotMatch(FileManagerError):
     """"""
 
