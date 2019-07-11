@@ -54,7 +54,6 @@ class FileReuest(BaseContorller):
         },
     }
 
-
     def index(self, req):
         session = get_session(readonly=True)
         query = model_query(session, DownFile)

@@ -55,35 +55,15 @@ class LaunchRecverWebsocket(object):
                 ext = ext[1:]
             if not ext:
                 raise exceptions.PreWebSocketError('ext is empty')
-            filename = fileinfo.get('filename')
-            overwrite = fileinfo.get('overwrite')
 
-            if overwrite:
-                # 确认需要覆盖对象
-                overwrite = os.path.join(rootpath, overwrite)
-                if not os.path.exists(overwrite):
-                    updir = os.path.split(overwrite)[0]
-                    if not os.path.exists(updir) or not os.path.isdir(updir):
-                        raise exceptions.PreWebSocketError('overwrite folder error')
-                else:
-                    if os.path.isdir(overwrite):
-                        raise exceptions.PreWebSocketError('overwrite target is dir')
-                    if not os.access(overwrite, os.W_OK):
-                        raise exceptions.PreWebSocketError('overwrite target not writeable')
+            filename = '%s.%s' % (fileinfo.get('md5'), ext)
+            self.output = os.path.join(rootpath, filename)
             # 判断文件是否存在
-            filename = os.path.join(rootpath, filename)
-            if os.path.exists(filename):
-                if os.path.isdir(filename):
-                    raise exceptions.PreWebSocketError('Can not cover dir from file')
-                if overwrite != filename:
-                    raise exceptions.PreWebSocketError('file exist with same name')
-            if not overwrite:
-                self.output = filename
-            else:
-                self.output = overwrite
+            if os.path.exists(self.output):
+                raise exceptions.PreWebSocketError('file exist with same name')
             self.size = fileinfo.get('size')
             # 准备文件目录
-            path = os.path.split(filename)[0]
+            path = os.path.dirname(self.output)
             if not os.path.exists(path):
                 os.makedirs(path, mode=0o775)
                 if user or group:
@@ -137,7 +117,7 @@ class LaunchRecverWebsocket(object):
             hub = hubs.get_hub()
             self.timer = hub.schedule_call_global(timeout or 3600, _kill)
 
-            return dict(port=port, token=token, ipaddr=ipaddr)
+            return dict(port=port, token=token, ipaddr=ipaddr, filename=filename)
 
     def syncwait(self, exitfunc=None, notify=None):
         try:
@@ -164,6 +144,7 @@ class LaunchRecverWebsocket(object):
                 raise exceptions.PostWebSocketError('File size not match after upload')
             LOG.info('Upload file end, success')
             if os.path.exists(self.output):
+                LOG.error('Out put file exist?')
                 os.remove(self.output)
             os.rename(self.tmp, self.output)
             notify & eventlet.spawn_n(notify.success)

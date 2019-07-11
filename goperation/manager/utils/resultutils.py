@@ -27,6 +27,7 @@ def bulk_results(session,
     query = model_query(session, model, filter=filter)
     if option:
         query = query.options(option)
+
     def validator(_column):
         if isinstance(_column, basestring):
             if hasattr(model, _column) and isinstance(getattr(_column, _column), InstrumentedAttribute):
