@@ -120,8 +120,11 @@ class EntityReuest(BaseContorller):
                     if not _endpoint:
                         raise InvalidArgument('Create entity fail, agent %d has no endpoint %s' % (agent_id,
                                                                                                    endpoint))
-                    entity = model_autoincrement_id(session, AgentEntity.entity,
-                                                    filter=AgentEntity.endpoint == endpoint)
+                    entity_autoincrement_id = model_autoincrement_id(session, AgentEntity.entity,
+                                                                     filter=AgentEntity.endpoint == endpoint)
+                    entity = body.get('entity') or entity_autoincrement_id
+                    if entity < entity_autoincrement_id:
+                        raise InvalidArgument('Create entity fail, entity less then autoincrement id')
                     _entity = AgentEntity(entity=entity, endpoint=endpoint,
                                           agent_id=agent_id, endpoint_id=_endpoint.id, desc=desc)
                     session.add(_entity)
